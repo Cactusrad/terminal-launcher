@@ -195,6 +195,13 @@ const defaultPages = [
 
 5. Reconstruire et redéployer le conteneur.
 
+## Bugs corrigés
+
+| Bug | Correction |
+|-----|------------|
+| Texte invisible dans le menu contextuel | Ajout de `!important` sur les couleurs des boutons |
+| Options dropdown invisibles dans Admin | Fond explicite `#1e293b` et texte blanc sur les `<option>` |
+
 ## Améliorations possibles
 
 - ~~Externaliser la config dans un fichier JSON~~ (fait via API)
@@ -203,3 +210,4 @@ const defaultPages = [
 - Ajouter une fonction de recherche
 - Support du thème clair
 - Authentification pour l'API
+- Upload d'images pour Claude Code (drag & drop)
