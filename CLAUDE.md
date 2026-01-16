@@ -118,6 +118,60 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | **Sync globale** | Préférences partagées entre tous les appareils |
 | **Admin** | Interface d'administration pour gérer pages et apps |
 | **Reset** | Réinitialisation complète (local + serveur) |
+| **Vue Projet** | Interface dédiée avec terminal, issues et tâches agents |
+| **Contrôle tmux** | Boutons pour changer de fenêtre tmux (via API port 7691) |
+
+## Page Projets
+
+La page "Projets" permet de gérer des workspaces de développement avec :
+
+- **Terminal iframe** : Affiche le terminal web du projet
+- **Boutons tmux** : Changement de fenêtre via API (Ctrl+B, 1-7)
+- **Gestionnaire d'issues** : Suivi des problèmes à corriger
+- **Visionneur d'agents** : Statut des tâches en cours par agent
+
+### Configuration d'un projet
+
+```javascript
+const projectsConfig = {
+    'todo-list': {
+        id: 'todo-list',
+        name: 'Todo List ERP',
+        terminalPort: 7690,
+        description: 'Module Todo List pour système ERP'
+    }
+};
+```
+
+### API JavaScript pour les projets
+
+```javascript
+// Ajouter une issue (depuis la console ou un script)
+window.addProjectIssue('todo-list', 'Titre', 'Description', 'high');
+
+// Lire les issues
+window.getProjectIssues('todo-list');
+
+// Mettre à jour une tâche agent
+window.updateAgentTask('todo-list', 'Backend', 'Migration DB', 'running');
+```
+
+## API Tmux
+
+**Port** : 7691
+**Chemin** : `/home/cactus/claude/tmux-api/`
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `/health` | GET | Status de l'API |
+| `/window/{num}` | POST | Changer de fenêtre tmux |
+| `/windows` | GET | Lister les fenêtres |
+| `/current` | GET | Fenêtre active |
+
+**Démarrage** :
+```bash
+TMUX_SESSION=todo-erp /home/cactus/claude/tmux-api/start.sh
+```
 
 ## Fichiers du projet
 
@@ -126,10 +180,17 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 ├── CLAUDE.md              # Cette documentation
 ├── server.py              # Serveur Flask + API REST
 ├── index.html             # Frontend (HTML + CSS + JS)
+├── todo-ins.md            # Instructions projet TODO-LIST
 ├── requirements.txt       # Dépendances Python
 ├── Dockerfile             # Image Docker
 ├── docker-compose.yml     # Configuration Docker Compose
 └── add-notify-config.sh   # Script utilitaire
+
+/home/cactus/claude/tmux-api/
+├── server.py              # API Flask pour contrôle tmux
+├── start.sh               # Script de démarrage
+├── requirements.txt       # Dépendances Python
+└── venv/                  # Environnement virtuel Python
 ```
 
 ## Commandes Docker

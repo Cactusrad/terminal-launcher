@@ -361,6 +361,382 @@
         .sync-dot.local {
             background: #94a3b8;
         }
+
+        /* Project View */
+        .project-view {
+            display: none;
+            height: calc(100vh - 160px);
+            gap: 20px;
+        }
+        .project-view.active {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            grid-template-rows: 1fr 1fr;
+        }
+        .project-main {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .project-terminal {
+            flex: 1;
+            background: #0d1117;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .project-terminal iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .project-instructions {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .project-instructions h3 {
+            color: #4ade80;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .project-instructions pre {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .project-instructions table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .project-instructions th,
+        .project-instructions td {
+            padding: 6px 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .project-instructions th {
+            color: #64748b;
+            font-weight: 500;
+        }
+        .project-instructions code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        /* Agent Tasks Viewer */
+        .agent-tasks {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .agent-tasks h3 {
+            color: #8b5cf6;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .agent-task-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #64748b;
+        }
+        .agent-task-item.running {
+            border-left-color: #fbbf24;
+            background: rgba(251,191,36,0.1);
+        }
+        .agent-task-item.completed {
+            border-left-color: #4ade80;
+        }
+        .agent-task-item.pending {
+            border-left-color: #64748b;
+        }
+        .agent-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .agent-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #fff;
+        }
+        .agent-status {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+        }
+        .agent-status.running {
+            background: rgba(251,191,36,0.3);
+            color: #fbbf24;
+        }
+        .agent-status.completed {
+            background: rgba(74,222,128,0.3);
+            color: #4ade80;
+        }
+        .agent-task-desc {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        /* Issues Manager */
+        .issues-manager {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .issues-manager h3 {
+            color: #ef4444;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .btn-add-issue {
+            background: rgba(239,68,68,0.2);
+            border: none;
+            color: #ef4444;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .btn-add-issue:hover {
+            background: rgba(239,68,68,0.3);
+        }
+        .issue-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #ef4444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .issue-item:hover {
+            background: rgba(255,255,255,0.06);
+        }
+        .issue-item.medium {
+            border-left-color: #fbbf24;
+        }
+        .issue-item.low {
+            border-left-color: #4ade80;
+        }
+        .issue-item.resolved {
+            opacity: 0.5;
+            border-left-color: #64748b;
+        }
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .issue-title {
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: #fff;
+        }
+        .issue-priority {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            text-transform: uppercase;
+        }
+        .issue-priority.high {
+            background: rgba(239,68,68,0.3);
+            color: #ef4444;
+        }
+        .issue-priority.medium {
+            background: rgba(251,191,36,0.3);
+            color: #fbbf24;
+        }
+        .issue-priority.low {
+            background: rgba(74,222,128,0.3);
+            color: #4ade80;
+        }
+        .issue-desc {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .issue-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .issue-actions button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #94a3b8;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+        }
+        .issue-actions button:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .issue-actions button.resolve {
+            color: #4ade80;
+        }
+        .issue-actions button.delete {
+            color: #ef4444;
+        }
+        .empty-issues {
+            text-align: center;
+            color: #64748b;
+            padding: 20px;
+            font-size: 0.8rem;
+        }
+
+        /* Issue Modal */
+        .issue-modal-content {
+            max-width: 500px;
+        }
+        .issue-modal-content input,
+        .issue-modal-content textarea,
+        .issue-modal-content select {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        .issue-modal-content textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .issue-modal-content label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .issue-modal-content .btn-submit {
+            background: #4ade80;
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .issue-modal-content .btn-submit:hover {
+            background: #22c55e;
+        }
+
+        /* Tmux Controls */
+        .tmux-controls {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .tmux-controls h3 {
+            color: #10b981;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tmux-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .tmux-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #e2e8f0;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: calc(50% - 3px);
+            justify-content: flex-start;
+        }
+        .tmux-btn:hover {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            transform: translateY(-1px);
+        }
+        .tmux-btn.active {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .tmux-key {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+        .tmux-status {
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #64748b;
+            text-align: center;
+            min-height: 16px;
+        }
+        .tmux-status.success { color: #10b981; }
+        .tmux-status.error { color: #ef4444; }
+
+        /* Project card style */
+        .project-card { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+
+        /* Back button */
+        .btn-back {
+            background: rgba(255,255,255,0.1);
+            color: #94a3b8;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+        }
+        .btn-back:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -378,6 +754,48 @@
         </div>
 
         <div class="grid" id="appGrid"></div>
+
+        <!-- Project View -->
+        <div class="project-view" id="projectView">
+            <div class="project-main">
+                <div class="project-terminal" id="projectTerminal">
+                    <iframe id="terminalFrame" src=""></iframe>
+                </div>
+                <div class="tmux-controls">
+                    <h3>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/></svg>
+                        Fenêtres tmux
+                    </h3>
+                    <div class="tmux-buttons" id="tmuxButtons">
+                        <button class="tmux-btn" data-window="1" onclick="switchTmuxWindow(1)"><span class="tmux-key">1</span>🎯 Claude</button>
+                        <button class="tmux-btn" data-window="2" onclick="switchTmuxWindow(2)"><span class="tmux-key">2</span>📁 Structure</button>
+                        <button class="tmux-btn" data-window="3" onclick="switchTmuxWindow(3)"><span class="tmux-key">3</span>📋 DevLog</button>
+                        <button class="tmux-btn" data-window="4" onclick="switchTmuxWindow(4)"><span class="tmux-key">4</span>⚙️ Backend</button>
+                        <button class="tmux-btn" data-window="5" onclick="switchTmuxWindow(5)"><span class="tmux-key">5</span>🎨 Frontend</button>
+                        <button class="tmux-btn" data-window="6" onclick="switchTmuxWindow(6)"><span class="tmux-key">6</span>🧪 Tests</button>
+                        <button class="tmux-btn" data-window="7" onclick="switchTmuxWindow(7)"><span class="tmux-key">7</span>📦 Git</button>
+                    </div>
+                    <div class="tmux-status" id="tmuxStatus"></div>
+                </div>
+            </div>
+            <div class="agent-tasks" id="agentTasks">
+                <h3>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    Tâches Agents en cours
+                </h3>
+                <div id="agentTasksList"></div>
+            </div>
+            <div class="issues-manager" id="issuesManager">
+                <h3>
+                    <span style="display:flex;align-items:center;gap:8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                        Problèmes à corriger
+                    </span>
+                    <button class="btn-add-issue" onclick="openIssueModal()">+ Ajouter</button>
+                </h3>
+                <div id="issuesList"></div>
+            </div>
+        </div>
 
         <div class="page-nav" id="pageNav"></div>
 
@@ -418,6 +836,26 @@
         </div>
     </div>
 
+    <!-- Issue Modal -->
+    <div class="modal" id="issueModal">
+        <div class="modal-content issue-modal-content">
+            <button class="modal-close" onclick="closeIssueModal()">&times;</button>
+            <h2 id="issueModalTitle">Nouveau problème</h2>
+            <input type="hidden" id="issueId">
+            <label>Titre</label>
+            <input type="text" id="issueTitle" placeholder="Titre du problème">
+            <label>Description</label>
+            <textarea id="issueDescription" placeholder="Description détaillée du problème..."></textarea>
+            <label>Priorité</label>
+            <select id="issuePriority">
+                <option value="high">Haute</option>
+                <option value="medium">Moyenne</option>
+                <option value="low">Basse</option>
+            </select>
+            <button class="btn-submit" onclick="saveIssue()">Enregistrer</button>
+        </div>
+    </div>
+
     <script>
         // ============ Configuration ============
         // Mapping des hostnames vers IPs (pour les machines qui ne résolvent pas bien les noms)
@@ -446,12 +884,47 @@
             { id: 'serial-numbers', name: 'Serial Numbers', desc: 'Base de données numéros de série', port: ':8000', url: baseUrl(8000), icon: 'serial-numbers' },
             { id: 'opermax-quote', name: 'Soumission Opermax', desc: 'Générateur de soumissions', port: ':5002', url: baseUrl(5002), icon: 'opermax-quote' },
             { id: 'trading-bot', name: 'Trading Bot', desc: 'Grid Trading Binance', port: ':8080', url: baseUrl(8080), icon: 'trading-bot' },
-            { id: 'guillevin', name: 'Guillevin Prix', desc: 'Gestion des prix fournisseurs', port: ':5050', url: baseUrl(5050), icon: 'guillevin' }
+            { id: 'guillevin', name: 'Guillevin Prix', desc: 'Gestion des prix fournisseurs', port: ':5050', url: baseUrl(5050), icon: 'guillevin' },
+            { id: 'todo-list', name: 'Cactus TODO-LIST', desc: 'Workspace tmux multi-agents', port: ':7690', url: '#project:todo-list', icon: 'project-card', isProject: true }
         ];
+
+        // ============ Projects Configuration ============
+        const projectsConfig = {
+            'todo-list': {
+                id: 'todo-list',
+                name: 'Todo List ERP',
+                terminalPort: 7690,
+                description: 'Module Todo List pour système ERP maison - React + FastAPI'
+            }
+        };
+
+        // ============ Default Issues per Project ============
+        const defaultIssues = {
+            'todo-list': [
+                { id: 'issue_init_1', title: 'Initialiser le projet', description: 'Exécuter build init pour créer la structure React + FastAPI', priority: 'high', status: 'open' },
+                { id: 'issue_init_2', title: 'CRUD basique todos', description: 'Implémenter Create, Read, Update, Delete pour les todos', priority: 'high', status: 'open' },
+                { id: 'issue_init_3', title: 'Interface utilisateur', description: 'Créer les composants React: TodoList, TodoItem, TodoForm', priority: 'medium', status: 'open' },
+                { id: 'issue_init_4', title: 'Filtres et recherche', description: 'Ajouter filtrage par statut et recherche par texte', priority: 'medium', status: 'open' },
+                { id: 'issue_init_5', title: 'Catégories de todos', description: 'Permettre de classer les todos par catégorie', priority: 'low', status: 'open' },
+                { id: 'issue_init_6', title: 'Intégration ERP', description: 'Préparer webhooks et API keys pour intégration avec rad_serial_db', priority: 'low', status: 'open' }
+            ]
+        };
+
+        // ============ Default Agent Tasks per Project ============
+        const defaultAgentTasks = {
+            'todo-list': [
+                { id: 'task_1', agent: '🎯 Maître d\'œuvre', task: 'Orchestration du projet', status: 'pending' },
+                { id: 'task_2', agent: '⚙️ Backend', task: 'API FastAPI + SQLAlchemy', status: 'pending' },
+                { id: 'task_3', agent: '🎨 Frontend', task: 'Composants React + UI', status: 'pending' },
+                { id: 'task_4', agent: '🧪 Testeur', task: 'Tests pytest + vitest', status: 'pending' },
+                { id: 'task_5', agent: '🔥 Critique', task: 'Code review + sécurité', status: 'pending' }
+            ]
+        };
 
         const defaultPages = [
             { id: 'main', name: 'Accueil', apps: ['ha', 'grafana', 'portainer', 'influxdb', 'neviweb', 'n8n', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin'] },
-            { id: 'terminals', name: 'Terminaux', apps: ['terminal', 'claude', 'sudo-claude'] }
+            { id: 'terminals', name: 'Terminaux', apps: ['terminal', 'claude', 'sudo-claude'] },
+            { id: 'projets', name: 'Projets', apps: ['todo-list'] }
         ];
 
         const icons = {
@@ -469,7 +942,8 @@
             'serial-numbers': '<path d="M3 5h2v14H3V5zm4 0h1v14H7V5zm3 0h2v14h-2V5zm4 0h3v14h-3V5zm5 0h2v14h-2V5z"/>',
             'opermax-quote': '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-2 6v-2h2v2h-2zm0-4v-2h2v2h-2zm-4 4v-2h2v2H7zm0-4v-2h2v2H7z"/>',
             'trading-bot': '<path d="M3.5 18.5l6-6 4 4L22 6.5"/><path d="M22 6.5h-5v5"/><path d="M3 3v18h18"/>',
-            'guillevin': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>'
+            'guillevin': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>',
+            'project-card': '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>'
         };
 
         // ============ State ============
@@ -478,6 +952,9 @@
         let cachedPages = null;
         let apiEnabled = false;
         let syncDebounceTimer = null;
+        let currentProjectId = null;
+        let projectIssues = {};
+        let agentTasks = {};
 
         // ============ API Functions ============
         const API_BASE = '/api';
@@ -721,6 +1198,20 @@
 
         // ============ Rendering ============
         function createCard(app) {
+            if (app.isProject) {
+                // Project card - opens project view instead of external URL
+                const projectId = app.url.replace('#project:', '');
+                return `
+                    <div class="card" draggable="true" data-id="${app.id}" onclick="openProjectView('${projectId}')" oncontextmenu="showContextMenu(event, '${app.id}'); return false;" style="cursor: pointer;">
+                        <div class="card-icon ${app.icon}">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
+                        </div>
+                        <h2>${app.name}</h2>
+                        <p>${app.desc}</p>
+                        <span class="port">${app.port}</span>
+                    </div>
+                `;
+            }
             return `
                 <a href="${app.url}" class="card" draggable="true" data-id="${app.id}" target="_blank" oncontextmenu="showContextMenu(event, '${app.id}'); return false;">
                     <div class="card-icon ${app.icon}">
@@ -978,6 +1469,373 @@
                 }
             });
         });
+
+        // ============ Project View ============
+        function openProjectView(projectId) {
+            const project = projectsConfig[projectId];
+            if (!project) return;
+
+            currentProjectId = projectId;
+
+            // Hide grid and show project view
+            document.getElementById('appGrid').style.display = 'none';
+            document.getElementById('pageNav').style.display = 'none';
+            document.getElementById('projectView').classList.add('active');
+
+            // Load terminal iframe
+            const terminalUrl = baseUrl(project.terminalPort);
+            document.getElementById('terminalFrame').src = terminalUrl;
+
+            // Load issues and tasks
+            loadProjectIssues(projectId);
+            loadAgentTasks(projectId);
+
+            // Add back button to top bar
+            const topBar = document.querySelector('.top-bar');
+            if (!document.getElementById('btnBack')) {
+                const backBtn = document.createElement('button');
+                backBtn.id = 'btnBack';
+                backBtn.className = 'btn-back';
+                backBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                    Retour
+                `;
+                backBtn.onclick = closeProjectView;
+                topBar.insertBefore(backBtn, topBar.firstChild);
+            }
+        }
+
+        function closeProjectView() {
+            currentProjectId = null;
+
+            // Show grid and hide project view
+            document.getElementById('appGrid').style.display = '';
+            document.getElementById('pageNav').style.display = '';
+            document.getElementById('projectView').classList.remove('active');
+
+            // Clear terminal iframe
+            document.getElementById('terminalFrame').src = '';
+
+            // Remove back button
+            const backBtn = document.getElementById('btnBack');
+            if (backBtn) backBtn.remove();
+        }
+
+        // ============ Tmux Control ============
+        const TMUX_API_PORT = 7691;
+        let currentTmuxWindow = 1;
+
+        async function switchTmuxWindow(windowNum) {
+            const statusEl = document.getElementById('tmuxStatus');
+            const buttons = document.querySelectorAll('.tmux-btn');
+
+            // Update button states
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (parseInt(btn.dataset.window) === windowNum) {
+                    btn.classList.add('active');
+                }
+            });
+
+            statusEl.textContent = `Changement vers fenêtre ${windowNum}...`;
+            statusEl.className = 'tmux-status';
+
+            try {
+                const response = await fetch(`http://${host}:${TMUX_API_PORT}/window/${windowNum}`, {
+                    method: 'POST',
+                    mode: 'cors'
+                });
+
+                if (response.ok) {
+                    currentTmuxWindow = windowNum;
+                    statusEl.textContent = `Fenêtre ${windowNum} active`;
+                    statusEl.className = 'tmux-status success';
+
+                    // Refresh the terminal iframe to show the new window
+                    const iframe = document.getElementById('terminalFrame');
+                    iframe.src = iframe.src;
+                } else {
+                    throw new Error('Erreur serveur');
+                }
+            } catch (err) {
+                statusEl.textContent = `Erreur: API tmux non disponible (port ${TMUX_API_PORT})`;
+                statusEl.className = 'tmux-status error';
+                console.error('Tmux API error:', err);
+            }
+
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                if (statusEl.textContent.includes('active') || statusEl.textContent.includes('Erreur')) {
+                    statusEl.textContent = '';
+                }
+            }, 3000);
+        }
+
+        // ============ Issues Management ============
+        function getProjectIssuesKey(projectId) {
+            return `cactusIssues_${projectId}`;
+        }
+
+        function loadProjectIssues(projectId) {
+            const saved = localStorage.getItem(getProjectIssuesKey(projectId));
+            if (saved) {
+                projectIssues[projectId] = JSON.parse(saved);
+            } else {
+                // Use default issues for this project if defined
+                projectIssues[projectId] = defaultIssues[projectId] ?
+                    JSON.parse(JSON.stringify(defaultIssues[projectId])) : [];
+            }
+            renderIssues();
+        }
+
+        function saveProjectIssues(projectId) {
+            localStorage.setItem(getProjectIssuesKey(projectId), JSON.stringify(projectIssues[projectId] || []));
+        }
+
+        function renderIssues() {
+            const container = document.getElementById('issuesList');
+            const issues = projectIssues[currentProjectId] || [];
+
+            if (issues.length === 0) {
+                container.innerHTML = '<div class="empty-issues">Aucun problème signalé</div>';
+                return;
+            }
+
+            // Sort: open issues first, then by priority
+            const priorityOrder = { high: 0, medium: 1, low: 2 };
+            const sortedIssues = [...issues].sort((a, b) => {
+                if (a.status === 'resolved' && b.status !== 'resolved') return 1;
+                if (a.status !== 'resolved' && b.status === 'resolved') return -1;
+                return priorityOrder[a.priority] - priorityOrder[b.priority];
+            });
+
+            container.innerHTML = sortedIssues.map(issue => `
+                <div class="issue-item ${issue.priority} ${issue.status === 'resolved' ? 'resolved' : ''}">
+                    <div class="issue-header">
+                        <span class="issue-title">${escapeHtml(issue.title)}</span>
+                        <span class="issue-priority ${issue.priority}">${issue.priority}</span>
+                    </div>
+                    <div class="issue-desc">${escapeHtml(issue.description || '')}</div>
+                    <div class="issue-actions">
+                        <button onclick="editIssue('${issue.id}')">Éditer</button>
+                        ${issue.status !== 'resolved'
+                            ? `<button class="resolve" onclick="resolveIssue('${issue.id}')">Résoudre</button>`
+                            : `<button onclick="reopenIssue('${issue.id}')">Rouvrir</button>`
+                        }
+                        <button class="delete" onclick="deleteIssue('${issue.id}')">Supprimer</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openIssueModal(issueId = null) {
+            const modal = document.getElementById('issueModal');
+            const titleEl = document.getElementById('issueModalTitle');
+
+            if (issueId) {
+                const issues = projectIssues[currentProjectId] || [];
+                const issue = issues.find(i => i.id === issueId);
+                if (issue) {
+                    titleEl.textContent = 'Modifier le problème';
+                    document.getElementById('issueId').value = issue.id;
+                    document.getElementById('issueTitle').value = issue.title;
+                    document.getElementById('issueDescription').value = issue.description || '';
+                    document.getElementById('issuePriority').value = issue.priority;
+                }
+            } else {
+                titleEl.textContent = 'Nouveau problème';
+                document.getElementById('issueId').value = '';
+                document.getElementById('issueTitle').value = '';
+                document.getElementById('issueDescription').value = '';
+                document.getElementById('issuePriority').value = 'medium';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeIssueModal() {
+            document.getElementById('issueModal').classList.remove('active');
+        }
+
+        function saveIssue() {
+            const id = document.getElementById('issueId').value;
+            const title = document.getElementById('issueTitle').value.trim();
+            const description = document.getElementById('issueDescription').value.trim();
+            const priority = document.getElementById('issuePriority').value;
+
+            if (!title) {
+                alert('Le titre est requis');
+                return;
+            }
+
+            if (!projectIssues[currentProjectId]) {
+                projectIssues[currentProjectId] = [];
+            }
+
+            if (id) {
+                // Edit existing
+                const index = projectIssues[currentProjectId].findIndex(i => i.id === id);
+                if (index !== -1) {
+                    projectIssues[currentProjectId][index] = {
+                        ...projectIssues[currentProjectId][index],
+                        title,
+                        description,
+                        priority
+                    };
+                }
+            } else {
+                // Create new
+                projectIssues[currentProjectId].push({
+                    id: 'issue_' + Date.now(),
+                    title,
+                    description,
+                    priority,
+                    status: 'open',
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            saveProjectIssues(currentProjectId);
+            renderIssues();
+            closeIssueModal();
+        }
+
+        function editIssue(issueId) {
+            openIssueModal(issueId);
+        }
+
+        function resolveIssue(issueId) {
+            const issues = projectIssues[currentProjectId] || [];
+            const issue = issues.find(i => i.id === issueId);
+            if (issue) {
+                issue.status = 'resolved';
+                issue.resolvedAt = new Date().toISOString();
+                saveProjectIssues(currentProjectId);
+                renderIssues();
+            }
+        }
+
+        function reopenIssue(issueId) {
+            const issues = projectIssues[currentProjectId] || [];
+            const issue = issues.find(i => i.id === issueId);
+            if (issue) {
+                issue.status = 'open';
+                delete issue.resolvedAt;
+                saveProjectIssues(currentProjectId);
+                renderIssues();
+            }
+        }
+
+        function deleteIssue(issueId) {
+            if (!confirm('Supprimer ce problème ?')) return;
+            projectIssues[currentProjectId] = (projectIssues[currentProjectId] || []).filter(i => i.id !== issueId);
+            saveProjectIssues(currentProjectId);
+            renderIssues();
+        }
+
+        // ============ Agent Tasks ============
+        function getAgentTasksKey(projectId) {
+            return `cactusTasks_${projectId}`;
+        }
+
+        function loadAgentTasks(projectId) {
+            const saved = localStorage.getItem(getAgentTasksKey(projectId));
+            if (saved) {
+                agentTasks[projectId] = JSON.parse(saved);
+            } else {
+                // Use default agent tasks for this project if defined
+                agentTasks[projectId] = defaultAgentTasks[projectId] ?
+                    JSON.parse(JSON.stringify(defaultAgentTasks[projectId])) : [];
+            }
+            renderAgentTasks();
+        }
+
+        function saveAgentTasks(projectId) {
+            localStorage.setItem(getAgentTasksKey(projectId), JSON.stringify(agentTasks[projectId] || []));
+        }
+
+        function renderAgentTasks() {
+            const container = document.getElementById('agentTasksList');
+            const tasks = agentTasks[currentProjectId] || [];
+
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="empty-issues">Aucune tâche en cours</div>';
+                return;
+            }
+
+            container.innerHTML = tasks.map(task => `
+                <div class="agent-task-item ${task.status}">
+                    <div class="agent-task-header">
+                        <span class="agent-name">${escapeHtml(task.agent)}</span>
+                        <span class="agent-status ${task.status}">${getStatusLabel(task.status)}</span>
+                    </div>
+                    <div class="agent-task-desc">${escapeHtml(task.task)}</div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                pending: 'En attente',
+                running: 'En cours',
+                completed: 'Terminé'
+            };
+            return labels[status] || status;
+        }
+
+        // API to update agent tasks (can be called from external sources)
+        window.updateAgentTask = function(projectId, agentName, taskDesc, status) {
+            if (!agentTasks[projectId]) agentTasks[projectId] = [];
+
+            const existingIndex = agentTasks[projectId].findIndex(t => t.agent === agentName);
+            if (existingIndex !== -1) {
+                agentTasks[projectId][existingIndex].task = taskDesc;
+                agentTasks[projectId][existingIndex].status = status;
+            } else {
+                agentTasks[projectId].push({
+                    id: 'task_' + Date.now(),
+                    agent: agentName,
+                    task: taskDesc,
+                    status: status
+                });
+            }
+
+            saveAgentTasks(projectId);
+            if (currentProjectId === projectId) {
+                renderAgentTasks();
+            }
+        };
+
+        // API to add issue (can be called from external sources like Claude)
+        window.addProjectIssue = function(projectId, title, description, priority = 'medium') {
+            if (!projectIssues[projectId]) projectIssues[projectId] = [];
+
+            projectIssues[projectId].push({
+                id: 'issue_' + Date.now(),
+                title,
+                description,
+                priority,
+                status: 'open',
+                createdAt: new Date().toISOString()
+            });
+
+            saveProjectIssues(projectId);
+            if (currentProjectId === projectId) {
+                renderIssues();
+            }
+        };
+
+        // API to get issues (for Claude to read)
+        window.getProjectIssues = function(projectId) {
+            const saved = localStorage.getItem(getProjectIssuesKey(projectId));
+            return saved ? JSON.parse(saved) : [];
+        };
 
         // ============ Init ============
         async function init() {
