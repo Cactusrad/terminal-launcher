@@ -11,6 +11,7 @@ SOCKET_DIR="/tmp/dtach-sessions"
 
 # Create socket directory if needed
 mkdir -p "$SOCKET_DIR"
+chmod 777 "$SOCKET_DIR" 2>/dev/null
 
 if [ -z "$SESSION" ] || [ -z "$PROJECT" ]; then
     # No arguments = default behavior (interactive bash)
@@ -35,7 +36,13 @@ else
     RUN_CMD="cd '$PROJECT_PATH' && $COMMAND"
 fi
 
-# Create or attach to dtach session
-# -A: attach if exists, create if not
-# -z: disable suspend (Ctrl+Z)
-exec dtach -A "$SOCKET" -z bash -c "$RUN_CMD"
+# Check if session already exists
+if [ -S "$SOCKET" ]; then
+    # Attach to existing session
+    exec dtach -a "$SOCKET" -z
+else
+    # Create new session in background, then attach
+    dtach -n "$SOCKET" -z bash -c "$RUN_CMD"
+    sleep 0.3
+    exec dtach -a "$SOCKET" -z
+fi

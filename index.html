@@ -844,10 +844,409 @@
             align-items: center;
         }
 
+        /* Bug Report Widget Styles */
+        .bug-report-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 14px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            transition: all 0.3s;
+            z-index: 900;
+        }
+        .bug-report-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(239, 68, 68, 0.5);
+        }
+        .bug-report-fab svg {
+            width: 18px;
+            height: 18px;
+        }
+        .bug-report-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+        }
+        .bug-report-modal.active {
+            display: flex;
+        }
+        .bug-report-content {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+        .bug-report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .bug-report-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bug-report-header h2 svg {
+            width: 24px;
+            height: 24px;
+            color: #ef4444;
+        }
+        .bug-report-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #94a3b8;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        .bug-report-close:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        .bug-report-form label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .bug-report-form input,
+        .bug-report-form textarea,
+        .bug-report-form select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #f1f5f9;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+        .bug-report-form input:focus,
+        .bug-report-form textarea:focus,
+        .bug-report-form select:focus {
+            outline: none;
+            border-color: #ef4444;
+        }
+        .bug-report-form textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .bug-report-form select option {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+        .bug-report-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .bug-report-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .bug-report-submit:hover {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            transform: translateY(-1px);
+        }
+        .bug-report-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .bug-report-success {
+            text-align: center;
+            padding: 30px 20px;
+        }
+        .bug-report-success svg {
+            width: 60px;
+            height: 60px;
+            color: #22c55e;
+            margin-bottom: 16px;
+        }
+        .bug-report-success h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+        .bug-report-success p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+        .bug-report-success .ref-code {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        .bug-type-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .bug-type-btn {
+            padding: 10px 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+        .bug-type-btn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #f1f5f9;
+        }
+        .bug-type-btn.active {
+            border-color: var(--type-color);
+            background: var(--type-bg);
+            color: var(--type-color);
+        }
+        .bug-type-btn[data-type="bug"] {
+            --type-color: #ef4444;
+            --type-bg: rgba(239, 68, 68, 0.15);
+        }
+        .bug-type-btn[data-type="suggestion"] {
+            --type-color: #8b5cf6;
+            --type-bg: rgba(139, 92, 246, 0.15);
+        }
+        .bug-type-btn[data-type="feature"] {
+            --type-color: #22c55e;
+            --type-bg: rgba(34, 197, 94, 0.15);
+        }
+        .bug-type-btn[data-type="improvement"] {
+            --type-color: #3b82f6;
+            --type-bg: rgba(59, 130, 246, 0.15);
+        }
+        .bug-screenshot-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .bug-screenshot-zone:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .bug-screenshot-zone.has-image {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+        .bug-screenshot-zone.dragover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        .bug-screenshot-zone:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+        }
+        .bug-screenshot-hint {
+            color: #64748b;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .bug-screenshot-hint svg {
+            width: 32px;
+            height: 32px;
+            opacity: 0.5;
+        }
+        .bug-screenshot-hint kbd {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .bug-screenshot-preview {
+            position: relative;
+            display: inline-block;
+        }
+        .bug-screenshot-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .bug-screenshot-remove {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .bug-screenshot-remove:hover {
+            background: #dc2626;
+        }
+        .bug-attachment-status {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+        .bug-attachment-status.uploading {
+            color: #3b82f6;
+        }
+        .bug-attachment-status.success {
+            color: #22c55e;
+        }
+        .bug-attachment-status.error {
+            color: #ef4444;
+        }
+
+        /* Terminal Mode - Hide unnecessary elements */
+        body.terminal-mode header,
+        body.terminal-mode .top-bar,
+        body.terminal-mode footer,
+        body.terminal-mode .page-nav {
+            display: none !important;
+        }
+        body.terminal-mode .container {
+            padding: 10px;
+            max-width: 100%;
+        }
+        body.terminal-mode .bug-report-fab {
+            display: none;
+        }
+        /* Vertical nav bar on right side in terminal mode */
+        .terminal-nav-bar {
+            display: none;
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 8px;
+            background: rgba(30, 41, 59, 0.95);
+            border-radius: 12px 0 0 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-right: none;
+            z-index: 1000;
+        }
+        body.terminal-mode .terminal-nav-bar {
+            display: flex;
+        }
+        .terminal-nav-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .terminal-nav-btn.nav-home {
+            background: rgba(255,255,255,0.1);
+            color: #94a3b8;
+        }
+        .terminal-nav-btn.nav-home:hover {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        .terminal-nav-btn.nav-terminals {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        .terminal-nav-btn.nav-bug {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .terminal-nav-btn.nav-bug:hover {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            transform: scale(1.05);
+        }
+        .terminal-nav-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        .terminal-nav-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 54px;
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .terminal-nav-btn:hover::after {
+            opacity: 1;
+        }
+
         /* Terminal Manager Styles */
         .terminal-manager {
             display: none;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 80px);
             min-height: 500px;
             gap: 0;
             background: rgba(0, 0, 0, 0.3);
@@ -865,6 +1264,38 @@
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+            transition: width 0.3s, margin-left 0.3s;
+        }
+        .terminal-sidebar.collapsed {
+            width: 0;
+            margin-left: -1px;
+            overflow: hidden;
+        }
+        .sidebar-toggle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 60px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        .sidebar-toggle:hover {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        .terminal-area {
+            position: relative;
         }
         .sidebar-header {
             padding: 16px 20px;
@@ -1306,6 +1737,11 @@
                 </div>
             </div>
             <div class="terminal-area">
+                <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleTerminalSidebar()" title="Toggle sidebar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="sidebarToggleIcon">
+                        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                    </svg>
+                </button>
                 <div class="terminal-tabs" id="terminalTabs"></div>
                 <div class="terminal-container" id="terminalContainer">
                     <div class="terminal-placeholder" id="terminalPlaceholder">
@@ -1330,6 +1766,118 @@
                 </span>
             </p>
         </footer>
+    </div>
+
+    <!-- Terminal Mode Vertical Nav Bar -->
+    <div class="terminal-nav-bar" id="terminalNavBar">
+        <button class="terminal-nav-btn nav-home" onclick="setCurrentPageId('main')" data-tooltip="Accueil">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+        </button>
+        <button class="terminal-nav-btn nav-terminals" data-tooltip="Terminaux">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10z"/>
+                <path d="M7 9l4 3-4 3v-6z"/>
+            </svg>
+        </button>
+        <button class="terminal-nav-btn nav-bug" onclick="openBugReport()" data-tooltip="Bug Report">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14 12h-4v-2h4m0 6h-4v-2h4m2-8h-2V4h-4v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Bug Report FAB Button -->
+    <button class="bug-report-fab" onclick="openBugReport()">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 12h-4v-2h4m0 6h-4v-2h4m2-8h-2V4h-4v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/>
+        </svg>
+        Bug Report
+    </button>
+
+    <!-- Bug Report Modal -->
+    <div class="bug-report-modal" id="bugReportModal">
+        <div class="bug-report-content">
+            <div id="bugReportForm">
+                <div class="bug-report-header">
+                    <h2>
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14 12h-4v-2h4m0 6h-4v-2h4m2-8h-2V4h-4v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/>
+                        </svg>
+                        Signaler un probleme
+                    </h2>
+                    <button class="bug-report-close" onclick="closeBugReport()">&times;</button>
+                </div>
+                <div class="bug-report-form">
+                    <label>Type</label>
+                    <div class="bug-type-selector" id="bugTypeSelector">
+                        <button type="button" class="bug-type-btn active" data-type="bug" onclick="selectBugType('bug')">Bug</button>
+                        <button type="button" class="bug-type-btn" data-type="suggestion" onclick="selectBugType('suggestion')">Suggestion</button>
+                        <button type="button" class="bug-type-btn" data-type="feature" onclick="selectBugType('feature')">Feature</button>
+                        <button type="button" class="bug-type-btn" data-type="improvement" onclick="selectBugType('improvement')">Amelioration</button>
+                    </div>
+                    <input type="hidden" id="bugType" value="bug">
+
+                    <label>Titre</label>
+                    <input type="text" id="bugTitle" placeholder="Resume du probleme...">
+
+                    <label>Description</label>
+                    <textarea id="bugDescription" placeholder="Decrivez le probleme en detail..."></textarea>
+
+                    <label>Capture d'ecran</label>
+                    <div class="bug-screenshot-zone" id="bugScreenshotZone" tabindex="0" onclick="focusScreenshotZone()" ondblclick="document.getElementById('bugFileInput').click()">
+                        <div class="bug-screenshot-hint" id="bugScreenshotHint">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                            </svg>
+                            <span>Cliquez puis <kbd>Ctrl+V</kbd> ou double-cliquez pour choisir</span>
+                        </div>
+                        <div class="bug-screenshot-preview" id="bugScreenshotPreview" style="display:none;">
+                            <img id="bugScreenshotImg" src="" alt="Screenshot">
+                            <button type="button" class="bug-screenshot-remove" onclick="event.stopPropagation(); removeScreenshot();">&times;</button>
+                        </div>
+                    </div>
+                    <input type="file" id="bugFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+
+                    <div class="bug-report-row">
+                        <div>
+                            <label>Priorite</label>
+                            <select id="bugPriority">
+                                <option value="normale">Normale</option>
+                                <option value="basse">Basse</option>
+                                <option value="haute">Haute</option>
+                                <option value="critique">Critique</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Votre nom (optionnel)</label>
+                            <input type="text" id="bugReporter" placeholder="Votre nom">
+                        </div>
+                    </div>
+
+                    <button class="bug-report-submit" id="bugSubmitBtn" onclick="submitBugReport()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                        Envoyer
+                    </button>
+                </div>
+            </div>
+            <div id="bugReportSuccess" style="display:none;">
+                <div class="bug-report-success">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <h3>Merci pour votre signalement!</h3>
+                    <p>Votre rapport a ete envoye avec succes.</p>
+                    <div class="ref-code" id="bugRefCode">HOM-001</div>
+                    <button class="bug-report-submit" onclick="resetBugReport()" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                        Nouveau rapport
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Context Menu -->
@@ -1672,9 +2220,18 @@
             const typeInfo = terminalTypes[type];
             if (!typeInfo) return;
 
-            const tabId = generateTabId();
-            const sessionName = `${type}_${project}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+            // Use consistent session name (project + type) so dtach can reconnect
+            const sessionName = `${type}_${project}`.replace(/[^a-zA-Z0-9_]/g, '_');
 
+            // Check if a tab for this session already exists
+            const existingTab = terminalTabs.find(t => t.tmuxSession === sessionName);
+            if (existingTab) {
+                // Just activate the existing tab
+                activateTerminalTab(existingTab.id);
+                return;
+            }
+
+            const tabId = generateTabId();
             const tab = {
                 id: tabId,
                 name: project,
@@ -1849,7 +2406,22 @@
             if (manager && grid) {
                 manager.classList.toggle('active', show);
                 grid.style.display = show ? 'none' : '';
+                document.body.classList.toggle('terminal-mode', show);
                 if (show) initTerminalManager();
+            }
+        }
+
+        function toggleTerminalSidebar() {
+            const sidebar = document.querySelector('.terminal-sidebar');
+            const icon = document.getElementById('sidebarToggleIcon');
+            if (sidebar) {
+                sidebar.classList.toggle('collapsed');
+                // Rotate icon based on state
+                if (sidebar.classList.contains('collapsed')) {
+                    icon.innerHTML = '<path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>';
+                } else {
+                    icon.innerHTML = '<path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>';
+                }
             }
         }
 
@@ -3096,6 +3668,200 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 }
             });
         }
+
+        // ============ Bug Report Functions ============
+        const BUGS_API_URL = 'https://bugs.sharpi.ca/api/v1';
+        const BUGS_API_KEY = 'HOM_3fdff2c497afcb524fff12dc0f6d7e36cde2b6cafbecbe80';
+        let bugScreenshotFile = null;
+
+        function openBugReport() {
+            document.getElementById('bugReportModal').classList.add('active');
+        }
+
+        function closeBugReport() {
+            document.getElementById('bugReportModal').classList.remove('active');
+        }
+
+        function selectBugType(type) {
+            document.getElementById('bugType').value = type;
+            document.querySelectorAll('.bug-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Screenshot handling
+        function focusScreenshotZone() {
+            document.getElementById('bugScreenshotZone').focus();
+        }
+
+        function handleScreenshotFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            bugScreenshotFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('bugScreenshotImg').src = e.target.result;
+                document.getElementById('bugScreenshotHint').style.display = 'none';
+                document.getElementById('bugScreenshotPreview').style.display = 'inline-block';
+                document.getElementById('bugScreenshotZone').classList.add('has-image');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) handleScreenshotFile(file);
+        }
+
+        function removeScreenshot() {
+            bugScreenshotFile = null;
+            document.getElementById('bugScreenshotImg').src = '';
+            document.getElementById('bugScreenshotHint').style.display = 'flex';
+            document.getElementById('bugScreenshotPreview').style.display = 'none';
+            document.getElementById('bugScreenshotZone').classList.remove('has-image');
+            document.getElementById('bugFileInput').value = '';
+        }
+
+        // Paste event listener
+        document.addEventListener('paste', function(e) {
+            const modal = document.getElementById('bugReportModal');
+            if (!modal.classList.contains('active')) return;
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    handleScreenshotFile(file);
+                    break;
+                }
+            }
+        });
+
+        // Drag and drop
+        const screenshotZone = document.getElementById('bugScreenshotZone');
+        if (screenshotZone) {
+            screenshotZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            screenshotZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+            screenshotZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file) handleScreenshotFile(file);
+            });
+        }
+
+        async function uploadScreenshot(reference) {
+            if (!bugScreenshotFile) return true;
+
+            const formData = new FormData();
+            formData.append('file', bugScreenshotFile, bugScreenshotFile.name || 'screenshot.png');
+
+            try {
+                const response = await fetch(`${BUGS_API_URL}/issues/${reference}/attachments`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${BUGS_API_KEY}`
+                    },
+                    body: formData
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('Screenshot upload error:', error);
+                return false;
+            }
+        }
+
+        async function submitBugReport() {
+            const title = document.getElementById('bugTitle').value.trim();
+            const description = document.getElementById('bugDescription').value.trim();
+            const type = document.getElementById('bugType').value;
+            const priority = document.getElementById('bugPriority').value;
+            const reporter = document.getElementById('bugReporter').value.trim();
+
+            if (!title) {
+                alert('Veuillez entrer un titre.');
+                return;
+            }
+
+            const submitBtn = document.getElementById('bugSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="spin"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Envoi...';
+
+            try {
+                const response = await fetch(`${BUGS_API_URL}/issues`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${BUGS_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        title: title,
+                        description: description || null,
+                        priority: priority,
+                        reporter: reporter || null,
+                        context_data: {
+                            url: window.location.href,
+                            user_agent: navigator.userAgent,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Upload screenshot if present
+                    if (bugScreenshotFile) {
+                        submitBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="spin"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Upload image...';
+                        await uploadScreenshot(data.reference);
+                    }
+
+                    document.getElementById('bugRefCode').textContent = data.reference;
+                    document.getElementById('bugReportForm').style.display = 'none';
+                    document.getElementById('bugReportSuccess').style.display = 'block';
+                } else {
+                    const error = await response.json();
+                    alert('Erreur: ' + (error.detail || 'Impossible d\'envoyer le rapport'));
+                }
+            } catch (error) {
+                console.error('Bug report error:', error);
+                alert('Erreur de connexion au serveur de bugs.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg> Envoyer';
+            }
+        }
+
+        function resetBugReport() {
+            document.getElementById('bugTitle').value = '';
+            document.getElementById('bugDescription').value = '';
+            document.getElementById('bugPriority').value = 'normale';
+            document.getElementById('bugReporter').value = '';
+            selectBugType('bug');
+            removeScreenshot();
+            document.getElementById('bugReportForm').style.display = 'block';
+            document.getElementById('bugReportSuccess').style.display = 'none';
+        }
+
+        // Close modal on background click
+        document.getElementById('bugReportModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeBugReport();
+            }
+        });
 
         // ============ Init ============
         async function init() {

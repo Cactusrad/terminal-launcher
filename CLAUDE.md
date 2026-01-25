@@ -129,6 +129,7 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | **Projets dynamiques** | Scan automatique des dossiers /home/cactus/claude |
 | **Gestion projets cachés** | Modal ⚙ pour masquer/afficher des projets |
 | **Demandes ERP** | Système de tickets avec notifications Telegram |
+| **Bug Report** | Widget de signalement connecté à bugs.sharpi.ca |
 
 ## Page Projets
 
@@ -188,6 +189,38 @@ Les terminaux web utilisent **dtach** au lieu de tmux pour permettre le scroll n
 - Onglets pour gérer plusieurs terminaux
 - Bouton ⚙ pour gérer les projets visibles/cachés
 - Bouton ↻ pour rafraîchir la liste des dossiers
+
+## Widget Bug Report
+
+Widget de signalement de bugs/suggestions intégré à l'API centralisée bugs.sharpi.ca.
+
+**Fonctionnalités :**
+- Bouton flottant rouge "Bug Report" (bas droite, caché en mode terminal)
+- Barre verticale à droite en mode terminal avec accès Bug Report
+- Types: Bug, Suggestion, Feature, Amélioration
+- Priorités: Basse, Normale, Haute, Critique
+- Support capture d'écran: Ctrl+V (paste), drag & drop, ou clic pour choisir
+- Collecte automatique du contexte (URL, user agent, timestamp)
+- Référence unique générée (ex: HOM-001)
+
+**Configuration :**
+```javascript
+const BUGS_API_URL = 'https://bugs.sharpi.ca/api/v1';
+const BUGS_API_KEY = 'HOM_3fdff2c497afcb524fff12dc0f6d7e36cde2b6cafbecbe80';
+```
+
+**API bugs.sharpi.ca :**
+```bash
+# Créer une issue
+POST /api/v1/issues
+Authorization: Bearer HOM_xxx
+
+# Lister les issues
+GET /api/v1/issues
+
+# Uploader une capture
+POST /api/v1/issues/HOM-001/attachments
+```
 
 ## Notifications Telegram
 
@@ -326,3 +359,45 @@ const defaultPages = [
    - `feat: replace tmux with dtach for web terminals`
    - `feat: dynamic project folders with hide/show functionality`
    - `refactor: optimize terminal sidebar and add settings modal`
+
+## Session du 25 janvier 2026
+
+**Changements effectués :**
+
+1. **Widget Bug Report**
+   - Bouton flottant rouge en bas à droite (caché en mode terminal)
+   - Modal de signalement avec types: Bug, Suggestion, Feature, Amélioration
+   - Priorités: Basse, Normale, Haute, Critique
+   - Support paste/drag-drop de captures d'écran (Ctrl+V)
+   - Intégration avec bugs_service (https://bugs.sharpi.ca)
+   - Projet "Homepage Cactus" créé (slug: homepage, préfixe: HOM)
+   - API Key: `HOM_3fdff2c497afcb524fff12dc0f6d7e36cde2b6cafbecbe80`
+
+2. **Mode Terminal optimisé**
+   - Header, footer et top-bar cachés sur la page Terminaux
+   - Barre de navigation verticale à droite (Accueil, Terminaux, Bug Report)
+   - Sidebar projets rétractable avec bouton ◀
+   - Terminal maximisé: `height: calc(100vh - 80px)`
+
+3. **Sessions dtach persistantes**
+   - Noms de session basés sur `projet_type` (sans timestamp)
+   - Si on reclique B/C pour le même projet, active l'onglet existant
+   - Wrapper dtach mis à jour pour sessions en arrière-plan (`dtach -n` puis `dtach -a`)
+
+4. **Corrections services ttyd**
+   - Ajout option `-a` (url-arg) pour passer les arguments via URL
+   - Permissions `/tmp/dtach-sessions/` corrigées (chmod 777)
+   - Commande: `ttyd -p PORT -W -a -t fontSize=14 -t fontFamily=monospace /home/cactus/bin/dtach-wrapper.sh`
+
+**Configuration ttyd requise :**
+```bash
+# Les 3 services doivent avoir l'option -a
+ExecStart=/usr/bin/ttyd -p 7680 -W -a -t fontSize=14 -t fontFamily=monospace /home/cactus/bin/dtach-wrapper.sh
+ExecStart=/usr/bin/ttyd -p 7681 -W -a -t fontSize=14 -t fontFamily=monospace /home/cactus/bin/dtach-wrapper.sh
+ExecStart=/usr/bin/ttyd -p 7682 -W -a -t fontSize=14 -t fontFamily=monospace /home/cactus/bin/dtach-wrapper.sh
+```
+
+**Permissions requises :**
+```bash
+chmod 777 /tmp/dtach-sessions/
+```
