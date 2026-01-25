@@ -148,6 +148,49 @@ def health():
     """Endpoint de santé"""
     return jsonify({"status": "healthy"})
 
+# ============ Projects/Folders Management ============
+CLAUDE_PROJECTS_DIR = '/home/cactus/claude'
+
+@app.route('/api/projects/folders', methods=['GET'])
+def get_project_folders():
+    """Scanne et retourne la liste des dossiers projet"""
+    try:
+        folders = []
+        if os.path.exists(CLAUDE_PROJECTS_DIR):
+            for item in os.listdir(CLAUDE_PROJECTS_DIR):
+                item_path = os.path.join(CLAUDE_PROJECTS_DIR, item)
+                if os.path.isdir(item_path) and not item.startswith('.'):
+                    folders.append(item)
+        folders.sort(key=str.lower)
+
+        # Charger les dossiers cachés
+        prefs = load_preferences()
+        hidden = prefs.get('hiddenFolders', [])
+
+        return jsonify({
+            "folders": folders,
+            "hidden": hidden
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/projects/hidden', methods=['POST'])
+def update_hidden_folders():
+    """Met à jour la liste des dossiers cachés"""
+    try:
+        data = request.get_json()
+        hidden = data.get('hidden', [])
+
+        prefs = load_preferences()
+        prefs['hiddenFolders'] = hidden
+
+        if save_preferences(prefs):
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ============ ERP Requests Management ============
 ERP_REQUESTS_FILE = '/data/erp_requests.json'
 

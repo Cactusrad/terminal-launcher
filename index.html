@@ -872,6 +872,32 @@
             font-size: 1.1rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
             color: #4ade80;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sidebar-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .sidebar-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #94a3b8;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .sidebar-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .sidebar-btn.active {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
         }
         .sidebar-search {
             padding: 12px 16px;
@@ -954,6 +980,20 @@
         .project-btn.sudo {
             background: linear-gradient(135deg, #dc2626, #991b1b);
             color: white;
+        }
+        .project-btn.hide-btn {
+            background: rgba(100, 116, 139, 0.3);
+            color: #94a3b8;
+            font-size: 0.7rem;
+        }
+        .project-btn.hide-btn:hover {
+            background: rgba(100, 116, 139, 0.5);
+        }
+        .project-item.hidden-folder {
+            opacity: 0.5;
+        }
+        .project-item.hidden-folder .project-name {
+            text-decoration: line-through;
         }
 
         .terminal-area {
@@ -1172,7 +1212,13 @@
         <!-- Terminal Manager -->
         <div class="terminal-manager" id="terminalManager">
             <div class="terminal-sidebar">
-                <div class="sidebar-header">Projets</div>
+                <div class="sidebar-header">
+                    Projets
+                    <div class="sidebar-actions">
+                        <button class="sidebar-btn" onclick="refreshProjectFolders()" title="Rafraîchir">↻</button>
+                        <button class="sidebar-btn" id="toggleHiddenBtn" onclick="toggleShowHidden()" title="Afficher cachés">👁</button>
+                    </div>
+                </div>
                 <div class="sidebar-search">
                     <input type="text" id="projectSearch" placeholder="Rechercher un projet..." oninput="renderProjectList(this.value)">
                 </div>
@@ -1441,17 +1487,66 @@
         };
 
         // ============ Terminal Manager ============
-        const projectFolders = [
-            'rad_serial_pro', 'rad_serial_data', 'sandbox-todo-erp', 'guillevin',
-            'cactus-home', 'homeassistant', 'homeassistant-mcp', 'homepage-app',
-            'mcp-manager', 'mcp-servers', 'mcp', 'Pushover-claude',
-            'qbo-connect', 'qbo-integration', 'rad_quote', 'setup-github',
-            'setup_serveur', 'grafana', 'stirling_pdf', 'tmux-api', 'templates',
-            'bugs_service', 'backup-project', 'backup-projet', 'app-test',
-            'Agri-Connect', 'kali', 'twingate', 'nas', 'particle', 'unifi',
-            'neviweb', 'iotawatt', 'Opermax encordeur', 'dip remote', 'fagor',
-            'Encoder absolue ADMT4000', 'Joel collard', 'Cactus PLC', 'lvgl', 'serveur', 'push'
-        ].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        let allProjectFolders = [];
+        let hiddenFolders = [];
+        let showHiddenFolders = false;
+
+        async function loadProjectFolders() {
+            try {
+                const response = await fetch(`${API_BASE}/projects/folders`);
+                if (response.ok) {
+                    const data = await response.json();
+                    allProjectFolders = data.folders || [];
+                    hiddenFolders = data.hidden || [];
+                    return true;
+                }
+            } catch (e) {
+                console.error('Erreur chargement dossiers:', e);
+            }
+            return false;
+        }
+
+        async function saveHiddenFolders() {
+            try {
+                await fetch(`${API_BASE}/projects/hidden`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden: hiddenFolders })
+                });
+            } catch (e) {
+                console.error('Erreur sauvegarde dossiers cachés:', e);
+            }
+        }
+
+        async function refreshProjectFolders() {
+            await loadProjectFolders();
+            const searchInput = document.getElementById('projectSearch');
+            renderProjectList(searchInput ? searchInput.value : '');
+        }
+
+        function toggleShowHidden() {
+            showHiddenFolders = !showHiddenFolders;
+            const btn = document.getElementById('toggleHiddenBtn');
+            if (btn) {
+                btn.classList.toggle('active', showHiddenFolders);
+                btn.title = showHiddenFolders ? 'Masquer cachés' : 'Afficher cachés';
+            }
+            const searchInput = document.getElementById('projectSearch');
+            renderProjectList(searchInput ? searchInput.value : '');
+        }
+
+        function toggleFolderVisibility(folder, event) {
+            if (event) event.stopPropagation();
+            const idx = hiddenFolders.indexOf(folder);
+            if (idx === -1) {
+                hiddenFolders.push(folder);
+            } else {
+                hiddenFolders.splice(idx, 1);
+            }
+            saveHiddenFolders();
+            const searchInput = document.getElementById('projectSearch');
+            renderProjectList(searchInput ? searchInput.value : '');
+        }
 
         const terminalTypes = {
             bash:   { port: 7680, label: 'B', command: 'bash', color: 'bash' },
@@ -1615,26 +1710,34 @@
             const container = document.getElementById('projectList');
             if (!container) return;
 
-            const filteredProjects = projectFolders.filter(p =>
-                p.toLowerCase().includes(filter.toLowerCase())
-            );
+            const filteredProjects = allProjectFolders.filter(p => {
+                const matchesFilter = p.toLowerCase().includes(filter.toLowerCase());
+                const isHidden = hiddenFolders.includes(p);
+                return matchesFilter && (showHiddenFolders || !isHidden);
+            });
 
-            container.innerHTML = filteredProjects.map(project => `
-                <div class="project-item">
+            container.innerHTML = filteredProjects.map(project => {
+                const isHidden = hiddenFolders.includes(project);
+                return `
+                <div class="project-item ${isHidden ? 'hidden-folder' : ''}">
                     <span class="project-name" title="${project}">${project}</span>
                     <div class="project-actions">
                         <button class="project-btn bash" onclick="createTerminalTab('bash', '${project}')" title="Bash">B</button>
                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${project}')" title="Claude">C</button>
                         <button class="project-btn sudo" onclick="createTerminalTab('sudo', '${project}')" title="Sudo Claude">S</button>
+                        <button class="project-btn hide-btn" onclick="toggleFolderVisibility('${project}', event)" title="${isHidden ? 'Afficher' : 'Cacher'}">${isHidden ? '👁' : '🙈'}</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
-        function initTerminalManager() {
+        async function initTerminalManager() {
             const state = getTerminalState();
             terminalTabs = state.tabs || [];
             activeTerminalTabId = state.activeTabId;
+
+            // Charger les dossiers depuis l'API
+            await loadProjectFolders();
 
             renderProjectList();
             renderTerminalTabs();
