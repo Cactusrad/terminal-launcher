@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY server.py .
 COPY index.html .
+COPY chromium/ ./chromium/
 
 # Create data directory for preferences
 RUN mkdir -p /data

@@ -106,6 +106,7 @@
         .opermax-quote { background: linear-gradient(135deg, #f97316, #ea580c); }
         .trading-bot { background: linear-gradient(135deg, #10b981, #059669); }
         .guillevin { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .chromium { background: linear-gradient(135deg, #4285f4, #34a853); }
 
         /* Modal */
         .modal {
@@ -1509,7 +1510,10 @@
             padding: 8px 8px 0;
             gap: 4px;
             overflow-x: auto;
+            overflow-y: visible;
             flex-shrink: 0;
+            position: relative;
+            z-index: 100;
         }
         .terminal-tab {
             display: flex;
@@ -1526,6 +1530,7 @@
             transition: all 0.2s;
             white-space: nowrap;
             max-width: 200px;
+            position: relative;
         }
         .terminal-tab:hover {
             background: rgba(255,255,255,0.1);
@@ -1574,6 +1579,139 @@
             color: #ef4444;
         }
 
+        /* Activity indicator */
+        .terminal-tab .activity-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: transparent;
+            margin-left: 4px;
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        .terminal-tab .activity-indicator.waiting {
+            background: #fbbf24;
+            animation: activity-pulse 0.8s ease-in-out infinite;
+            box-shadow: 0 0 8px #fbbf24;
+        }
+        @keyframes activity-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.3); }
+        }
+        .terminal-tab.waiting-input {
+            border-color: #fbbf24 !important;
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+        }
+
+        /* Quick action buttons (Yes/No) */
+        .terminal-tab .quick-actions {
+            display: none;
+            gap: 3px;
+            margin-left: 4px;
+        }
+        .terminal-tab.waiting-input .quick-actions {
+            display: flex;
+        }
+        .quick-action-btn {
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 3px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .quick-action-btn.yes {
+            background: #22c55e;
+            color: white;
+        }
+        .quick-action-btn.yes:hover {
+            background: #16a34a;
+            transform: scale(1.1);
+        }
+        .quick-action-btn.yes-all {
+            background: #3b82f6;
+            color: white;
+        }
+        .quick-action-btn.yes-all:hover {
+            background: #2563eb;
+            transform: scale(1.1);
+        }
+
+        /* Preview tooltip */
+        .terminal-tab-preview {
+            position: fixed;
+            width: 400px;
+            height: 250px;
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .terminal-tab-preview.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .terminal-tab-preview iframe {
+            width: 800px;
+            height: 500px;
+            border: none;
+            transform: scale(0.5);
+            transform-origin: top left;
+        }
+        .terminal-tab-preview-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(15, 23, 42, 0.95));
+            padding: 8px 12px;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+
+        /* Right-click paste menu */
+        .terminal-paste-menu {
+            position: fixed;
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 120px;
+            display: none;
+            z-index: 3000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+        .terminal-paste-menu.active { display: block; }
+        .terminal-paste-item {
+            padding: 8px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            font-size: 0.85rem;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+        }
+        .terminal-paste-item:hover { background: rgba(255,255,255,0.1); }
+        .terminal-paste-item svg { width: 14px; height: 14px; fill: currentColor; }
+
         .terminal-container {
             flex: 1;
             position: relative;
@@ -1611,16 +1749,295 @@
             display: block;
         }
 
-        @media (max-width: 768px) {
+        /* Hide mobile elements on desktop */
+        .mobile-terminal-header {
+            display: none;
+        }
+        .mobile-overlay {
+            display: none;
+        }
+
+        /* ============ TABLET (768px - 1024px) ============ */
+        @media (min-width: 768px) and (max-width: 1024px) {
             .terminal-manager {
-                flex-direction: column;
-                height: calc(100vh - 180px);
+                height: calc(100vh - 60px);
             }
             .terminal-sidebar {
-                width: 100%;
-                height: 200px;
-                border-right: none;
+                width: 220px;
+            }
+            .project-item {
+                padding: 8px 10px;
+            }
+            .project-name {
+                font-size: 0.8rem;
+            }
+            .project-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 0.7rem;
+            }
+            .terminal-tab {
+                padding: 8px 10px;
+                max-width: 150px;
+            }
+            .tab-name {
+                font-size: 0.75rem;
+            }
+            .terminal-tab-preview {
+                width: 300px;
+                height: 180px;
+            }
+            .terminal-tab-preview iframe {
+                width: 600px;
+                height: 360px;
+            }
+        }
+
+        /* ============ MOBILE (< 768px) ============ */
+        @media (max-width: 767px) {
+            /* Hide header/footer in terminal mode */
+            body.terminal-mode header,
+            body.terminal-mode footer,
+            body.terminal-mode .top-bar {
+                display: none !important;
+            }
+
+            .terminal-manager {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 100vh !important;
+                min-height: unset;
+                border-radius: 0;
+                border: none;
+                flex-direction: column;
+            }
+
+            /* Sidebar as slide-out drawer */
+            .terminal-sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 85%;
+                max-width: 320px;
+                height: 100vh;
+                z-index: 1000;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                border-right: 1px solid rgba(255,255,255,0.2);
+                box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+            }
+            .terminal-sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            .terminal-sidebar.collapsed {
+                width: 85%;
+                max-width: 320px;
+                margin-left: 0;
+            }
+
+            /* Overlay when sidebar is open */
+            .mobile-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.6);
+                z-index: 999;
+            }
+            .mobile-overlay.active {
+                display: block;
+            }
+
+            /* Terminal area full screen */
+            .terminal-area {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* Hide desktop sidebar toggle */
+            .sidebar-toggle {
+                display: none;
+            }
+
+            /* Hide desktop tabs, show mobile header */
+            .terminal-tabs-desktop {
+                display: none !important;
+            }
+
+            /* Mobile header with menu button */
+            .mobile-terminal-header {
+                display: flex;
+                align-items: center;
+                padding: 8px 12px;
+                background: rgba(30, 41, 59, 0.98);
                 border-bottom: 1px solid rgba(255,255,255,0.1);
+                gap: 10px;
+            }
+            .mobile-menu-btn {
+                width: 40px;
+                height: 40px;
+                border: none;
+                border-radius: 8px;
+                background: rgba(74, 222, 128, 0.2);
+                color: #4ade80;
+                font-size: 1.2rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .mobile-menu-btn:active {
+                transform: scale(0.95);
+            }
+
+            /* Tabs scrollable */
+            .terminal-tabs {
+                flex: 1;
+                display: flex;
+                gap: 6px;
+                overflow-x: auto;
+                padding: 0;
+                background: transparent;
+                border: none;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .terminal-tabs::-webkit-scrollbar {
+                display: none;
+            }
+            .terminal-tab {
+                padding: 8px 12px;
+                border-radius: 8px;
+                border: 1px solid rgba(255,255,255,0.1);
+                max-width: none;
+                flex-shrink: 0;
+            }
+            .tab-name {
+                max-width: 80px;
+                font-size: 0.8rem;
+            }
+            .quick-actions {
+                gap: 2px;
+            }
+            .quick-action-btn {
+                width: 22px;
+                height: 22px;
+                font-size: 0.6rem;
+            }
+
+            /* Terminal container */
+            .terminal-container {
+                flex: 1;
+                height: calc(100vh - 60px);
+            }
+            .terminal-iframe {
+                border-radius: 0;
+            }
+
+            /* Preview smaller on mobile */
+            .terminal-tab-preview {
+                width: 280px;
+                height: 160px;
+            }
+            .terminal-tab-preview iframe {
+                width: 560px;
+                height: 320px;
+            }
+
+            /* Project list touch-friendly */
+            .project-item {
+                padding: 14px 12px;
+                margin-bottom: 6px;
+            }
+            .project-name {
+                font-size: 0.95rem;
+            }
+            .project-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 0.9rem;
+            }
+            .project-actions {
+                gap: 8px;
+            }
+
+            /* Search input larger */
+            .sidebar-search input {
+                padding: 14px 16px;
+                font-size: 1rem;
+            }
+
+            /* Activity indicator bigger on mobile */
+            .activity-indicator {
+                width: 10px;
+                height: 10px;
+            }
+
+            /* Paste menu */
+            .terminal-paste-item {
+                padding: 14px 18px;
+                font-size: 1rem;
+            }
+
+            /* Home button in mobile header */
+            .mobile-home-btn {
+                width: 40px;
+                height: 40px;
+                border: none;
+                border-radius: 8px;
+                background: rgba(255,255,255,0.1);
+                color: #94a3b8;
+                font-size: 1.1rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                margin-left: auto;
+            }
+            .mobile-home-btn:active {
+                transform: scale(0.95);
+            }
+        }
+
+        /* ============ SMALL MOBILE (< 480px) ============ */
+        @media (max-width: 480px) {
+            .terminal-sidebar {
+                width: 100%;
+                max-width: 100%;
+            }
+            .terminal-tab {
+                padding: 6px 10px;
+            }
+            .tab-type {
+                width: 18px;
+                height: 18px;
+                font-size: 0.6rem;
+            }
+            .tab-name {
+                max-width: 60px;
+                font-size: 0.75rem;
+            }
+            .tab-close {
+                width: 18px;
+                height: 18px;
+                font-size: 0.8rem;
+            }
+            .terminal-tab-preview {
+                width: 240px;
+                height: 140px;
+            }
+            .terminal-tab-preview iframe {
+                width: 480px;
+                height: 280px;
             }
         }
     </style>
@@ -1736,13 +2153,31 @@
                     <div class="project-settings-list" id="projectSettingsList"></div>
                 </div>
             </div>
+            <!-- Mobile overlay -->
+            <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+
             <div class="terminal-area">
                 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleTerminalSidebar()" title="Toggle sidebar">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="sidebarToggleIcon">
                         <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
                     </svg>
                 </button>
-                <div class="terminal-tabs" id="terminalTabs"></div>
+                <!-- Mobile header -->
+                <div class="mobile-terminal-header" id="mobileTerminalHeader">
+                    <button class="mobile-menu-btn" onclick="openMobileSidebar()" title="Projets">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                        </svg>
+                    </button>
+                    <div class="terminal-tabs" id="terminalTabsMobile"></div>
+                    <button class="mobile-home-btn" onclick="goToHome()" title="Accueil">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                        </svg>
+                    </button>
+                </div>
+                <!-- Desktop tabs -->
+                <div class="terminal-tabs terminal-tabs-desktop" id="terminalTabs"></div>
                 <div class="terminal-container" id="terminalContainer">
                     <div class="terminal-placeholder" id="terminalPlaceholder">
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1926,6 +2361,14 @@
         </div>
     </div>
 
+    <!-- Terminal Paste Context Menu -->
+    <div class="terminal-paste-menu" id="terminalPasteMenu">
+        <button class="terminal-paste-item" onclick="pasteToTerminal()">
+            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+            Coller
+        </button>
+    </div>
+
     <script>
         // ============ Configuration ============
         // Mapping des hostnames vers IPs (pour les machines qui ne résolvent pas bien les noms)
@@ -1964,6 +2407,7 @@
             { id: 'opermax-quote', name: 'Soumission Opermax', desc: 'Générateur de soumissions', port: ':5002', url: baseUrl(5002), icon: 'opermax-quote' },
             { id: 'trading-bot', name: 'Trading Bot', desc: 'Grid Trading Binance', port: ':8080', url: baseUrl(8080), icon: 'trading-bot' },
             { id: 'guillevin', name: 'Guillevin Prix', desc: 'Gestion des prix fournisseurs', port: ':5050', url: baseUrl(5050), icon: 'guillevin' },
+            { id: 'chromium', name: 'Chromium Remote', desc: 'Navigateur distant Kasm', port: ':6901', url: baseUrl(1000, '/chromium/'), icon: 'chromium' },
             { id: 'todo-list', name: 'Todo List ERP', desc: 'Module Todo pour ERP', port: ':7690', url: '#project:todo-list', icon: 'project-card', isProject: true },
             { id: 'rad-serial', name: 'Rad Serial DB', desc: 'Gestion numéros de série', port: ':7692', url: '#project:rad-serial', icon: 'project-card', isProject: true },
             { id: 'rad-quote', name: 'Rad Quote (Opermax)', desc: 'Générateur soumissions', port: ':7693', url: '#project:rad-quote', icon: 'project-card', isProject: true },
@@ -2091,7 +2535,7 @@
         };
 
         const defaultPages = [
-            { id: 'main', name: 'Accueil', apps: ['ha', 'grafana', 'portainer', 'influxdb', 'neviweb', 'n8n', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin'] },
+            { id: 'main', name: 'Accueil', apps: ['ha', 'grafana', 'portainer', 'influxdb', 'neviweb', 'n8n', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin', 'chromium'] },
             { id: 'terminals', name: 'Terminaux', apps: ['terminal', 'claude', 'sudo-claude'] },
             { id: 'projets', name: 'Projets', apps: ['todo-list', 'rad-serial', 'rad-quote', 'homepage-dev'] }
         ];
@@ -2112,7 +2556,8 @@
             'opermax-quote': '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-2 6v-2h2v2h-2zm0-4v-2h2v2h-2zm-4 4v-2h2v2H7zm0-4v-2h2v2H7z"/>',
             'trading-bot': '<path d="M3.5 18.5l6-6 4 4L22 6.5"/><path d="M22 6.5h-5v5"/><path d="M3 3v18h18"/>',
             'guillevin': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>',
-            'project-card': '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>'
+            'project-card': '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>',
+            'chromium': '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2"/>'
         };
 
         // ============ Terminal Manager ============
@@ -2196,6 +2641,245 @@
 
         let terminalTabs = [];
         let activeTerminalTabId = null;
+        let waitingTabs = {};  // Track which tabs are waiting for input
+        let activityPollInterval = null;
+        let lastBeepTime = 0;
+        const terminalWebSockets = new Map();  // WebSocket connections for sending input
+        let previewTimeout = null;
+        let terminalPasteTargetTabId = null;
+
+        // ============ Beep Sound ============
+        function playBeep() {
+            const now = Date.now();
+            if (now - lastBeepTime < 3000) return;  // Throttle: max 1 beep every 3 seconds
+            lastBeepTime = now;
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (e) {
+                console.warn('Could not play beep:', e);
+            }
+        }
+
+        // ============ Activity Detection ============
+        async function checkTerminalActivity() {
+            if (terminalTabs.length === 0) return;
+            try {
+                const response = await fetch('/api/terminal/activity');
+                const activity = await response.json();
+                let anyNewWaiting = false;
+
+                terminalTabs.forEach(tab => {
+                    const sessionActivity = activity[tab.tmuxSession];
+                    const wasWaiting = waitingTabs[tab.tmuxSession] || false;
+                    const isWaiting = sessionActivity?.waiting || false;
+
+                    if (isWaiting && !wasWaiting && tab.id !== activeTerminalTabId) {
+                        anyNewWaiting = true;
+                    }
+                    waitingTabs[tab.tmuxSession] = isWaiting;
+                });
+
+                if (anyNewWaiting) {
+                    playBeep();
+                }
+                renderTerminalTabs(); syncMobileTerminalTabs();
+            } catch (error) {
+                console.error('Error checking terminal activity:', error);
+            }
+        }
+
+        function startActivityPolling() {
+            if (!activityPollInterval) {
+                checkTerminalActivity();  // Check immediately
+                activityPollInterval = setInterval(checkTerminalActivity, 2000);
+            }
+        }
+
+        function stopActivityPolling() {
+            if (activityPollInterval) {
+                clearInterval(activityPollInterval);
+                activityPollInterval = null;
+            }
+        }
+
+        // ============ WebSocket for Terminal Input ============
+        const TTYD_CMD_INPUT = 0x30;  // '0' character
+
+        function getTerminalWebSocket(tabId) {
+            const ws = terminalWebSockets.get(tabId);
+            if (ws && ws.readyState === WebSocket.OPEN) return ws;
+            terminalWebSockets.delete(tabId);
+            return null;
+        }
+
+        function createTerminalWebSocket(tab) {
+            return new Promise((resolve, reject) => {
+                const wsUrl = `ws://${host}:${tab.port}/ws`;
+                const ws = new WebSocket(wsUrl, ['tty']);
+                ws.binaryType = 'arraybuffer';
+
+                const timeout = setTimeout(() => {
+                    ws.close();
+                    reject(new Error('Connection timeout'));
+                }, 3000);
+
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    terminalWebSockets.set(tab.id, ws);
+                    resolve(ws);
+                };
+                ws.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error('Connection failed'));
+                };
+                ws.onclose = () => {
+                    terminalWebSockets.delete(tab.id);
+                };
+            });
+        }
+
+        function sendInputToTerminal(ws, text) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+            const encoder = new TextEncoder();
+            const textBytes = encoder.encode(text);
+            const payload = new Uint8Array(1 + textBytes.length);
+            payload[0] = TTYD_CMD_INPUT;
+            payload.set(textBytes, 1);
+            ws.send(payload);
+            return true;
+        }
+
+        async function sendQuickInput(tabId, input, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const tab = terminalTabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            const fullInput = input + '\n';
+            try {
+                let ws = getTerminalWebSocket(tabId);
+                if (!ws) {
+                    ws = await createTerminalWebSocket(tab);
+                }
+                sendInputToTerminal(ws, fullInput);
+                // Clear waiting state
+                waitingTabs[tab.tmuxSession] = false;
+                renderTerminalTabs(); syncMobileTerminalTabs();
+            } catch (e) {
+                console.error('Failed to send input:', e);
+            }
+        }
+
+        // ============ Tab Preview ============
+        let activePreview = null;
+
+        function showTabPreview(tabId) {
+            if (previewTimeout) clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(() => {
+                const tab = terminalTabs.find(t => t.id === tabId);
+                if (!tab) return;
+
+                const tabEl = document.querySelector(`.terminal-tab[data-tab-id="${tabId}"]`);
+                if (!tabEl) return;
+
+                // Don't show preview for active tab
+                if (tab.id === activeTerminalTabId) return;
+
+                // Remove existing preview
+                if (activePreview) activePreview.remove();
+
+                const preview = document.createElement('div');
+                preview.className = 'terminal-tab-preview';
+                preview.dataset.tabId = tabId;
+
+                const iframe = document.createElement('iframe');
+                iframe.src = `http://${host}:${tab.port}?arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
+
+                const label = document.createElement('div');
+                label.className = 'terminal-tab-preview-label';
+                label.textContent = `${tab.name} (${tab.type})`;
+
+                preview.appendChild(iframe);
+                preview.appendChild(label);
+
+                // Position using getBoundingClientRect - show below tabs, over terminal
+                const rect = tabEl.getBoundingClientRect();
+                preview.style.left = Math.max(10, rect.left + rect.width/2 - 200) + 'px';
+                preview.style.top = (rect.bottom + 10) + 'px';
+
+                document.body.appendChild(preview);
+                activePreview = preview;
+
+                requestAnimationFrame(() => preview.classList.add('visible'));
+            }, 400);
+        }
+
+        function hideTabPreview(tabId) {
+            if (previewTimeout) {
+                clearTimeout(previewTimeout);
+                previewTimeout = null;
+            }
+            if (activePreview) {
+                activePreview.remove();
+                activePreview = null;
+            }
+        }
+
+        // ============ Right-Click Paste ============
+        function showTerminalPasteMenu(e) {
+            e.preventDefault();
+            const activeIframe = document.querySelector('.terminal-iframe.active');
+            if (!activeIframe) return;
+
+            terminalPasteTargetTabId = activeIframe.dataset.tabId;
+            const menu = document.getElementById('terminalPasteMenu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('active');
+        }
+
+        function hideTerminalPasteMenu() {
+            document.getElementById('terminalPasteMenu').classList.remove('active');
+            terminalPasteTargetTabId = null;
+        }
+
+        async function pasteToTerminal() {
+            if (!terminalPasteTargetTabId) {
+                hideTerminalPasteMenu();
+                return;
+            }
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    const tab = terminalTabs.find(t => t.id === terminalPasteTargetTabId);
+                    if (tab) {
+                        let ws = getTerminalWebSocket(tab.id);
+                        if (!ws) {
+                            ws = await createTerminalWebSocket(tab);
+                        }
+                        sendInputToTerminal(ws, text);
+                    }
+                }
+            } catch (err) {
+                console.error('Paste failed:', err);
+                if (err.name === 'NotAllowedError') {
+                    alert('Permission refusee. Utilisez Ctrl+Shift+V dans le terminal.');
+                }
+            }
+            hideTerminalPasteMenu();
+        }
 
         function getTerminalState() {
             const saved = localStorage.getItem('cactusTerminalTabs');
@@ -2247,7 +2931,10 @@
             activeTerminalTabId = tabId;
             saveTerminalState();
             renderTerminalTabs();
+            syncMobileTerminalTabs();
             loadTerminalIframe(tab);
+            // Close mobile sidebar when opening a terminal
+            if (isMobile()) closeMobileSidebar();
         }
 
         function activateTerminalTab(tabId) {
@@ -2274,8 +2961,18 @@
             const tabIndex = terminalTabs.findIndex(t => t.id === tabId);
             if (tabIndex === -1) return;
 
+            // Clean up WebSocket connection
+            const ws = terminalWebSockets.get(tabId);
+            if (ws) {
+                ws.close();
+                terminalWebSockets.delete(tabId);
+            }
+
             const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
-            if (iframe) iframe.remove();
+            if (iframe) {
+                iframe.src = 'about:blank';  // Stop ongoing connections
+                iframe.remove();
+            }
 
             terminalTabs.splice(tabIndex, 1);
 
@@ -2290,7 +2987,7 @@
             }
 
             saveTerminalState();
-            renderTerminalTabs();
+            renderTerminalTabs(); syncMobileTerminalTabs();
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
@@ -2305,7 +3002,7 @@
             if (newName && newName.trim()) {
                 tab.name = newName.trim();
                 saveTerminalState();
-                renderTerminalTabs();
+                renderTerminalTabs(); syncMobileTerminalTabs();
             }
         }
 
@@ -2342,13 +3039,25 @@
 
             tabsContainer.innerHTML = terminalTabs.map(tab => {
                 const typeInfo = terminalTypes[tab.type];
+                const safeName = escapeHtml(tab.name);
+                const isWaiting = waitingTabs[tab.tmuxSession] || false;
+                const waitingClass = isWaiting ? 'waiting-input' : '';
+                const indicatorClass = isWaiting ? 'waiting' : '';
                 return `
-                    <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''}"
+                    <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''} ${waitingClass}"
                          data-tab-id="${tab.id}"
+                         data-session="${tab.tmuxSession}"
                          onclick="activateTerminalTab('${tab.id}')"
-                         ondblclick="renameTerminalTab('${tab.id}', event)">
+                         ondblclick="renameTerminalTab('${tab.id}', event)"
+                         onmouseenter="showTabPreview('${tab.id}')"
+                         onmouseleave="hideTabPreview('${tab.id}')">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
-                        <span class="tab-name">${tab.name}</span>
+                        <span class="tab-name">${safeName}</span>
+                        <span class="activity-indicator ${indicatorClass}"></span>
+                        <div class="quick-actions">
+                            <button class="quick-action-btn yes" onclick="sendQuickInput('${tab.id}', 'y', event)" title="Yes">Y</button>
+                            <button class="quick-action-btn yes-all" onclick="sendQuickInput('${tab.id}', 'Y', event)" title="Yes to All">Y*</button>
+                        </div>
                         <button class="tab-close" onclick="closeTerminalTab('${tab.id}', event)">&times;</button>
                     </div>
                 `;
@@ -2365,15 +3074,19 @@
                 return matchesFilter && !isHidden;
             });
 
-            container.innerHTML = filteredProjects.map(project => `
+            container.innerHTML = filteredProjects.map(project => {
+                const safeProject = escapeHtml(project);
+                const jsProject = project.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return `
                 <div class="project-item">
-                    <span class="project-name" title="${project}">${project}</span>
+                    <span class="project-name" title="${safeProject}">${safeProject}</span>
                     <div class="project-actions">
-                        <button class="project-btn bash" onclick="createTerminalTab('bash', '${project}')" title="Bash">B</button>
-                        <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${project}')" title="Claude">C</button>
+                        <button class="project-btn bash" onclick="createTerminalTab('bash', '${jsProject}')" title="Bash">B</button>
+                        <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${jsProject}')" title="Claude">C</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function initTerminalManager() {
@@ -2385,7 +3098,7 @@
             await loadProjectFolders();
 
             renderProjectList();
-            renderTerminalTabs();
+            renderTerminalTabs(); syncMobileTerminalTabs();
 
             terminalTabs.forEach(tab => loadTerminalIframe(tab));
 
@@ -2407,7 +3120,17 @@
                 manager.classList.toggle('active', show);
                 grid.style.display = show ? 'none' : '';
                 document.body.classList.toggle('terminal-mode', show);
-                if (show) initTerminalManager();
+                if (show) {
+                    initTerminalManager();
+                    startActivityPolling();
+                    // Add context menu listener for paste
+                    const terminalContainer = document.getElementById('terminalContainer');
+                    if (terminalContainer) {
+                        terminalContainer.addEventListener('contextmenu', showTerminalPasteMenu);
+                    }
+                } else {
+                    stopActivityPolling();
+                }
             }
         }
 
@@ -2422,6 +3145,46 @@
                 } else {
                     icon.innerHTML = '<path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>';
                 }
+            }
+        }
+
+        // ============ Mobile Sidebar Functions ============
+        function openMobileSidebar() {
+            const sidebar = document.querySelector('.terminal-sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar) {
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeMobileSidebar() {
+            const sidebar = document.querySelector('.terminal-sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function goToHome() {
+            showTerminalManager(false);
+            switchPage('main');
+        }
+
+        // Check if mobile and update UI accordingly
+        function isMobile() {
+            return window.innerWidth < 768;
+        }
+
+        // Sync mobile terminal tabs with desktop
+        function syncMobileTerminalTabs() {
+            const mobileContainer = document.getElementById('terminalTabsMobile');
+            const desktopContainer = document.getElementById('terminalTabs');
+            if (mobileContainer && desktopContainer) {
+                mobileContainer.innerHTML = desktopContainer.innerHTML;
             }
         }
 
@@ -2947,6 +3710,9 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.context-menu')) {
                 hideContextMenu();
+            }
+            if (!e.target.closest('.terminal-paste-menu')) {
+                hideTerminalPasteMenu();
             }
         });
 

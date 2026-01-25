@@ -12,13 +12,16 @@ import requests as http_requests
 
 app = Flask(__name__, static_folder='.')
 
-# Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = "8559016458:AAFZJLQO_Mm3ew-L9nbmWWTwOOManjbcszc"
-TELEGRAM_CHAT_ID = "7190745870"
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+# Telegram Bot Configuration (from environment variables)
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
 
 def send_telegram(message, parse_mode="HTML"):
     """Envoie un message via Telegram"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram non configuré (variables d'environnement manquantes)")
+        return False
     try:
         http_requests.post(f"{TELEGRAM_API_URL}/sendMessage", data={
             "chat_id": TELEGRAM_CHAT_ID,
@@ -96,6 +99,12 @@ def save_preferences(prefs):
 def index():
     """Sert la page principale"""
     return send_from_directory('.', 'index.html')
+
+@app.route('/chromium/')
+@app.route('/chromium/<path:filename>')
+def chromium_files(filename='autologin.html'):
+    """Sert les fichiers du dossier chromium"""
+    return send_from_directory('chromium', filename)
 
 @app.route('/api/preferences', methods=['GET'])
 def get_preferences():
@@ -326,6 +335,111 @@ def erp_progress():
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============ Terminal Activity Detection ============
+import re
+import glob
+
+TERMINAL_LOG_DIR = '/tmp/terminal-logs'
+
+# Patterns that indicate terminal is waiting for input
+INPUT_PATTERNS = [
+    r'\[Y/n\]',
+    r'\[y/N\]',
+    r'\[yes/no\]',
+    r'\(y/n\)',
+    r'\? \[Y/n\]',
+    r'Press Enter',
+    r'Press any key',
+    r'Continue\?',
+    r'Proceed\?',
+    r'Do you want to proceed',
+    r'Are you sure',
+    r'Overwrite\?',
+    r'Delete\?',
+    r'Password:',
+    r'password:',
+    r': $',  # Generic prompt ending with colon
+]
+
+def strip_ansi(text):
+    """Remove ANSI escape codes from text"""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
+def check_terminal_activity(session_name):
+    """Check if a terminal session is waiting for input"""
+    log_file = os.path.join(TERMINAL_LOG_DIR, f'{session_name}.log')
+
+    if not os.path.exists(log_file):
+        return {'waiting': False, 'session': session_name, 'reason': 'no_log'}
+
+    try:
+        # Read last 4KB of log
+        with open(log_file, 'rb') as f:
+            f.seek(0, 2)  # End of file
+            size = f.tell()
+            f.seek(max(0, size - 4096))
+            content = f.read().decode('utf-8', errors='ignore')
+
+        # Strip ANSI codes
+        clean_content = strip_ansi(content)
+
+        # Get last few lines
+        lines = clean_content.strip().split('\n')
+        last_lines = '\n'.join(lines[-10:])
+
+        # Check for input prompts
+        for pattern in INPUT_PATTERNS:
+            if re.search(pattern, last_lines, re.IGNORECASE):
+                return {
+                    'waiting': True,
+                    'session': session_name,
+                    'pattern': pattern,
+                    'preview': last_lines[-300:] if len(last_lines) > 300 else last_lines
+                }
+
+        return {'waiting': False, 'session': session_name}
+
+    except Exception as e:
+        return {'waiting': False, 'session': session_name, 'error': str(e)}
+
+@app.route('/api/terminal/activity', methods=['GET'])
+def get_terminal_activity():
+    """Check activity status of all or specific terminals"""
+    session = request.args.get('session')
+
+    if session:
+        return jsonify(check_terminal_activity(session))
+
+    # Check all sessions
+    results = {}
+    if os.path.exists(TERMINAL_LOG_DIR):
+        for log_file in glob.glob(os.path.join(TERMINAL_LOG_DIR, '*.log')):
+            session_name = os.path.basename(log_file).replace('.log', '')
+            results[session_name] = check_terminal_activity(session_name)
+
+    return jsonify(results)
+
+@app.route('/api/terminal/sessions', methods=['GET'])
+def get_terminal_sessions():
+    """List active dtach sessions"""
+    sessions = []
+    socket_dir = '/tmp/dtach-sessions'
+
+    if os.path.exists(socket_dir):
+        for item in os.listdir(socket_dir):
+            if item.endswith('.sock'):
+                socket_path = os.path.join(socket_dir, item)
+                if os.path.exists(socket_path):
+                    session_name = item.replace('.sock', '')
+                    sessions.append({
+                        'name': session_name,
+                        'socket': socket_path,
+                        'mtime': os.path.getmtime(socket_path)
+                    })
+
+    return jsonify({'sessions': sessions})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=False)

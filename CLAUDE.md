@@ -66,6 +66,8 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | `/api/erp/requests` | POST | Ajoute une demande ERP (+ notification Telegram) |
 | `/api/erp/requests/<id>` | PATCH | Met à jour une demande ERP |
 | `/api/erp/requests/<id>` | DELETE | Supprime une demande ERP |
+| `/api/terminal/activity` | GET | Vérifie si les terminaux attendent une entrée |
+| `/api/terminal/sessions` | GET | Liste les sessions dtach actives |
 
 **Format des préférences :**
 ```json
@@ -226,11 +228,13 @@ POST /api/v1/issues/HOM-001/attachments
 
 Le système envoie des notifications Telegram quand une demande ERP est soumise.
 
-**Configuration** (dans `server.py`) :
-```python
-TELEGRAM_BOT_TOKEN = "..."
-TELEGRAM_CHAT_ID = "..."
+**Configuration** (variables d'environnement) :
+```bash
+TELEGRAM_BOT_TOKEN=xxx
+TELEGRAM_CHAT_ID=xxx
 ```
+
+Les credentials sont stockés dans `.env` (gitignored) et passés au conteneur Docker.
 
 ## Fichiers du projet
 
@@ -242,11 +246,21 @@ TELEGRAM_CHAT_ID = "..."
 ├── requirements.txt       # Dépendances Python
 ├── Dockerfile             # Image Docker
 ├── docker-compose.yml     # Configuration Docker Compose
+├── .env                   # Variables d'environnement (gitignored)
+├── .gitignore             # Fichiers ignorés par git
 ├── dtach-wrapper.sh       # Script wrapper pour terminaux dtach
 ├── ttyd-terminal.service  # Service systemd terminal Bash
 ├── ttyd-claude.service    # Service systemd terminal Claude
 └── ttyd-sudo-claude.service # Service systemd terminal Sudo
 ```
+
+## Sous-projet : chromium/
+
+Le dossier `chromium/` contient la configuration pour un navigateur Chromium accessible à distance via le web (Kasm Workspaces).
+
+- **URL** : https://192.168.1.135:6901
+- **Credentials** : `kasm_user` / `secret`
+- **Voir** : `chromium/CLAUDE.md` pour la documentation complète
 
 ## Commandes Docker
 
@@ -263,15 +277,22 @@ docker build -t homepage-flask .
 docker stop homepage && docker rm homepage
 docker run -d --name homepage --restart unless-stopped \
   -p 1000:80 \
+  -e TELEGRAM_BOT_TOKEN="xxx" \
+  -e TELEGRAM_CHAT_ID="xxx" \
   -v homepage-data:/data \
   -v /home/cactus/claude:/home/cactus/claude:ro \
+  -v /tmp/terminal-logs:/tmp/terminal-logs:ro \
+  -v /tmp/dtach-sessions:/tmp/dtach-sessions:ro \
   homepage-flask
 
 # Inspecter le volume des préférences
 docker exec homepage cat /data/preferences.json
 ```
 
-**Note :** Le volume `/home/cactus/claude` est monté en lecture seule (`:ro`) pour permettre le scan des dossiers projets.
+**Volumes montés :**
+- `/home/cactus/claude` - Dossiers projets (lecture seule)
+- `/tmp/terminal-logs` - Logs des terminaux pour détection d'activité
+- `/tmp/dtach-sessions` - Sockets des sessions dtach
 
 ## Ajouter une nouvelle application
 
@@ -400,4 +421,83 @@ ExecStart=/usr/bin/ttyd -p 7682 -W -a -t fontSize=14 -t fontFamily=monospace /ho
 **Permissions requises :**
 ```bash
 chmod 777 /tmp/dtach-sessions/
+chmod 777 /tmp/terminal-logs/
 ```
+
+## Session du 25 janvier 2026 (suite)
+
+**Nouvelles fonctionnalités Terminal Manager :**
+
+1. **Détection d'attente terminal**
+   - Le wrapper `dtach-wrapper.sh` utilise `script` pour logger la sortie
+   - API `/api/terminal/activity` poll les logs pour détecter les patterns
+   - Patterns détectés : `[Y/n]`, `[y/N]`, `Continue?`, `Password:`, etc.
+   - Polling toutes les 2 secondes quand en mode terminal
+
+2. **Bip sonore**
+   - Web Audio API joue un beep (800Hz, 0.2s) quand un terminal attend
+   - Throttle de 3 secondes entre les beeps
+   - Ne joue pas si l'onglet en attente est actif
+
+3. **Indicateur visuel d'attente**
+   - Point jaune pulsant sur l'onglet
+   - Bordure dorée avec glow
+   - Animation CSS `activity-pulse`
+
+4. **Boutons Yes/Yes to All**
+   - Boutons **Y** (vert) et **Y*** (bleu) apparaissent sur les onglets en attente
+   - Connexion WebSocket parallèle vers ttyd
+   - Protocole ttyd : `[0x30][data]` pour envoyer du texte
+   - Ferme automatiquement l'état d'attente après envoi
+
+5. **Preview au survol des onglets**
+   - Mini-iframe (400x250px) scalée à 50%
+   - Apparaît après 400ms de survol
+   - Position fixe sous l'onglet, par-dessus le terminal
+   - Ne s'affiche pas pour l'onglet actif
+
+6. **Clic droit pour coller**
+   - Menu contextuel "Coller" sur le terminal
+   - Utilise `navigator.clipboard.readText()`
+   - Envoie le texte via WebSocket ttyd
+
+**Corrections de sécurité :**
+
+7. **Credentials Telegram externalisés**
+   - Déplacés de `server.py` vers variables d'environnement
+   - Fichier `.env` créé (gitignored)
+   - `docker-compose.yml` mis à jour avec les env vars
+
+8. **Protection XSS**
+   - Fonction `escapeHtml()` utilisée pour les noms de projets
+   - Échappement des quotes dans les handlers `onclick`
+
+**Design responsive mobile/tablette :**
+
+9. **Layout Mobile (< 768px)**
+   - Sidebar en drawer slide-out (85% largeur)
+   - Bouton hamburger ☰ pour ouvrir
+   - Onglets scrollables horizontalement
+   - Bouton 🏠 pour retourner à l'accueil
+   - Terminal plein écran (100vh)
+   - Header/footer cachés en mode terminal
+
+10. **Layout Tablette (768px - 1024px)**
+    - Sidebar plus étroite (220px)
+    - Boutons et onglets plus compacts
+    - Preview réduit (300x180px)
+
+11. **Petit Mobile (< 480px)**
+    - Drawer pleine largeur
+    - Onglets encore plus compacts
+
+**Fichiers modifiés :**
+- `server.py` - API terminal activity, credentials en env vars
+- `index.html` - Toutes les fonctionnalités frontend + responsive
+- `docker-compose.yml` - Volumes pour logs/sessions
+- `dtach-wrapper.sh` - Logging avec `script`
+- `.env` + `.gitignore` - Credentials sécurisés
+
+**Dépendances :**
+- Créer `/tmp/terminal-logs/` avec permissions 777
+- Copier `dtach-wrapper.sh` vers `/home/cactus/bin/`
