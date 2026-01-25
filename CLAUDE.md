@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serveur homelab avec persistance globale des préférences.
 
-**URL** : http://192.168.1.200 (port 80)
+**URL** : http://192.168.1.200:1000 (port 1000)
 
 ## Architecture
 
@@ -206,7 +206,7 @@ docker restart homepage
 cd /home/cactus/claude/homepage-app
 docker build -t homepage-flask .
 docker stop homepage && docker rm homepage
-docker run -d --name homepage --restart unless-stopped -p 80:80 -v homepage-data:/data homepage-flask
+docker run -d --name homepage --restart unless-stopped -p 1000:80 -v homepage-data:/data homepage-flask
 
 # Inspecter le volume des préférences
 docker exec homepage cat /data/preferences.json

@@ -225,6 +225,29 @@
         }
         .page-dot:hover .tooltip { opacity: 1; }
 
+        /* Page tabs (named buttons) */
+        .page-tab {
+            padding: 10px 20px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .page-tab:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .page-tab.active {
+            background: rgba(74, 222, 128, 0.15);
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+
         /* Context menu */
         .context-menu {
             position: fixed;
@@ -737,6 +760,329 @@
             background: rgba(255,255,255,0.15);
             color: #fff;
         }
+
+        /* ERP Refresh Button */
+        .btn-refresh-erp {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #a78bfa;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .btn-refresh-erp:hover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: #8b5cf6;
+            color: #c4b5fd;
+        }
+        .btn-refresh-erp:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-refresh-erp .spin {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Claude Coordinate Button */
+        .btn-claude-coordinate {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border: none;
+            color: white !important;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        }
+        .btn-claude-coordinate:hover {
+            background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+
+        /* Animations */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+        }
+
+        /* ERP Task Styles */
+        .agent-tasks h3,
+        .issues-manager h3 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Terminal Manager Styles */
+        .terminal-manager {
+            display: none;
+            height: calc(100vh - 200px);
+            min-height: 500px;
+            gap: 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .terminal-manager.active {
+            display: flex;
+        }
+        .terminal-sidebar {
+            width: 280px;
+            background: rgba(30, 41, 59, 0.95);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .sidebar-header {
+            padding: 16px 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: #4ade80;
+        }
+        .sidebar-search {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-search input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .sidebar-search input::placeholder { color: #64748b; }
+        .sidebar-search input:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+        .project-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .project-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            cursor: default;
+            transition: background 0.2s;
+        }
+        .project-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+        .project-name {
+            font-size: 0.9rem;
+            color: #e2e8f0;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 8px;
+        }
+        .project-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .project-item:hover .project-actions {
+            opacity: 1;
+        }
+        .project-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .project-btn:hover {
+            transform: scale(1.1);
+        }
+        .project-btn.bash {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+        }
+        .project-btn.claude-btn {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: white;
+        }
+        .project-btn.sudo {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+        }
+
+        .terminal-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .terminal-tabs {
+            display: flex;
+            background: rgba(30, 41, 59, 0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 8px 0;
+            gap: 4px;
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .terminal-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+        .terminal-tab:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .terminal-tab.active {
+            background: rgba(74, 222, 128, 0.15);
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+        .terminal-tab .tab-type {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .terminal-tab .tab-type.bash { background: #059669; }
+        .terminal-tab .tab-type.claude-btn { background: #d97706; }
+        .terminal-tab .tab-type.sudo { background: #dc2626; }
+        .terminal-tab .tab-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .terminal-tab .tab-close {
+            width: 18px;
+            height: 18px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .terminal-tab .tab-close:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .terminal-container {
+            flex: 1;
+            position: relative;
+            background: #0f172a;
+        }
+        .terminal-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #64748b;
+        }
+        .terminal-placeholder svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        .terminal-placeholder p {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+        .terminal-placeholder small {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        .terminal-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+        .terminal-iframe.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .terminal-manager {
+                flex-direction: column;
+                height: calc(100vh - 180px);
+            }
+            .terminal-sidebar {
+                width: 100%;
+                height: 200px;
+                border-right: none;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+        }
     </style>
 </head>
 <body>
@@ -780,24 +1126,73 @@
             </div>
             <div class="agent-tasks" id="agentTasks">
                 <h3>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                    Tâches Agents en cours
+                    <span style="display:flex;align-items:center;gap:8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                        Progression ERP
+                    </span>
+                    <button id="btnRefreshERP" class="btn-refresh-erp" onclick="manualRefreshERP()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    </button>
                 </h3>
-                <div id="agentTasksList"></div>
+                <div id="agentTasksList">
+                    <div class="empty-issues">Chargement...</div>
+                </div>
             </div>
             <div class="issues-manager" id="issuesManager">
                 <h3>
                     <span style="display:flex;align-items:center;gap:8px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                        Problèmes à corriger
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        Demandes pour Claude
                     </span>
-                    <button class="btn-add-issue" onclick="openIssueModal()">+ Ajouter</button>
                 </h3>
-                <div id="issuesList"></div>
+                <div id="erpRequestForm" style="margin-bottom:12px;">
+                    <input type="text" id="newRequestInput" placeholder="Ajouter une demande..." style="width:100%;padding:8px 12px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#f1f5f9;font-size:13px;margin-bottom:8px;">
+                    <div style="display:flex;gap:8px;">
+                        <select id="newRequestType" style="flex:1;padding:6px 10px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#f1f5f9;font-size:12px;">
+                            <option value="feature">Fonctionnalite</option>
+                            <option value="bug">Bug</option>
+                            <option value="improvement">Amelioration</option>
+                        </select>
+                        <select id="newRequestPriority" style="flex:1;padding:6px 10px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#f1f5f9;font-size:12px;">
+                            <option value="normal">Normal</option>
+                            <option value="high">Important</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                        <button onclick="addERPRequest()" style="padding:6px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Ajouter</button>
+                    </div>
+                </div>
+                <div id="issuesList">
+                    <div class="empty-issues">Aucune demande</div>
+                </div>
             </div>
         </div>
 
         <div class="page-nav" id="pageNav"></div>
+
+        <!-- Terminal Manager -->
+        <div class="terminal-manager" id="terminalManager">
+            <div class="terminal-sidebar">
+                <div class="sidebar-header">Projets</div>
+                <div class="sidebar-search">
+                    <input type="text" id="projectSearch" placeholder="Rechercher un projet..." oninput="renderProjectList(this.value)">
+                </div>
+                <div class="project-list" id="projectList"></div>
+            </div>
+            <div class="terminal-area">
+                <div class="terminal-tabs" id="terminalTabs"></div>
+                <div class="terminal-container" id="terminalContainer">
+                    <div class="terminal-placeholder" id="terminalPlaceholder">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10z"/>
+                            <path d="M7 9l4 3-4 3v-6z"/>
+                            <path d="M13 15h5v-2h-5v2z"/>
+                        </svg>
+                        <p>Aucun terminal ouvert</p>
+                        <small>Cliquez sur [B] [C] ou [S] pour ouvrir un terminal</small>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <footer>
             <p>
@@ -862,12 +1257,21 @@
         const hostMapping = {
             'cactus.rad': '192.168.1.200',
             'cactus': '192.168.1.200',
-            'cactus.local': '192.168.1.200'
+            'cactus.local': '192.168.1.200',
+            'localhost': '192.168.1.200',
+            '127.0.0.1': '192.168.1.200'
         };
         const rawHost = window.location.hostname;
         const host = hostMapping[rawHost] || rawHost;
         const baseUrl = (port, path = '') => `http://${host}:${port}${path}`;
         const baseUrlHttps = (port, path = '') => `https://${host}:${port}${path}`;
+
+        // ============ ERP API Configuration ============
+        const ERP_API_BASE = baseUrl(8001, '/api');
+        const ERP_REFRESH_INTERVAL = 30000; // 30 seconds
+        let erpRefreshTimer = null;
+        let erpTasksInProgress = [];
+        let erpBlockedTasks = [];
 
         const defaultApps = [
             { id: 'ha', name: 'Home Assistant', desc: 'Domotique et automatisation', port: ':8123', url: baseUrl(8123), icon: 'ha' },
@@ -885,7 +1289,10 @@
             { id: 'opermax-quote', name: 'Soumission Opermax', desc: 'Générateur de soumissions', port: ':5002', url: baseUrl(5002), icon: 'opermax-quote' },
             { id: 'trading-bot', name: 'Trading Bot', desc: 'Grid Trading Binance', port: ':8080', url: baseUrl(8080), icon: 'trading-bot' },
             { id: 'guillevin', name: 'Guillevin Prix', desc: 'Gestion des prix fournisseurs', port: ':5050', url: baseUrl(5050), icon: 'guillevin' },
-            { id: 'todo-list', name: 'Cactus TODO-LIST', desc: 'Workspace tmux multi-agents', port: ':7690', url: '#project:todo-list', icon: 'project-card', isProject: true }
+            { id: 'todo-list', name: 'Todo List ERP', desc: 'Module Todo pour ERP', port: ':7690', url: '#project:todo-list', icon: 'project-card', isProject: true },
+            { id: 'rad-serial', name: 'Rad Serial DB', desc: 'Gestion numéros de série', port: ':7692', url: '#project:rad-serial', icon: 'project-card', isProject: true },
+            { id: 'rad-quote', name: 'Rad Quote (Opermax)', desc: 'Générateur soumissions', port: ':7693', url: '#project:rad-quote', icon: 'project-card', isProject: true },
+            { id: 'homepage-dev', name: 'Homepage App', desc: 'Dashboard Cactus Home', port: ':7694', url: '#project:homepage-dev', icon: 'project-card', isProject: true }
         ];
 
         // ============ Projects Configuration ============
@@ -894,7 +1301,61 @@
                 id: 'todo-list',
                 name: 'Todo List ERP',
                 terminalPort: 7690,
-                description: 'Module Todo List pour système ERP maison - React + FastAPI'
+                tmuxSession: 'todo-erp',
+                description: 'Module Todo List pour système ERP maison - React + FastAPI',
+                windows: [
+                    { num: 1, icon: '🎯', name: 'Claude' },
+                    { num: 2, icon: '📁', name: 'Structure' },
+                    { num: 3, icon: '📋', name: 'DevLog' },
+                    { num: 4, icon: '⚙️', name: 'Backend' },
+                    { num: 5, icon: '🎨', name: 'Frontend' },
+                    { num: 6, icon: '🧪', name: 'Tests' },
+                    { num: 7, icon: '📦', name: 'Git' }
+                ]
+            },
+            'rad-serial': {
+                id: 'rad-serial',
+                name: 'Rad Serial DB',
+                terminalPort: 7692,
+                tmuxSession: 'rad-serial',
+                description: 'Base de données numéros de série - FastAPI + SQLite',
+                windows: [
+                    { num: 1, icon: '🎯', name: 'Claude' },
+                    { num: 2, icon: '📁', name: 'Structure' },
+                    { num: 3, icon: '🐳', name: 'Docker' },
+                    { num: 4, icon: '⚙️', name: 'App' },
+                    { num: 5, icon: '📜', name: 'Logs' },
+                    { num: 6, icon: '🗄️', name: 'DB' },
+                    { num: 7, icon: '📦', name: 'Git' }
+                ]
+            },
+            'rad-quote': {
+                id: 'rad-quote',
+                name: 'Rad Quote (Opermax)',
+                terminalPort: 7693,
+                tmuxSession: 'rad-quote',
+                description: 'Générateur de soumissions Opermax',
+                windows: [
+                    { num: 1, icon: '🎯', name: 'Claude' },
+                    { num: 2, icon: '📁', name: 'Structure' },
+                    { num: 3, icon: '⚙️', name: 'App' },
+                    { num: 4, icon: '📜', name: 'Logs' },
+                    { num: 5, icon: '📦', name: 'Git' }
+                ]
+            },
+            'homepage-dev': {
+                id: 'homepage-dev',
+                name: 'Homepage App',
+                terminalPort: 7694,
+                tmuxSession: 'homepage',
+                description: 'Dashboard Cactus Home Server - Flask + Docker',
+                windows: [
+                    { num: 1, icon: '🎯', name: 'Claude' },
+                    { num: 2, icon: '📁', name: 'Structure' },
+                    { num: 3, icon: '🐳', name: 'Docker' },
+                    { num: 4, icon: '📜', name: 'Logs' },
+                    { num: 5, icon: '📦', name: 'Git' }
+                ]
             }
         };
 
@@ -907,6 +1368,21 @@
                 { id: 'issue_init_4', title: 'Filtres et recherche', description: 'Ajouter filtrage par statut et recherche par texte', priority: 'medium', status: 'open' },
                 { id: 'issue_init_5', title: 'Catégories de todos', description: 'Permettre de classer les todos par catégorie', priority: 'low', status: 'open' },
                 { id: 'issue_init_6', title: 'Intégration ERP', description: 'Préparer webhooks et API keys pour intégration avec rad_serial_db', priority: 'low', status: 'open' }
+            ],
+            'rad-serial': [
+                { id: 'rs_1', title: 'Maintenance base données', description: 'Vérifier intégrité et optimiser la DB SQLite', priority: 'medium', status: 'open' },
+                { id: 'rs_2', title: 'Améliorer UI recherche', description: 'Ajouter recherche avancée et filtres multiples', priority: 'medium', status: 'open' },
+                { id: 'rs_3', title: 'Export CSV/Excel', description: 'Permettre export des données en différents formats', priority: 'low', status: 'open' }
+            ],
+            'rad-quote': [
+                { id: 'rq_1', title: 'Mise à jour calculateur', description: 'Intégrer les nouveaux tarifs Opermax 2026', priority: 'high', status: 'open' },
+                { id: 'rq_2', title: 'Génération PDF', description: 'Améliorer le template PDF des soumissions', priority: 'medium', status: 'open' },
+                { id: 'rq_3', title: 'Historique soumissions', description: 'Sauvegarder et consulter les anciennes soumissions', priority: 'low', status: 'open' }
+            ],
+            'homepage-dev': [
+                { id: 'hp_1', title: 'Améliorer responsive', description: 'Optimiser affichage mobile et tablette', priority: 'medium', status: 'open' },
+                { id: 'hp_2', title: 'Health check services', description: 'Ajouter indicateur de status pour chaque service', priority: 'medium', status: 'open' },
+                { id: 'hp_3', title: 'Thème clair', description: 'Option pour basculer en mode clair', priority: 'low', status: 'open' }
             ]
         };
 
@@ -918,13 +1394,31 @@
                 { id: 'task_3', agent: '🎨 Frontend', task: 'Composants React + UI', status: 'pending' },
                 { id: 'task_4', agent: '🧪 Testeur', task: 'Tests pytest + vitest', status: 'pending' },
                 { id: 'task_5', agent: '🔥 Critique', task: 'Code review + sécurité', status: 'pending' }
+            ],
+            'rad-serial': [
+                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
+                { id: 'task_2', agent: '⚙️ Serveur', task: 'FastAPI sur port 8000', status: 'pending' },
+                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
+                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
+            ],
+            'rad-quote': [
+                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
+                { id: 'task_2', agent: '⚙️ Serveur', task: 'Serveur Opermax', status: 'pending' },
+                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
+                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
+            ],
+            'homepage-dev': [
+                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
+                { id: 'task_2', agent: '🐳 Docker', task: 'Container homepage', status: 'pending' },
+                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
+                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
             ]
         };
 
         const defaultPages = [
             { id: 'main', name: 'Accueil', apps: ['ha', 'grafana', 'portainer', 'influxdb', 'neviweb', 'n8n', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin'] },
             { id: 'terminals', name: 'Terminaux', apps: ['terminal', 'claude', 'sudo-claude'] },
-            { id: 'projets', name: 'Projets', apps: ['todo-list'] }
+            { id: 'projets', name: 'Projets', apps: ['todo-list', 'rad-serial', 'rad-quote', 'homepage-dev'] }
         ];
 
         const icons = {
@@ -945,6 +1439,228 @@
             'guillevin': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>',
             'project-card': '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>'
         };
+
+        // ============ Terminal Manager ============
+        const projectFolders = [
+            'rad_serial_pro', 'rad_serial_data', 'sandbox-todo-erp', 'guillevin',
+            'cactus-home', 'homeassistant', 'homeassistant-mcp', 'homepage-app',
+            'mcp-manager', 'mcp-servers', 'mcp', 'Pushover-claude',
+            'qbo-connect', 'qbo-integration', 'rad_quote', 'setup-github',
+            'setup_serveur', 'grafana', 'stirling_pdf', 'tmux-api', 'templates',
+            'bugs_service', 'backup-project', 'backup-projet', 'app-test',
+            'Agri-Connect', 'kali', 'twingate', 'nas', 'particle', 'unifi',
+            'neviweb', 'iotawatt', 'Opermax encordeur', 'dip remote', 'fagor',
+            'Encoder absolue ADMT4000', 'Joel collard', 'Cactus PLC', 'lvgl', 'serveur', 'push'
+        ].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+        const terminalTypes = {
+            bash:   { port: 7680, label: 'B', command: 'bash', color: 'bash' },
+            claude: { port: 7681, label: 'C', command: 'claude', color: 'claude-btn' },
+            sudo:   { port: 7682, label: 'S', command: 'claude', color: 'sudo' }
+        };
+
+        let terminalTabs = [];
+        let activeTerminalTabId = null;
+
+        function getTerminalState() {
+            const saved = localStorage.getItem('cactusTerminalTabs');
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) { }
+            }
+            return { tabs: [], activeTabId: null };
+        }
+
+        function saveTerminalState() {
+            localStorage.setItem('cactusTerminalTabs', JSON.stringify({
+                tabs: terminalTabs,
+                activeTabId: activeTerminalTabId
+            }));
+        }
+
+        function generateTabId() {
+            return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function createTerminalTab(type, project) {
+            const typeInfo = terminalTypes[type];
+            if (!typeInfo) return;
+
+            const tabId = generateTabId();
+            const sessionName = `${type}_${project}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+            const tab = {
+                id: tabId,
+                name: project,
+                type: type,
+                port: typeInfo.port,
+                project: project,
+                tmuxSession: sessionName,
+                command: typeInfo.command,
+                createdAt: Date.now()
+            };
+
+            terminalTabs.push(tab);
+            activeTerminalTabId = tabId;
+            saveTerminalState();
+            renderTerminalTabs();
+            loadTerminalIframe(tab);
+        }
+
+        function activateTerminalTab(tabId) {
+            const tab = terminalTabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            activeTerminalTabId = tabId;
+            saveTerminalState();
+
+            document.querySelectorAll('.terminal-tab').forEach(el => {
+                el.classList.toggle('active', el.dataset.tabId === tabId);
+            });
+            document.querySelectorAll('.terminal-iframe').forEach(iframe => {
+                iframe.classList.toggle('active', iframe.dataset.tabId === tabId);
+            });
+
+            const placeholder = document.getElementById('terminalPlaceholder');
+            if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+        }
+
+        function closeTerminalTab(tabId, event) {
+            if (event) event.stopPropagation();
+
+            const tabIndex = terminalTabs.findIndex(t => t.id === tabId);
+            if (tabIndex === -1) return;
+
+            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
+            if (iframe) iframe.remove();
+
+            terminalTabs.splice(tabIndex, 1);
+
+            if (activeTerminalTabId === tabId) {
+                if (terminalTabs.length > 0) {
+                    const newIndex = Math.max(0, tabIndex - 1);
+                    activeTerminalTabId = terminalTabs[newIndex].id;
+                    activateTerminalTab(activeTerminalTabId);
+                } else {
+                    activeTerminalTabId = null;
+                }
+            }
+
+            saveTerminalState();
+            renderTerminalTabs();
+
+            const placeholder = document.getElementById('terminalPlaceholder');
+            if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+        }
+
+        function renameTerminalTab(tabId, event) {
+            if (event) event.stopPropagation();
+            const tab = terminalTabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            const newName = prompt('Nouveau nom:', tab.name);
+            if (newName && newName.trim()) {
+                tab.name = newName.trim();
+                saveTerminalState();
+                renderTerminalTabs();
+            }
+        }
+
+        function loadTerminalIframe(tab) {
+            const container = document.getElementById('terminalContainer');
+            if (!container) return;
+
+            const placeholder = document.getElementById('terminalPlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
+
+            let iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tab.id}"]`);
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.className = 'terminal-iframe';
+                iframe.dataset.tabId = tab.id;
+                const url = `http://${host}:${tab.port}?arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
+                iframe.src = url;
+                container.appendChild(iframe);
+            }
+
+            document.querySelectorAll('.terminal-iframe').forEach(el => {
+                el.classList.toggle('active', el.dataset.tabId === tab.id);
+            });
+        }
+
+        function renderTerminalTabs() {
+            const tabsContainer = document.getElementById('terminalTabs');
+            if (!tabsContainer) return;
+
+            if (terminalTabs.length === 0) {
+                tabsContainer.innerHTML = '';
+                return;
+            }
+
+            tabsContainer.innerHTML = terminalTabs.map(tab => {
+                const typeInfo = terminalTypes[tab.type];
+                return `
+                    <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''}"
+                         data-tab-id="${tab.id}"
+                         onclick="activateTerminalTab('${tab.id}')"
+                         ondblclick="renameTerminalTab('${tab.id}', event)">
+                        <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
+                        <span class="tab-name">${tab.name}</span>
+                        <button class="tab-close" onclick="closeTerminalTab('${tab.id}', event)">&times;</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderProjectList(filter = '') {
+            const container = document.getElementById('projectList');
+            if (!container) return;
+
+            const filteredProjects = projectFolders.filter(p =>
+                p.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            container.innerHTML = filteredProjects.map(project => `
+                <div class="project-item">
+                    <span class="project-name" title="${project}">${project}</span>
+                    <div class="project-actions">
+                        <button class="project-btn bash" onclick="createTerminalTab('bash', '${project}')" title="Bash">B</button>
+                        <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${project}')" title="Claude">C</button>
+                        <button class="project-btn sudo" onclick="createTerminalTab('sudo', '${project}')" title="Sudo Claude">S</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function initTerminalManager() {
+            const state = getTerminalState();
+            terminalTabs = state.tabs || [];
+            activeTerminalTabId = state.activeTabId;
+
+            renderProjectList();
+            renderTerminalTabs();
+
+            terminalTabs.forEach(tab => loadTerminalIframe(tab));
+
+            if (activeTerminalTabId && terminalTabs.find(t => t.id === activeTerminalTabId)) {
+                activateTerminalTab(activeTerminalTabId);
+            } else if (terminalTabs.length > 0) {
+                activateTerminalTab(terminalTabs[0].id);
+            }
+
+            const placeholder = document.getElementById('terminalPlaceholder');
+            if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+        }
+
+        function showTerminalManager(show) {
+            const manager = document.getElementById('terminalManager');
+            const grid = document.getElementById('appGrid');
+
+            if (manager && grid) {
+                manager.classList.toggle('active', show);
+                grid.style.display = show ? 'none' : '';
+                if (show) initTerminalManager();
+            }
+        }
 
         // ============ State ============
         let currentPageId = 'main';
@@ -1229,6 +1945,16 @@
             const currentPage = pages.find(p => p.id === currentPageId);
             const grid = document.getElementById('appGrid');
 
+            // Show terminal manager on terminals page
+            if (currentPageId === 'terminals') {
+                grid.style.display = 'none';
+                showTerminalManager(true);
+                return;
+            } else {
+                grid.style.display = '';
+                showTerminalManager(false);
+            }
+
             if (!currentPage || currentPage.apps.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-page" style="grid-column: 1 / -1;">
@@ -1257,11 +1983,10 @@
             }
 
             nav.innerHTML = pages.map(page => `
-                <div class="page-dot ${page.id === currentPageId ? 'active' : ''}"
-                     onclick="setCurrentPageId('${page.id}')"
-                     title="${page.name}">
-                    <span class="tooltip">${page.name}</span>
-                </div>
+                <button class="page-tab ${page.id === currentPageId ? 'active' : ''}"
+                        onclick="setCurrentPageId('${page.id}')">
+                    ${page.name}
+                </button>
             `).join('');
         }
 
@@ -1486,9 +2211,11 @@
             const terminalUrl = baseUrl(project.terminalPort);
             document.getElementById('terminalFrame').src = terminalUrl;
 
-            // Load issues and tasks
-            loadProjectIssues(projectId);
-            loadAgentTasks(projectId);
+            // Render tmux buttons for this project
+            renderTmuxButtons(project);
+
+            // Start ERP refresh for tasks and blocked issues
+            startERPRefresh();
 
             // Add back button to top bar
             const topBar = document.querySelector('.top-bar');
@@ -1508,6 +2235,9 @@
         function closeProjectView() {
             currentProjectId = null;
 
+            // Stop ERP refresh
+            stopERPRefresh();
+
             // Show grid and hide project view
             document.getElementById('appGrid').style.display = '';
             document.getElementById('pageNav').style.display = '';
@@ -1525,6 +2255,17 @@
         const TMUX_API_PORT = 7691;
         let currentTmuxWindow = 1;
 
+        function renderTmuxButtons(project) {
+            const container = document.getElementById('tmuxButtons');
+            if (!project.windows || project.windows.length === 0) {
+                container.innerHTML = '<span style="color:#64748b">Aucune fenêtre configurée</span>';
+                return;
+            }
+            container.innerHTML = project.windows.map(w =>
+                `<button class="tmux-btn" data-window="${w.num}" onclick="switchTmuxWindow(${w.num})"><span class="tmux-key">${w.num}</span>${w.icon} ${w.name}</button>`
+            ).join('');
+        }
+
         async function switchTmuxWindow(windowNum) {
             const statusEl = document.getElementById('tmuxStatus');
             const buttons = document.querySelectorAll('.tmux-btn');
@@ -1541,7 +2282,10 @@
             statusEl.className = 'tmux-status';
 
             try {
-                const response = await fetch(`http://${host}:${TMUX_API_PORT}/window/${windowNum}`, {
+                // Utiliser la session du projet courant
+                const project = projectsConfig[currentProjectId];
+                const sessionName = project ? project.tmuxSession : 'todo-erp';
+                const response = await fetch(`http://${host}:${TMUX_API_PORT}/session/${sessionName}/window/${windowNum}`, {
                     method: 'POST',
                     mode: 'cors'
                 });
@@ -1550,10 +2294,7 @@
                     currentTmuxWindow = windowNum;
                     statusEl.textContent = `Fenêtre ${windowNum} active`;
                     statusEl.className = 'tmux-status success';
-
-                    // Refresh the terminal iframe to show the new window
-                    const iframe = document.getElementById('terminalFrame');
-                    iframe.src = iframe.src;
+                    // Pas besoin de rafraîchir l'iframe - tmux change la fenêtre côté serveur
                 } else {
                     throw new Error('Erreur serveur');
                 }
@@ -1836,6 +2577,334 @@
             const saved = localStorage.getItem(getProjectIssuesKey(projectId));
             return saved ? JSON.parse(saved) : [];
         };
+
+        // ============ ERP API Functions ============
+
+        // Priority color mapping for ERP tasks
+        const priorityColors = {
+            urgent: '#ef4444',  // red
+            high: '#f97316',    // orange
+            normal: '#3b82f6',  // blue
+            low: '#6b7280'      // gray
+        };
+
+        const priorityLabels = {
+            urgent: 'Urgent',
+            high: 'Haute',
+            normal: 'Normale',
+            low: 'Basse'
+        };
+
+        const departmentLabels = {
+            assembly: 'Assemblage',
+            shipping: 'Expedition',
+            billing: 'Facturation',
+            inventory: 'Inventaire',
+            purchasing: 'Achats'
+        };
+
+        let erpRequests = [];
+        let erpProgress = [];
+
+        async function fetchERPData() {
+            try {
+                // Fetch requests and progress from homepage API
+                const response = await fetch('/api/erp/requests');
+                if (response.ok) {
+                    const data = await response.json();
+                    erpRequests = data.requests || [];
+                    erpProgress = data.progress || [];
+                }
+
+                // Render the updated data
+                renderERPProgress();
+                renderERPRequests();
+
+                return true;
+            } catch (error) {
+                console.error('Error fetching ERP data:', error);
+                return false;
+            }
+        }
+
+        async function addERPRequest() {
+            const input = document.getElementById('newRequestInput');
+            const typeSelect = document.getElementById('newRequestType');
+            const prioritySelect = document.getElementById('newRequestPriority');
+
+            const title = input.value.trim();
+            if (!title) return;
+
+            try {
+                const response = await fetch('/api/erp/requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        type: typeSelect.value,
+                        priority: prioritySelect.value
+                    })
+                });
+
+                if (response.ok) {
+                    input.value = '';
+                    fetchERPData();
+                }
+            } catch (error) {
+                console.error('Error adding request:', error);
+            }
+        }
+
+        async function markRequestDone(id) {
+            try {
+                await fetch(`/api/erp/requests/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'done' })
+                });
+                fetchERPData();
+            } catch (error) {
+                console.error('Error updating request:', error);
+            }
+        }
+
+        async function deleteRequest(id) {
+            try {
+                await fetch(`/api/erp/requests/${id}`, { method: 'DELETE' });
+                fetchERPData();
+            } catch (error) {
+                console.error('Error deleting request:', error);
+            }
+        }
+
+        function startERPRefresh() {
+            // Initial fetch
+            fetchERPData();
+
+            // Set up auto-refresh
+            if (erpRefreshTimer) {
+                clearInterval(erpRefreshTimer);
+            }
+            erpRefreshTimer = setInterval(fetchERPData, ERP_REFRESH_INTERVAL);
+        }
+
+        function stopERPRefresh() {
+            if (erpRefreshTimer) {
+                clearInterval(erpRefreshTimer);
+                erpRefreshTimer = null;
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-CA', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
+        const typeLabels = {
+            feature: 'Fonctionnalite',
+            bug: 'Bug',
+            improvement: 'Amelioration'
+        };
+
+        const typeColors = {
+            feature: '#22c55e',
+            bug: '#ef4444',
+            improvement: '#3b82f6'
+        };
+
+        function renderERPProgress() {
+            const container = document.getElementById('agentTasksList');
+            if (!container) return;
+
+            if (erpProgress.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-issues">
+                        Aucune activite recente
+                        <br><small style="color:#64748b;">Les mises a jour apparaitront ici</small>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = erpProgress.map(entry => `
+                <div class="agent-task-item ${entry.type === 'in_progress' ? 'running' : ''}" style="border-left-color: ${entry.type === 'in_progress' ? '#f59e0b' : '#22c55e'};">
+                    <div class="agent-task-header">
+                        <span class="agent-name" style="font-size:12px;">${escapeHtml(entry.text)}</span>
+                        <span class="agent-status ${entry.type}" style="background: ${entry.type === 'in_progress' ? '#f59e0b30' : '#22c55e30'}; color: ${entry.type === 'in_progress' ? '#f59e0b' : '#22c55e'}; font-size:10px;">
+                            ${entry.type === 'in_progress' ? 'En cours' : 'Fait'}
+                        </span>
+                    </div>
+                    <div class="agent-task-desc" style="font-size:10px;color:#64748b;">
+                        ${formatDate(entry.created_at)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderERPRequests() {
+            const container = document.getElementById('issuesList');
+            if (!container) return;
+
+            const pendingRequests = erpRequests.filter(r => r.status !== 'done');
+
+            if (pendingRequests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-issues">
+                        Aucune demande en attente
+                        <br><small style="color:#64748b;">Ajoute une demande ci-dessus</small>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = pendingRequests.map(req => `
+                <div class="issue-item ${req.priority}" style="border-left-color: ${req.status === 'in_progress' ? '#3b82f6' : (priorityColors[req.priority] || priorityColors.normal)}; ${req.status === 'in_progress' ? 'background: rgba(59,130,246,0.1);' : ''}">
+                    <div class="issue-header">
+                        <span class="issue-title" style="font-size:12px;">${escapeHtml(req.title)}</span>
+                        ${req.status === 'in_progress' ?
+                            '<span style="background:#3b82f6;color:white;font-size:9px;padding:2px 6px;border-radius:4px;margin-left:6px;">EN COURS</span>' :
+                            ''}
+                        <span class="issue-priority" style="background: ${typeColors[req.type]}30; color: ${typeColors[req.type]}; font-size:10px; padding:2px 6px; border-radius:4px;">
+                            ${typeLabels[req.type] || req.type}
+                        </span>
+                    </div>
+                    <div class="issue-desc" style="font-size:10px;color:#64748b;margin-top:4px;">
+                        ${priorityLabels[req.priority] || req.priority} | ${formatDate(req.created_at)}
+                    </div>
+                    <div class="issue-actions" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                        ${req.status !== 'in_progress' ? `
+                        <button onclick="startWorkingOnRequest(${req.id}, '${escapeHtml(req.title).replace(/'/g, "\\'")}', '${req.type}', '${req.priority}')" style="padding:4px 8px;background:#3b82f6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;display:flex;align-items:center;gap:4px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                            Travailler dessus
+                        </button>
+                        ` : ''}
+                        <button class="btn-claude-coordinate" onclick="askClaudeToCoordinate(${req.id}, '${escapeHtml(req.title).replace(/'/g, "\\'")}', '${req.type}', '${req.priority}')">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            Claude
+                        </button>
+                        <button onclick="markRequestDone(${req.id})" style="padding:4px 8px;background:#22c55e;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Fait</button>
+                        <button onclick="deleteRequest(${req.id})" style="padding:4px 8px;background:#64748b;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">X</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function startWorkingOnRequest(requestId, title, type, priority) {
+            console.log('startWorkingOnRequest called:', requestId, title);
+
+            // Preparer le message
+            const message = `DEMANDE ERP TODO LIST - #${requestId} [EN COURS]
+=====================================
+Titre: ${title}
+Type: ${typeLabels[type] || type}
+Priorite: ${priorityLabels[priority] || priority}
+
+Je commence a travailler sur cette demande maintenant.`;
+
+            // Copier dans le presse-papiers (methode compatible HTTP)
+            function copyToClipboard(text) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    return true;
+                } catch (e) {
+                    return false;
+                } finally {
+                    document.body.removeChild(textarea);
+                }
+            }
+
+            if (copyToClipboard(message)) {
+                // Notification visuelle
+                const notif = document.createElement('div');
+                notif.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 25px;border-radius:12px;z-index:10000;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+                notif.textContent = 'Message copie! Collez-le dans Claude.';
+                document.body.appendChild(notif);
+                setTimeout(() => notif.remove(), 3000);
+            } else {
+                prompt('Copiez ce message manuellement:', message);
+            }
+
+            // Marquer comme en cours via l'API
+            fetch(`/api/erp/requests/${requestId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'in_progress' })
+            }).then(() => {
+                fetchERPData();
+            }).catch(err => console.error('Error updating request:', err));
+        }
+
+        function askClaudeToCoordinate(requestId, title, type, priority) {
+            const message = `
+DEMANDE ERP TODO LIST - #${requestId}
+=====================================
+Titre: ${title}
+Type: ${typeLabels[type] || type}
+Priorite: ${priorityLabels[priority] || priority}
+
+Peux-tu traiter cette demande pour le projet Todo List ERP?
+            `.trim();
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(message).then(() => {
+                // Show feedback
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+                    color: white;
+                    padding: 15px 25px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(139, 92, 246, 0.4);
+                    z-index: 10000;
+                    font-size: 0.9rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    animation: slideIn 0.3s ease;
+                `;
+                notification.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                    Message copie! Collez-le dans Claude.
+                `;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Message pour Claude:\n\n' + message);
+            });
+        }
+
+        function manualRefreshERP() {
+            const btn = document.getElementById('btnRefreshERP');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="spin"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
+            }
+            fetchERPTasks().finally(() => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Actualiser';
+                }
+            });
+        }
 
         // ============ Init ============
         async function init() {

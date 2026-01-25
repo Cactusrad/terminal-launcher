@@ -1,0 +1,14 @@
+[Unit]
+Description=Homepage App Workspace (ttyd + tmux)
+After=network.target
+
+[Service]
+Type=simple
+User=cactus
+WorkingDirectory=/home/cactus/claude/homepage-app
+ExecStart=/bin/bash -c 'tmux new-session -d -s homepage -c /home/cactus/claude/homepage-app 2>/dev/null || true; /usr/bin/ttyd -p 7694 -W -t fontSize=14 -t fontFamily=monospace tmux attach -t homepage'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
