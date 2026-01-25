@@ -60,6 +60,12 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | `/api/preferences` | POST | Met à jour toutes les préférences |
 | `/api/preferences/pages` | POST | Met à jour les pages uniquement |
 | `/api/preferences/current-page` | POST | Met à jour la page courante |
+| `/api/projects/folders` | GET | Liste les dossiers dans /home/cactus/claude |
+| `/api/projects/hidden` | POST | Met à jour la liste des dossiers cachés |
+| `/api/erp/requests` | GET | Liste les demandes ERP |
+| `/api/erp/requests` | POST | Ajoute une demande ERP (+ notification Telegram) |
+| `/api/erp/requests/<id>` | PATCH | Met à jour une demande ERP |
+| `/api/erp/requests/<id>` | DELETE | Supprime une demande ERP |
 
 **Format des préférences :**
 ```json
@@ -88,9 +94,9 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | Soumission Opermax | 5002 | Générateur de soumissions |
 | Trading Bot | 8080 | Grid Trading Binance |
 | Guillevin Prix | 5050 | Gestion des prix fournisseurs |
-| Terminal | 7680 | Terminal Bash web |
-| Claude Terminal | 7681 | Terminal web Claude Code |
-| Sudo Claude Terminal | 7682 | Terminal web sudo Claude |
+| Terminal | 7680 | Terminal Bash web (dtach) |
+| Claude Terminal | 7681 | Terminal web Claude Code (dtach) |
+| Sudo Claude Terminal | 7682 | Terminal web sudo Claude (dtach) |
 
 ## Persistance
 
@@ -119,7 +125,10 @@ Homepage personnalisée "Cactus Home Server" - Dashboard de lancement pour serve
 | **Admin** | Interface d'administration pour gérer pages et apps |
 | **Reset** | Réinitialisation complète (local + serveur) |
 | **Vue Projet** | Interface dédiée avec terminal, issues et tâches agents |
-| **Contrôle tmux** | Boutons pour changer de fenêtre tmux (via API port 7691) |
+| **Terminal Manager** | Gestionnaire de terminaux avec onglets et sessions dtach |
+| **Projets dynamiques** | Scan automatique des dossiers /home/cactus/claude |
+| **Gestion projets cachés** | Modal ⚙ pour masquer/afficher des projets |
+| **Demandes ERP** | Système de tickets avec notifications Telegram |
 
 ## Page Projets
 
@@ -156,21 +165,38 @@ window.getProjectIssues('todo-list');
 window.updateAgentTask('todo-list', 'Backend', 'Migration DB', 'running');
 ```
 
-## API Tmux
+## Terminal Manager (dtach)
 
-**Port** : 7691
-**Chemin** : `/home/cactus/claude/tmux-api/`
+Les terminaux web utilisent **dtach** au lieu de tmux pour permettre le scroll natif du navigateur.
 
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `/health` | GET | Status de l'API |
-| `/window/{num}` | POST | Changer de fenêtre tmux |
-| `/windows` | GET | Lister les fenêtres |
-| `/current` | GET | Fenêtre active |
+**Services systemd :**
+- `ttyd-terminal.service` - Port 7680 (Bash)
+- `ttyd-claude.service` - Port 7681 (Claude Code)
+- `ttyd-sudo-claude.service` - Port 7682 (Sudo Claude)
 
-**Démarrage** :
-```bash
-TMUX_SESSION=todo-erp /home/cactus/claude/tmux-api/start.sh
+**Fichiers :**
+- `/home/cactus/bin/dtach-wrapper.sh` - Script wrapper pour les sessions
+- `/etc/systemd/system/ttyd-*.service` - Services systemd
+
+**Avantages de dtach vs tmux :**
+- Scroll natif du navigateur fonctionne
+- Pas de raccourcis qui interfèrent avec Claude Code
+- Sessions persistantes (survivent à la fermeture de l'onglet)
+
+**Interface :**
+- Boutons **B** (Bash) et **C** (Claude) pour ouvrir un terminal
+- Onglets pour gérer plusieurs terminaux
+- Bouton ⚙ pour gérer les projets visibles/cachés
+- Bouton ↻ pour rafraîchir la liste des dossiers
+
+## Notifications Telegram
+
+Le système envoie des notifications Telegram quand une demande ERP est soumise.
+
+**Configuration** (dans `server.py`) :
+```python
+TELEGRAM_BOT_TOKEN = "..."
+TELEGRAM_CHAT_ID = "..."
 ```
 
 ## Fichiers du projet
@@ -180,17 +206,13 @@ TMUX_SESSION=todo-erp /home/cactus/claude/tmux-api/start.sh
 ├── CLAUDE.md              # Cette documentation
 ├── server.py              # Serveur Flask + API REST
 ├── index.html             # Frontend (HTML + CSS + JS)
-├── todo-ins.md            # Instructions projet TODO-LIST
 ├── requirements.txt       # Dépendances Python
 ├── Dockerfile             # Image Docker
 ├── docker-compose.yml     # Configuration Docker Compose
-└── add-notify-config.sh   # Script utilitaire
-
-/home/cactus/claude/tmux-api/
-├── server.py              # API Flask pour contrôle tmux
-├── start.sh               # Script de démarrage
-├── requirements.txt       # Dépendances Python
-└── venv/                  # Environnement virtuel Python
+├── dtach-wrapper.sh       # Script wrapper pour terminaux dtach
+├── ttyd-terminal.service  # Service systemd terminal Bash
+├── ttyd-claude.service    # Service systemd terminal Claude
+└── ttyd-sudo-claude.service # Service systemd terminal Sudo
 ```
 
 ## Commandes Docker
@@ -206,11 +228,17 @@ docker restart homepage
 cd /home/cactus/claude/homepage-app
 docker build -t homepage-flask .
 docker stop homepage && docker rm homepage
-docker run -d --name homepage --restart unless-stopped -p 1000:80 -v homepage-data:/data homepage-flask
+docker run -d --name homepage --restart unless-stopped \
+  -p 1000:80 \
+  -v homepage-data:/data \
+  -v /home/cactus/claude:/home/cactus/claude:ro \
+  homepage-flask
 
 # Inspecter le volume des préférences
 docker exec homepage cat /data/preferences.json
 ```
+
+**Note :** Le volume `/home/cactus/claude` est monté en lecture seule (`:ro`) pour permettre le scan des dossiers projets.
 
 ## Ajouter une nouvelle application
 
@@ -267,8 +295,34 @@ const defaultPages = [
 
 - ~~Externaliser la config dans un fichier JSON~~ (fait via API)
 - ~~Persistance globale des préférences~~ (fait)
+- ~~Scroll natif dans les terminaux web~~ (fait avec dtach)
+- ~~Liste dynamique des projets~~ (fait via API scan)
 - Ajouter un health check des services (ping automatique)
-- Ajouter une fonction de recherche
 - Support du thème clair
 - Authentification pour l'API
-- Upload d'images pour Claude Code (drag & drop)
+
+## Session du 24 janvier 2026
+
+**Changements effectués :**
+
+1. **Migration tmux → dtach** pour les terminaux web
+   - Scroll natif du navigateur fonctionne
+   - Création de `dtach-wrapper.sh`
+   - Mise à jour des services systemd
+
+2. **Terminal Manager optimisé**
+   - Liste des projets chargée dynamiquement depuis `/home/cactus/claude`
+   - Modal ⚙ pour gérer les projets cachés (persisté sur serveur)
+   - Suppression bouton Sudo (S) et bouton hide par ligne
+   - Plus d'espace pour les noms de projets (171px vs 107px)
+
+3. **Système de demandes ERP**
+   - API REST pour gérer les demandes (feature/bug/improvement)
+   - Notifications Telegram automatiques
+   - Interface dans la homepage
+
+4. **Commits :**
+   - `feat: add ERP requests system with Telegram notifications`
+   - `feat: replace tmux with dtach for web terminals`
+   - `feat: dynamic project folders with hide/show functionality`
+   - `refactor: optimize terminal sidebar and add settings modal`
