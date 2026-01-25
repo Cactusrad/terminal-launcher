@@ -1,0 +1,12 @@
+[Unit]
+Description=ttyd Sudo Claude Terminal
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ttyd -p 7682 -W -t fontSize=14 -t fontFamily=monospace /home/cactus/bin/dtach-wrapper.sh
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
