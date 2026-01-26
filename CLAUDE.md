@@ -501,3 +501,26 @@ chmod 777 /tmp/terminal-logs/
 **Dépendances :**
 - Créer `/tmp/terminal-logs/` avec permissions 777
 - Copier `dtach-wrapper.sh` vers `/home/cactus/bin/`
+
+## Session du 26 janvier 2026
+
+**Correction iOS Safari :**
+
+12. **Fix viewport height iOS**
+    - Problème : `100vh` sur iOS Safari inclut la barre d'adresse, coupant le contenu
+    - Solution : Variable CSS `--vh` calculée avec `window.innerHeight * 0.01`
+    - Listeners pour `resize` et `orientationchange`
+
+13. **CSS mobile iOS**
+    - `height: -webkit-fill-available` comme fallback
+    - `height: calc(var(--vh, 1vh) * 100)` pour la vraie hauteur
+    - `min-height: 0` pour permettre le flex shrinking
+    - `-webkit-overflow-scrolling: touch` pour scroll fluide
+    - Terminal container avec `position: relative` et iframe `position: absolute`
+
+14. **iframe iOS**
+    - Attribut `scrolling="yes"` pour le scroll dans l'iframe
+    - Attribut `allow="clipboard-write; clipboard-read"` pour le presse-papiers
+
+**Commits :**
+- `feat: add terminal activity detection, preview, and responsive design`
