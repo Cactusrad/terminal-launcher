@@ -2723,15 +2723,23 @@
         async function checkTerminalActivity() {
             if (terminalTabs.length === 0) return;
             try {
-                const response = await fetch('/api/terminal/activity');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const response = await fetch('/api/terminal/activity', { signal: controller.signal });
+                clearTimeout(timeout);
                 const activity = await response.json();
+
                 let anyNewWaiting = false;
+                let stateChanged = false;
 
                 terminalTabs.forEach(tab => {
                     const sessionActivity = activity[tab.tmuxSession];
                     const wasWaiting = waitingTabs[tab.tmuxSession] || false;
                     const isWaiting = sessionActivity?.waiting || false;
 
+                    if (isWaiting !== wasWaiting) {
+                        stateChanged = true;
+                    }
                     if (isWaiting && !wasWaiting && tab.id !== activeTerminalTabId) {
                         anyNewWaiting = true;
                     }
@@ -2741,9 +2749,15 @@
                 if (anyNewWaiting) {
                     playBeep();
                 }
-                renderTerminalTabs(); syncMobileTerminalTabs();
+                // Only re-render if state actually changed
+                if (stateChanged) {
+                    renderTerminalTabs();
+                    syncMobileTerminalTabs();
+                }
             } catch (error) {
-                console.error('Error checking terminal activity:', error);
+                if (error.name !== 'AbortError') {
+                    console.error('Error checking terminal activity:', error);
+                }
             }
         }
 
@@ -2993,6 +3007,13 @@
             activeTerminalTabId = tabId;
             saveTerminalState();
 
+            // Clear waiting state when user clicks on the tab (they've seen it)
+            if (waitingTabs[tab.tmuxSession]) {
+                waitingTabs[tab.tmuxSession] = false;
+                renderTerminalTabs();
+                syncMobileTerminalTabs();
+            }
+
             document.querySelectorAll('.terminal-tab').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tabId);
             });
@@ -3002,34 +3023,7 @@
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
-
-            // Trigger resize in iframe to fix xterm.js display issues
-            refreshTerminalDisplay(tabId);
-        }
-
-        // Force xterm.js to recalculate its dimensions
-        function refreshTerminalDisplay(tabId) {
-            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
-            if (!iframe) return;
-
-            // Wait for iframe to be visible, then trigger resize
-            setTimeout(() => {
-                try {
-                    // Method 1: Dispatch resize event to iframe window
-                    if (iframe.contentWindow) {
-                        iframe.contentWindow.dispatchEvent(new Event('resize'));
-                    }
-                } catch (e) {
-                    // Cross-origin - use alternative method
-                }
-
-                // Method 2: Slightly resize the iframe to force xterm reflow
-                const origHeight = iframe.style.height;
-                iframe.style.height = 'calc(100% - 1px)';
-                requestAnimationFrame(() => {
-                    iframe.style.height = origHeight || '100%';
-                });
-            }, 100);
+            // Note: No auto-refresh here - causes scroll to jump to top in xterm.js
         }
 
         // Manual refresh button - reloads the iframe completely
@@ -4741,28 +4735,9 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             document.documentElement.style.setProperty('--vh', `${vh}px`);
         }
         setViewportHeight();
-        window.addEventListener('resize', () => {
-            setViewportHeight();
-            // Also refresh active terminal on window resize
-            if (activeTerminalTabId) {
-                refreshTerminalDisplay(activeTerminalTabId);
-            }
-        });
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                setViewportHeight();
-                if (activeTerminalTabId) {
-                    refreshTerminalDisplay(activeTerminalTabId);
-                }
-            }, 100);
-        });
-
-        // Refresh terminal when page becomes visible (user returns to tab)
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && activeTerminalTabId) {
-                setTimeout(() => refreshTerminalDisplay(activeTerminalTabId), 200);
-            }
-        });
+        window.addEventListener('resize', setViewportHeight);
+        window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 100));
+        // Note: No visibilitychange refresh - causes scroll issues in xterm.js
 
         // ============ Init ============
         async function init() {

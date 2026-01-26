@@ -343,29 +343,52 @@ import glob
 TERMINAL_LOG_DIR = '/tmp/terminal-logs'
 
 # Patterns that indicate terminal is waiting for input
+# Be careful not to match status bars or regular output
 INPUT_PATTERNS = [
-    r'\[Y/n\]',
-    r'\[y/N\]',
-    r'\[yes/no\]',
-    r'\(y/n\)',
-    r'\? \[Y/n\]',
-    r'Press Enter',
-    r'Press any key',
-    r'Continue\?',
-    r'Proceed\?',
-    r'Do you want to proceed',
-    r'Are you sure',
-    r'Overwrite\?',
-    r'Delete\?',
-    r'Password:',
-    r'password:',
-    r': $',  # Generic prompt ending with colon
+    # Standard interactive prompts (very specific, end of line)
+    r'\[Y/n\]\s*$',
+    r'\[y/N\]\s*$',
+    r'\[yes/no\]\s*$',
+    r'\(y/n\)\s*$',
+    r'\(yes/no\)\s*$',
+    r'Continue\?\s*$',
+    r'Proceed\?\s*$',
+    r'Overwrite\?\s*$',
+    r'Delete\?\s*$',
+    r'Are you sure\?\s*$',
+    r'Press Enter to continue',
+    r'Press any key to continue',
+    r'Password:\s*$',
+    r'password:\s*$',
+    # Package manager prompts (apt, dnf, pacman)
+    r'Do you want to continue\?\s*\[Y/n\]',
+    r'Is this ok \[y/N\]',
+    r'Proceed with installation\?',
+    # Git prompts
+    r'Stage this hunk',
+    r'\(y,n,q,a,d',
+    # rm/cp interactive prompts
+    r"remove.*\?\s*$",
+    r"overwrite.*\?\s*$",
+    # sudo prompts
+    r'\[sudo\] password',
+    # SSH prompts
+    r'Are you sure you want to continue connecting',
+    r"fingerprint is.*\n.*\(yes/no",
 ]
 
 def strip_ansi(text):
-    """Remove ANSI escape codes from text"""
+    """Remove ANSI escape codes and OSC sequences from text"""
+    # Standard CSI sequences
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    text = ansi_escape.sub('', text)
+    # OSC sequences (title changes, etc.)
+    osc_escape = re.compile(r'\x1B\][^\x07]*\x07')
+    text = osc_escape.sub('', text)
+    # Other escape sequences
+    other_escape = re.compile(r'\x1B[^[\]](.|$)')
+    text = other_escape.sub('', text)
+    return text
 
 def check_terminal_activity(session_name):
     """Check if a terminal session is waiting for input"""
@@ -375,19 +398,19 @@ def check_terminal_activity(session_name):
         return {'waiting': False, 'session': session_name, 'reason': 'no_log'}
 
     try:
-        # Read last 4KB of log
+        # Read last 8KB of log (Claude Code outputs a lot)
         with open(log_file, 'rb') as f:
             f.seek(0, 2)  # End of file
             size = f.tell()
-            f.seek(max(0, size - 4096))
+            f.seek(max(0, size - 8192))
             content = f.read().decode('utf-8', errors='ignore')
 
         # Strip ANSI codes
         clean_content = strip_ansi(content)
 
-        # Get last few lines
+        # Get last 20 lines (Claude Code has verbose output)
         lines = clean_content.strip().split('\n')
-        last_lines = '\n'.join(lines[-10:])
+        last_lines = '\n'.join(lines[-20:])
 
         # Check for input prompts
         for pattern in INPUT_PATTERNS:
@@ -396,7 +419,7 @@ def check_terminal_activity(session_name):
                     'waiting': True,
                     'session': session_name,
                     'pattern': pattern,
-                    'preview': last_lines[-300:] if len(last_lines) > 300 else last_lines
+                    'preview': last_lines[-500:] if len(last_lines) > 500 else last_lines
                 }
 
         return {'waiting': False, 'session': session_name}
