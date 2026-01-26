@@ -1578,6 +1578,37 @@
             background: rgba(239, 68, 68, 0.3);
             color: #ef4444;
         }
+        .terminal-tab .tab-refresh {
+            width: 18px;
+            height: 18px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            line-height: 1;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .terminal-tab:hover .tab-refresh {
+            opacity: 1;
+        }
+        .terminal-tab .tab-refresh:hover {
+            background: rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+        .terminal-tab .tab-refresh.spinning {
+            animation: spin 0.5s linear;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
         /* Activity indicator */
         .terminal-tab .activity-indicator {
@@ -2971,6 +3002,56 @@
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+
+            // Trigger resize in iframe to fix xterm.js display issues
+            refreshTerminalDisplay(tabId);
+        }
+
+        // Force xterm.js to recalculate its dimensions
+        function refreshTerminalDisplay(tabId) {
+            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
+            if (!iframe) return;
+
+            // Wait for iframe to be visible, then trigger resize
+            setTimeout(() => {
+                try {
+                    // Method 1: Dispatch resize event to iframe window
+                    if (iframe.contentWindow) {
+                        iframe.contentWindow.dispatchEvent(new Event('resize'));
+                    }
+                } catch (e) {
+                    // Cross-origin - use alternative method
+                }
+
+                // Method 2: Slightly resize the iframe to force xterm reflow
+                const origHeight = iframe.style.height;
+                iframe.style.height = 'calc(100% - 1px)';
+                requestAnimationFrame(() => {
+                    iframe.style.height = origHeight || '100%';
+                });
+            }, 100);
+        }
+
+        // Manual refresh button - reloads the iframe completely
+        function manualRefreshTerminal(tabId, event) {
+            if (event) event.stopPropagation();
+
+            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
+            const btn = event?.target?.closest('.tab-refresh');
+
+            if (btn) {
+                btn.classList.add('spinning');
+                setTimeout(() => btn.classList.remove('spinning'), 500);
+            }
+
+            if (iframe) {
+                // Reload the iframe by resetting its src
+                const currentSrc = iframe.src;
+                iframe.src = 'about:blank';
+                setTimeout(() => {
+                    iframe.src = currentSrc;
+                }, 50);
+            }
         }
 
         function closeTerminalTab(tabId, event) {
@@ -3079,6 +3160,7 @@
                             <button class="quick-action-btn yes" onclick="sendQuickInput('${tab.id}', 'y', event)" title="Yes">Y</button>
                             <button class="quick-action-btn yes-all" onclick="sendQuickInput('${tab.id}', 'Y', event)" title="Yes to All">Y*</button>
                         </div>
+                        <button class="tab-refresh" onclick="manualRefreshTerminal('${tab.id}', event)" title="Rafraîchir">↻</button>
                         <button class="tab-close" onclick="closeTerminalTab('${tab.id}', event)">&times;</button>
                     </div>
                 `;
@@ -4659,9 +4741,27 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             document.documentElement.style.setProperty('--vh', `${vh}px`);
         }
         setViewportHeight();
-        window.addEventListener('resize', setViewportHeight);
+        window.addEventListener('resize', () => {
+            setViewportHeight();
+            // Also refresh active terminal on window resize
+            if (activeTerminalTabId) {
+                refreshTerminalDisplay(activeTerminalTabId);
+            }
+        });
         window.addEventListener('orientationchange', () => {
-            setTimeout(setViewportHeight, 100);
+            setTimeout(() => {
+                setViewportHeight();
+                if (activeTerminalTabId) {
+                    refreshTerminalDisplay(activeTerminalTabId);
+                }
+            }, 100);
+        });
+
+        // Refresh terminal when page becomes visible (user returns to tab)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && activeTerminalTabId) {
+                setTimeout(() => refreshTerminalDisplay(activeTerminalTabId), 200);
+            }
         });
 
         // ============ Init ============
