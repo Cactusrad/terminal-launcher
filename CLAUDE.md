@@ -522,5 +522,30 @@ chmod 777 /tmp/terminal-logs/
     - Attribut `scrolling="yes"` pour le scroll dans l'iframe
     - Attribut `allow="clipboard-write; clipboard-read"` pour le presse-papiers
 
+**Corrections scroll et faux positifs :**
+
+15. **Fix scroll qui remonte**
+    - Problème : `refreshTerminalDisplay()` envoyait un event `resize` qui causait xterm.js à remettre le scroll en haut
+    - Solution : Supprimé tous les auto-refresh (tab activation, visibilitychange)
+    - Le bouton ↻ reste disponible pour refresh manuel si nécessaire
+
+16. **Fix faux positifs détection d'activité**
+    - Problème : Pattern `accept edits` matchait la barre de statut Claude Code
+    - Solution : Patterns plus stricts avec `\s*$` (fin de ligne obligatoire)
+    - Ajout patterns : sudo, SSH, rm/cp interactif
+    - L'indicateur s'éteint quand on clique sur l'onglet
+
+17. **Optimisation polling**
+    - Re-render seulement si l'état `waiting` change réellement
+    - Timeout de 5 secondes sur le fetch API
+    - Gestion propre des erreurs AbortError
+
+18. **Amélioration strip_ansi()**
+    - Gère maintenant les séquences OSC (Operating System Commands)
+    - Meilleur nettoyage des codes ANSI dans les logs
+
 **Commits :**
 - `feat: add terminal activity detection, preview, and responsive design`
+- `fix: iOS Safari terminal viewport height issue`
+- `fix: terminal display issues with auto-refresh and manual reload`
+- `fix: terminal scroll issues and optimize activity polling`
