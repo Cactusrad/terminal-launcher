@@ -2688,6 +2688,20 @@
             sudo:   { port: 7682, label: 'S', command: 'claude', color: 'sudo' }
         };
 
+        // xterm.js options to improve scroll behavior
+        const XTERM_OPTIONS = [
+            'rendererType=canvas',      // More stable than webgl
+            'scrollback=10000',         // Larger scroll buffer
+            'cursorBlink=true'
+        ].join('&');
+
+        // Build terminal URL with xterm options
+        function buildTerminalUrl(tab) {
+            const base = `http://${host}:${tab.port}`;
+            const args = `arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
+            return `${base}?${args}&${XTERM_OPTIONS}`;
+        }
+
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
@@ -2868,7 +2882,7 @@
                 preview.dataset.tabId = tabId;
 
                 const iframe = document.createElement('iframe');
-                iframe.src = `http://${host}:${tab.port}?arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
+                iframe.src = buildTerminalUrl(tab);
 
                 const label = document.createElement('div');
                 label.className = 'terminal-tab-preview-label';
@@ -3114,8 +3128,7 @@
                 // iOS Safari compatibility attributes
                 iframe.setAttribute('scrolling', 'yes');
                 iframe.setAttribute('allow', 'clipboard-write; clipboard-read');
-                const url = `http://${host}:${tab.port}?arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
-                iframe.src = url;
+                iframe.src = buildTerminalUrl(tab);
                 container.appendChild(iframe);
             }
 
