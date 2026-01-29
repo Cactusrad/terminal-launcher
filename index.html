@@ -3343,21 +3343,8 @@
                 }, 300);
             });
 
-            // Handle Ctrl+V for paste
-            termDiv.addEventListener('keydown', (e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-                    e.preventDefault();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && ws.readyState === WebSocket.OPEN) {
-                            const encoder = new TextEncoder();
-                            ws.send(encoder.encode(text));
-                        }
-                    }).catch(() => {
-                        // Clipboard API not available on HTTP, show dialog
-                        showPasteDialog(tab.id);
-                    });
-                }
-            });
+            // Note: Ctrl+V paste requires HTTPS due to browser security restrictions
+            // In HTTP, use right-click context menu to paste
 
             // Handle resize
             const resizeObserver = new ResizeObserver(() => {
