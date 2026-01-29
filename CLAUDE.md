@@ -549,3 +549,93 @@ chmod 777 /tmp/terminal-logs/
 - `fix: iOS Safari terminal viewport height issue`
 - `fix: terminal display issues with auto-refresh and manual reload`
 - `fix: terminal scroll issues and optimize activity polling`
+
+## Session du 28 janvier 2026
+
+**Migration ttyd+iframe vers xterm.js direct**
+
+Cette migration remplace le système de terminaux basé sur ttyd + iframes par une intégration directe de xterm.js dans la page avec un serveur WebSocket Python custom.
+
+**Nouveaux fichiers créés :**
+
+1. **terminal-server.py** - Serveur WebSocket aiohttp
+   - Écoute sur le port **7681** (un seul port pour tous les types de terminaux)
+   - Connexions WebSocket sur `/ws?session=X&project=Y&command=Z`
+   - Gère les sessions dtach via PTY (pty.fork + exec dtach -a)
+   - Forward bidirectionnel : PTY output → WS binary, WS input → PTY
+   - Resize via messages JSON `{"type":"resize","cols":N,"rows":N}`
+   - Endpoints : `/ws`, `/health`, `/sessions`
+
+2. **terminal-server.service** - Service systemd
+   - Remplace les 3 services ttyd (ttyd-terminal, ttyd-claude, ttyd-sudo-claude)
+   - Un seul service pour tous les terminaux
+
+3. **requirements-terminal.txt** - Dépendances Python (aiohttp)
+
+**Modifications dans index.html :**
+
+4. **Imports xterm.js (CDN)**
+   - xterm@5.5.0 (terminal emulator)
+   - addon-fit@0.10.0 (auto-resize)
+
+5. **Configuration terminal**
+   - `terminalTypes` simplifié : bash + claude uniquement (sudo supprimé)
+   - `TERMINAL_WS_PORT = 7681` (port unique)
+   - `XTERM_OPTIONS` avec thème personnalisé
+
+6. **Nouvelles structures de données**
+   - `terminalInstances` Map : tabId → { terminal, fitAddon, ws, resizeObserver }
+
+7. **Fonctions réécrites**
+   - `loadTerminal(tab)` - Crée div + xterm.js + WebSocket
+   - `disposeTerminal(tabId)` - Nettoie ressources (WS, ResizeObserver, terminal)
+   - `activateTerminalTab(tabId)` - Toggle divs + fit() sur l'onglet actif
+   - `manualRefreshTerminal(tabId)` - Dispose + recrée le terminal
+   - `closeTerminalTab(tabId)` - Utilise disposeTerminal
+   - `sendInputToTerminal(tabId, text)` - Envoi simplifié via WS binary
+
+8. **Fonctions supprimées**
+   - `buildTerminalUrl()` - Plus nécessaire (pas d'iframe)
+   - `createTerminalWebSocket()` - Intégré dans loadTerminal
+   - `showTabPreview()` / `hideTabPreview()` - Preview supprimé
+   - `getTerminalWebSocket()` - Remplacé par terminalInstances
+
+9. **CSS modifié**
+   - `.terminal-iframe` → `.terminal-div` avec position absolute
+   - `.terminal-div .xterm` avec height: 100%
+   - Styles `.terminal-tab-preview` supprimés (preview supprimé)
+
+**Avantages de la nouvelle architecture :**
+- Scroll natif xterm.js sans couche iframe
+- Un seul serveur WebSocket au lieu de 3 services ttyd
+- Resize fluide avec ResizeObserver
+- Moins de latence (pas de double frame)
+- Code simplifié (protocole WebSocket direct)
+
+**Installation :**
+```bash
+# Installer aiohttp
+pip3 install aiohttp
+
+# Arrêter les anciens services ttyd
+sudo systemctl stop ttyd-terminal ttyd-claude ttyd-sudo-claude
+sudo systemctl disable ttyd-terminal ttyd-claude ttyd-sudo-claude
+
+# Installer le nouveau service
+sudo cp terminal-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now terminal-server
+
+# Rebuild Docker (pour le frontend)
+cd /home/cactus/claude/homepage-app
+docker build -t homepage-flask .
+docker restart homepage
+```
+
+**Test :**
+1. Ouvrir http://192.168.1.200:1000
+2. Aller sur la page Terminaux
+3. Cliquer sur un projet → bouton B (Bash) ou C (Claude)
+4. Le terminal s'ouvre dans un div (pas iframe)
+5. Taper des commandes, vérifier que le scroll fonctionne
+6. Fermer/rouvrir l'onglet → la session dtach se reconnecte

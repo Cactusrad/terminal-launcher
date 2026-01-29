@@ -1,0 +1,21 @@
+[Unit]
+Description=WebSocket Terminal Server for Cactus Homepage
+After=network.target
+
+[Service]
+Type=simple
+User=cactus
+WorkingDirectory=/home/cactus/claude/homepage-app
+ExecStart=/usr/bin/python3 /home/cactus/claude/homepage-app/terminal-server.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+# Resource limits
+LimitNOFILE=65536
+
+# Security (allow PTY operations)
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

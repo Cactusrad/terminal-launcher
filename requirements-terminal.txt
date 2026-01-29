@@ -1,0 +1,2 @@
+# Dependencies for terminal-server.py
+aiohttp>=3.9.0

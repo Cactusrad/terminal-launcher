@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cactus Home</title>
+    <!-- xterm.js for terminal integration -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -1674,45 +1678,6 @@
             transform: scale(1.1);
         }
 
-        /* Preview tooltip */
-        .terminal-tab-preview {
-            position: fixed;
-            width: 400px;
-            height: 250px;
-            background: #0f172a;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-            overflow: hidden;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s, visibility 0.2s;
-            pointer-events: none;
-            z-index: 9999;
-        }
-        .terminal-tab-preview.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-        .terminal-tab-preview iframe {
-            width: 800px;
-            height: 500px;
-            border: none;
-            transform: scale(0.5);
-            transform-origin: top left;
-        }
-        .terminal-tab-preview-label {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(15, 23, 42, 0.95));
-            padding: 8px 12px;
-            font-size: 0.7rem;
-            color: #94a3b8;
-            text-align: center;
-        }
-
         /* Right-click paste menu */
         .terminal-paste-menu {
             position: fixed;
@@ -1770,14 +1735,24 @@
             font-size: 0.85rem;
             opacity: 0.7;
         }
-        .terminal-iframe {
+        .terminal-div {
             width: 100%;
             height: 100%;
-            border: none;
             display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
-        .terminal-iframe.active {
+        .terminal-div.active {
             display: block;
+        }
+        .terminal-div .xterm {
+            height: 100%;
+        }
+        .terminal-div .xterm-viewport {
+            overflow-y: auto !important;
         }
 
         /* Hide mobile elements on desktop */
@@ -1813,14 +1788,6 @@
             }
             .tab-name {
                 font-size: 0.75rem;
-            }
-            .terminal-tab-preview {
-                width: 300px;
-                height: 180px;
-            }
-            .terminal-tab-preview iframe {
-                width: 600px;
-                height: 360px;
             }
         }
 
@@ -1982,23 +1949,8 @@
                 overflow: hidden;
                 -webkit-overflow-scrolling: touch;
             }
-            .terminal-iframe {
+            .terminal-div {
                 border-radius: 0;
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-            }
-
-            /* Preview smaller on mobile */
-            .terminal-tab-preview {
-                width: 280px;
-                height: 160px;
-            }
-            .terminal-tab-preview iframe {
-                width: 560px;
-                height: 320px;
             }
 
             /* Project list touch-friendly */
@@ -2079,14 +2031,6 @@
                 width: 18px;
                 height: 18px;
                 font-size: 0.8rem;
-            }
-            .terminal-tab-preview {
-                width: 240px;
-                height: 140px;
-            }
-            .terminal-tab-preview iframe {
-                width: 480px;
-                height: 280px;
             }
         }
     </style>
@@ -2682,33 +2626,35 @@
             renderProjectList(searchInput ? searchInput.value : '');
         }
 
+        // Terminal types (single port for all - terminal-server.py handles routing)
         const terminalTypes = {
-            bash:   { port: 7680, label: 'B', command: 'bash', color: 'bash' },
-            claude: { port: 7681, label: 'C', command: 'claude', color: 'claude-btn' },
-            sudo:   { port: 7682, label: 'S', command: 'claude', color: 'sudo' }
+            bash:   { label: 'B', command: 'bash', color: 'bash' },
+            claude: { label: 'C', command: 'claude', color: 'claude-btn' }
         };
 
-        // xterm.js options to improve scroll behavior
-        const XTERM_OPTIONS = [
-            'rendererType=canvas',      // More stable than webgl
-            'scrollback=10000',         // Larger scroll buffer
-            'cursorBlink=true'
-        ].join('&');
+        // Terminal server WebSocket port
+        const TERMINAL_WS_PORT = 7681;
 
-        // Build terminal URL with xterm options
-        function buildTerminalUrl(tab) {
-            const base = `http://${host}:${tab.port}`;
-            const args = `arg=${encodeURIComponent(tab.tmuxSession)}&arg=${encodeURIComponent(tab.project)}&arg=${encodeURIComponent(tab.command)}`;
-            return `${base}?${args}&${XTERM_OPTIONS}`;
-        }
+        // xterm.js options for direct terminal integration
+        const XTERM_OPTIONS = {
+            cursorBlink: true,
+            scrollback: 10000,
+            fontSize: 14,
+            fontFamily: 'monospace',
+            theme: {
+                background: '#1a1b26',
+                foreground: '#c0caf5',
+                cursor: '#c0caf5',
+                selectionBackground: '#33467c'
+            }
+        };
 
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
         let activityPollInterval = null;
         let lastBeepTime = 0;
-        const terminalWebSockets = new Map();  // WebSocket connections for sending input
-        let previewTimeout = null;
+        const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver }
         let terminalPasteTargetTabId = null;
 
         // ============ Beep Sound ============
@@ -2789,54 +2735,20 @@
             }
         }
 
-        // ============ WebSocket for Terminal Input ============
-        const TTYD_CMD_INPUT = 0x30;  // '0' character
-
-        function getTerminalWebSocket(tabId) {
-            const ws = terminalWebSockets.get(tabId);
-            if (ws && ws.readyState === WebSocket.OPEN) return ws;
-            terminalWebSockets.delete(tabId);
-            return null;
+        // ============ Terminal Input Helpers ============
+        function getTerminalInstance(tabId) {
+            return terminalInstances.get(tabId);
         }
 
-        function createTerminalWebSocket(tab) {
-            return new Promise((resolve, reject) => {
-                const wsUrl = `ws://${host}:${tab.port}/ws`;
-                const ws = new WebSocket(wsUrl, ['tty']);
-                ws.binaryType = 'arraybuffer';
-
-                const timeout = setTimeout(() => {
-                    ws.close();
-                    reject(new Error('Connection timeout'));
-                }, 3000);
-
-                ws.onopen = () => {
-                    clearTimeout(timeout);
-                    terminalWebSockets.set(tab.id, ws);
-                    resolve(ws);
-                };
-                ws.onerror = () => {
-                    clearTimeout(timeout);
-                    reject(new Error('Connection failed'));
-                };
-                ws.onclose = () => {
-                    terminalWebSockets.delete(tab.id);
-                };
-            });
-        }
-
-        function sendInputToTerminal(ws, text) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+        function sendInputToTerminal(tabId, text) {
+            const instance = getTerminalInstance(tabId);
+            if (!instance || !instance.ws || instance.ws.readyState !== WebSocket.OPEN) return false;
             const encoder = new TextEncoder();
-            const textBytes = encoder.encode(text);
-            const payload = new Uint8Array(1 + textBytes.length);
-            payload[0] = TTYD_CMD_INPUT;
-            payload.set(textBytes, 1);
-            ws.send(payload);
+            instance.ws.send(encoder.encode(text));
             return true;
         }
 
-        async function sendQuickInput(tabId, input, event) {
+        function sendQuickInput(tabId, input, event) {
             if (event) {
                 event.stopPropagation();
                 event.preventDefault();
@@ -2845,82 +2757,20 @@
             if (!tab) return;
 
             const fullInput = input + '\n';
-            try {
-                let ws = getTerminalWebSocket(tabId);
-                if (!ws) {
-                    ws = await createTerminalWebSocket(tab);
-                }
-                sendInputToTerminal(ws, fullInput);
+            if (sendInputToTerminal(tabId, fullInput)) {
                 // Clear waiting state
                 waitingTabs[tab.tmuxSession] = false;
                 renderTerminalTabs(); syncMobileTerminalTabs();
-            } catch (e) {
-                console.error('Failed to send input:', e);
-            }
-        }
-
-        // ============ Tab Preview ============
-        let activePreview = null;
-
-        function showTabPreview(tabId) {
-            if (previewTimeout) clearTimeout(previewTimeout);
-            previewTimeout = setTimeout(() => {
-                const tab = terminalTabs.find(t => t.id === tabId);
-                if (!tab) return;
-
-                const tabEl = document.querySelector(`.terminal-tab[data-tab-id="${tabId}"]`);
-                if (!tabEl) return;
-
-                // Don't show preview for active tab
-                if (tab.id === activeTerminalTabId) return;
-
-                // Remove existing preview
-                if (activePreview) activePreview.remove();
-
-                const preview = document.createElement('div');
-                preview.className = 'terminal-tab-preview';
-                preview.dataset.tabId = tabId;
-
-                const iframe = document.createElement('iframe');
-                iframe.src = buildTerminalUrl(tab);
-
-                const label = document.createElement('div');
-                label.className = 'terminal-tab-preview-label';
-                label.textContent = `${tab.name} (${tab.type})`;
-
-                preview.appendChild(iframe);
-                preview.appendChild(label);
-
-                // Position using getBoundingClientRect - show below tabs, over terminal
-                const rect = tabEl.getBoundingClientRect();
-                preview.style.left = Math.max(10, rect.left + rect.width/2 - 200) + 'px';
-                preview.style.top = (rect.bottom + 10) + 'px';
-
-                document.body.appendChild(preview);
-                activePreview = preview;
-
-                requestAnimationFrame(() => preview.classList.add('visible'));
-            }, 400);
-        }
-
-        function hideTabPreview(tabId) {
-            if (previewTimeout) {
-                clearTimeout(previewTimeout);
-                previewTimeout = null;
-            }
-            if (activePreview) {
-                activePreview.remove();
-                activePreview = null;
             }
         }
 
         // ============ Right-Click Paste ============
         function showTerminalPasteMenu(e) {
             e.preventDefault();
-            const activeIframe = document.querySelector('.terminal-iframe.active');
-            if (!activeIframe) return;
+            const activeDiv = document.querySelector('.terminal-div.active');
+            if (!activeDiv) return;
 
-            terminalPasteTargetTabId = activeIframe.dataset.tabId;
+            terminalPasteTargetTabId = activeDiv.dataset.tabId;
             const menu = document.getElementById('terminalPasteMenu');
             menu.style.left = e.clientX + 'px';
             menu.style.top = e.clientY + 'px';
@@ -2940,14 +2790,7 @@
             try {
                 const text = await navigator.clipboard.readText();
                 if (text) {
-                    const tab = terminalTabs.find(t => t.id === terminalPasteTargetTabId);
-                    if (tab) {
-                        let ws = getTerminalWebSocket(tab.id);
-                        if (!ws) {
-                            ws = await createTerminalWebSocket(tab);
-                        }
-                        sendInputToTerminal(ws, text);
-                    }
+                    sendInputToTerminal(terminalPasteTargetTabId, text);
                 }
             } catch (err) {
                 console.error('Paste failed:', err);
@@ -2997,7 +2840,6 @@
                 id: tabId,
                 name: project,
                 type: type,
-                port: typeInfo.port,
                 project: project,
                 tmuxSession: sessionName,
                 command: typeInfo.command,
@@ -3009,7 +2851,7 @@
             saveTerminalState();
             renderTerminalTabs();
             syncMobileTerminalTabs();
-            loadTerminalIframe(tab);
+            loadTerminal(tab);
             // Close mobile sidebar when opening a terminal
             if (isMobile()) closeMobileSidebar();
         }
@@ -3031,34 +2873,63 @@
             document.querySelectorAll('.terminal-tab').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tabId);
             });
-            document.querySelectorAll('.terminal-iframe').forEach(iframe => {
-                iframe.classList.toggle('active', iframe.dataset.tabId === tabId);
+            document.querySelectorAll('.terminal-div').forEach(div => {
+                div.classList.toggle('active', div.dataset.tabId === tabId);
             });
+
+            // Resize xterm.js to fit the container when tab becomes active
+            const instance = terminalInstances.get(tabId);
+            if (instance && instance.fitAddon) {
+                // Use requestAnimationFrame to ensure DOM is updated
+                requestAnimationFrame(() => {
+                    try {
+                        instance.fitAddon.fit();
+                    } catch (e) {
+                        console.warn('Failed to fit terminal:', e);
+                    }
+                });
+            }
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
-            // Note: No auto-refresh here - causes scroll to jump to top in xterm.js
         }
 
-        // Manual refresh button - reloads the iframe completely
+        // Manual refresh button - reconnects the terminal
         function manualRefreshTerminal(tabId, event) {
             if (event) event.stopPropagation();
 
-            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
             const btn = event?.target?.closest('.tab-refresh');
-
             if (btn) {
                 btn.classList.add('spinning');
                 setTimeout(() => btn.classList.remove('spinning'), 500);
             }
 
-            if (iframe) {
-                // Reload the iframe by resetting its src
-                const currentSrc = iframe.src;
-                iframe.src = 'about:blank';
-                setTimeout(() => {
-                    iframe.src = currentSrc;
-                }, 50);
+            const tab = terminalTabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            // Dispose old terminal and recreate
+            disposeTerminal(tabId);
+            loadTerminal(tab);
+        }
+
+        function disposeTerminal(tabId) {
+            const instance = terminalInstances.get(tabId);
+            if (instance) {
+                if (instance.resizeObserver) {
+                    instance.resizeObserver.disconnect();
+                }
+                if (instance.ws) {
+                    instance.ws.close();
+                }
+                if (instance.terminal) {
+                    instance.terminal.dispose();
+                }
+                terminalInstances.delete(tabId);
+            }
+
+            const div = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+            if (div) {
+                div.remove();
             }
         }
 
@@ -3068,18 +2939,8 @@
             const tabIndex = terminalTabs.findIndex(t => t.id === tabId);
             if (tabIndex === -1) return;
 
-            // Clean up WebSocket connection
-            const ws = terminalWebSockets.get(tabId);
-            if (ws) {
-                ws.close();
-                terminalWebSockets.delete(tabId);
-            }
-
-            const iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tabId}"]`);
-            if (iframe) {
-                iframe.src = 'about:blank';  // Stop ongoing connections
-                iframe.remove();
-            }
+            // Clean up terminal instance
+            disposeTerminal(tabId);
 
             terminalTabs.splice(tabIndex, 1);
 
@@ -3113,26 +2974,106 @@
             }
         }
 
-        function loadTerminalIframe(tab) {
+        function loadTerminal(tab) {
             const container = document.getElementById('terminalContainer');
             if (!container) return;
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = 'none';
 
-            let iframe = document.querySelector(`.terminal-iframe[data-tab-id="${tab.id}"]`);
-            if (!iframe) {
-                iframe = document.createElement('iframe');
-                iframe.className = 'terminal-iframe';
-                iframe.dataset.tabId = tab.id;
-                // iOS Safari compatibility attributes
-                iframe.setAttribute('scrolling', 'yes');
-                iframe.setAttribute('allow', 'clipboard-write; clipboard-read');
-                iframe.src = buildTerminalUrl(tab);
-                container.appendChild(iframe);
+            // Check if terminal div already exists
+            let termDiv = document.querySelector(`.terminal-div[data-tab-id="${tab.id}"]`);
+            if (termDiv && terminalInstances.has(tab.id)) {
+                // Already loaded, just activate
+                document.querySelectorAll('.terminal-div').forEach(el => {
+                    el.classList.toggle('active', el.dataset.tabId === tab.id);
+                });
+                return;
             }
 
-            document.querySelectorAll('.terminal-iframe').forEach(el => {
+            // Create terminal container div
+            termDiv = document.createElement('div');
+            termDiv.className = 'terminal-div';
+            termDiv.dataset.tabId = tab.id;
+            container.appendChild(termDiv);
+
+            // Create xterm.js terminal
+            const terminal = new Terminal(XTERM_OPTIONS);
+            const fitAddon = new FitAddon.FitAddon();
+            terminal.loadAddon(fitAddon);
+            terminal.open(termDiv);
+
+            // Initial fit
+            requestAnimationFrame(() => {
+                try {
+                    fitAddon.fit();
+                } catch (e) {
+                    console.warn('Initial fit failed:', e);
+                }
+            });
+
+            // Connect WebSocket
+            const wsUrl = `ws://${host}:${TERMINAL_WS_PORT}/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`;
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                console.log(`Terminal connected: ${tab.tmuxSession}`);
+                // Send initial resize
+                const dims = fitAddon.proposeDimensions();
+                if (dims) {
+                    ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+                }
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    const text = new TextDecoder().decode(event.data);
+                    terminal.write(text);
+                }
+            };
+
+            ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+                terminal.write('\r\n\x1b[31mConnexion perdue. Cliquez sur le bouton rafraichir.\x1b[0m\r\n');
+            };
+
+            ws.onclose = () => {
+                console.log(`Terminal disconnected: ${tab.tmuxSession}`);
+            };
+
+            // Send input to server
+            terminal.onData((data) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    const encoder = new TextEncoder();
+                    ws.send(encoder.encode(data));
+                }
+            });
+
+            // Handle resize
+            const resizeObserver = new ResizeObserver(() => {
+                try {
+                    fitAddon.fit();
+                    const dims = fitAddon.proposeDimensions();
+                    if (dims && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+                    }
+                } catch (e) {
+                    // Ignore resize errors
+                }
+            });
+            resizeObserver.observe(termDiv);
+
+            // Store instance
+            terminalInstances.set(tab.id, {
+                terminal,
+                fitAddon,
+                ws,
+                resizeObserver
+            });
+
+            // Activate this terminal
+            document.querySelectorAll('.terminal-div').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tab.id);
             });
         }
@@ -3147,7 +3088,7 @@
             }
 
             tabsContainer.innerHTML = terminalTabs.map(tab => {
-                const typeInfo = terminalTypes[tab.type];
+                const typeInfo = terminalTypes[tab.type] || { label: '?', color: '' };
                 const safeName = escapeHtml(tab.name);
                 const isWaiting = waitingTabs[tab.tmuxSession] || false;
                 const waitingClass = isWaiting ? 'waiting-input' : '';
@@ -3157,9 +3098,7 @@
                          data-tab-id="${tab.id}"
                          data-session="${tab.tmuxSession}"
                          onclick="activateTerminalTab('${tab.id}')"
-                         ondblclick="renameTerminalTab('${tab.id}', event)"
-                         onmouseenter="showTabPreview('${tab.id}')"
-                         onmouseleave="hideTabPreview('${tab.id}')">
+                         ondblclick="renameTerminalTab('${tab.id}', event)">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
                         <span class="tab-name">${safeName}</span>
                         <span class="activity-indicator ${indicatorClass}"></span>
@@ -3210,7 +3149,7 @@
             renderProjectList();
             renderTerminalTabs(); syncMobileTerminalTabs();
 
-            terminalTabs.forEach(tab => loadTerminalIframe(tab));
+            terminalTabs.forEach(tab => loadTerminal(tab));
 
             if (activeTerminalTabId && terminalTabs.find(t => t.id === activeTerminalTabId)) {
                 activateTerminalTab(activeTerminalTabId);
