@@ -1733,36 +1733,6 @@
             height: 100%;
         }
 
-        /* Terminal paste context menu */
-        .terminal-paste-menu {
-            position: fixed;
-            background: #1e293b;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
-            padding: 4px 0;
-            min-width: 120px;
-            display: none;
-            z-index: 3000;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-        }
-        .terminal-paste-menu.active { display: block; }
-        .terminal-paste-item {
-            padding: 8px 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #fff;
-            font-size: 0.85rem;
-            background: transparent;
-            border: none;
-            width: 100%;
-            text-align: left;
-            font-family: inherit;
-        }
-        .terminal-paste-item:hover { background: rgba(255,255,255,0.1); }
-        .terminal-paste-item svg { width: 14px; height: 14px; fill: currentColor; }
-
         /* ============ GRID VIEW MODE ============ */
         .terminal-container.grid-view {
             display: grid;
@@ -2447,14 +2417,6 @@
         <button class="context-item context-new" onclick="createPageFromContext()">+ Nouvelle page</button>
     </div>
 
-    <!-- Terminal Paste Context Menu -->
-    <div class="terminal-paste-menu" id="terminalPasteMenu">
-        <button class="terminal-paste-item" onclick="pasteToTerminal()">
-            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
-            Coller
-        </button>
-    </div>
-
     <!-- Admin Modal -->
     <div class="modal" id="adminModal">
         <div class="modal-content">
@@ -3010,49 +2972,6 @@
             if (instance?.terminal) instance.terminal.focus();
         }
 
-        // ============ Terminal Right-Click Paste Menu ============
-        let terminalPasteTargetTabId = null;
-
-        function showTerminalPasteMenu(e) {
-            e.preventDefault();
-            // Find which terminal div was clicked (works in both tabs and grid mode)
-            const termDiv = e.target.closest('.terminal-div');
-            if (!termDiv) return;
-
-            terminalPasteTargetTabId = termDiv.dataset.tabId;
-            const menu = document.getElementById('terminalPasteMenu');
-            menu.style.left = e.clientX + 'px';
-            menu.style.top = e.clientY + 'px';
-            menu.classList.add('active');
-        }
-
-        function hideTerminalPasteMenu() {
-            document.getElementById('terminalPasteMenu').classList.remove('active');
-            terminalPasteTargetTabId = null;
-        }
-
-        async function pasteToTerminal() {
-            if (!terminalPasteTargetTabId) {
-                hideTerminalPasteMenu();
-                return;
-            }
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                    sendInputToTerminal(terminalPasteTargetTabId, text);
-                }
-            } catch (err) {
-                console.error('Paste failed:', err);
-                if (err.name === 'NotAllowedError') {
-                    showPasteDialog(terminalPasteTargetTabId);
-                }
-            }
-            hideTerminalPasteMenu();
-            // Refocus terminal
-            const instance = terminalInstances.get(terminalPasteTargetTabId);
-            if (instance?.terminal) instance.terminal.focus();
-        }
-
         // Terminal state sync - server first, localStorage fallback
         let terminalStateSynced = false;
 
@@ -3559,7 +3478,6 @@
         function showTerminalManager(show) {
             const manager = document.getElementById('terminalManager');
             const grid = document.getElementById('appGrid');
-            const terminalContainer = document.getElementById('terminalContainer');
 
             if (manager && grid) {
                 manager.classList.toggle('active', show);
@@ -3568,16 +3486,8 @@
                 if (show) {
                     initTerminalManager();
                     startActivityPolling();
-                    // Add right-click paste menu to terminal container
-                    if (terminalContainer) {
-                        terminalContainer.addEventListener('contextmenu', showTerminalPasteMenu);
-                    }
                 } else {
                     stopActivityPolling();
-                    // Remove right-click paste menu listener
-                    if (terminalContainer) {
-                        terminalContainer.removeEventListener('contextmenu', showTerminalPasteMenu);
-                    }
                 }
             }
         }
@@ -4158,9 +4068,6 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.context-menu')) {
                 hideContextMenu();
-            }
-            if (!e.target.closest('.terminal-paste-menu')) {
-                hideTerminalPasteMenu();
             }
         });
 
