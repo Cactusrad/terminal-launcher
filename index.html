@@ -1678,36 +1678,6 @@
             transform: scale(1.1);
         }
 
-        /* Right-click paste menu */
-        .terminal-paste-menu {
-            position: fixed;
-            background: #1e293b;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
-            padding: 4px 0;
-            min-width: 120px;
-            display: none;
-            z-index: 3000;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-        }
-        .terminal-paste-menu.active { display: block; }
-        .terminal-paste-item {
-            padding: 8px 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #fff;
-            font-size: 0.85rem;
-            background: transparent;
-            border: none;
-            width: 100%;
-            text-align: left;
-            font-family: inherit;
-        }
-        .terminal-paste-item:hover { background: rgba(255,255,255,0.1); }
-        .terminal-paste-item svg { width: 14px; height: 14px; fill: currentColor; }
-
         .terminal-container {
             flex: 1;
             position: relative;
@@ -1753,6 +1723,135 @@
         }
         .terminal-div .xterm-viewport {
             overflow-y: auto !important;
+        }
+        .terminal-wrapper {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        .terminal-wrapper .xterm {
+            height: 100%;
+        }
+
+        /* ============ GRID VIEW MODE ============ */
+        .terminal-container.grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 8px;
+            padding: 8px;
+            overflow: auto;
+        }
+        .terminal-container.grid-view .terminal-placeholder {
+            grid-column: 1 / -1;
+            position: static;
+            transform: none;
+            padding: 60px 20px;
+        }
+        .terminal-container.grid-view .terminal-div {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+            height: auto;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+        .terminal-container.grid-view .terminal-div.active {
+            border-color: #4ade80;
+        }
+        .terminal-container.grid-view .terminal-div .xterm {
+            flex: 1;
+            min-height: 250px;
+        }
+        /* Grid terminal header */
+        .terminal-grid-header {
+            display: none;
+            padding: 8px 12px;
+            background: rgba(30, 41, 59, 0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .terminal-container.grid-view .terminal-grid-header {
+            display: flex;
+        }
+        .terminal-grid-header .grid-term-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        .terminal-grid-header .grid-term-type {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .terminal-grid-header .grid-term-type.bash { background: #059669; }
+        .terminal-grid-header .grid-term-type.claude-btn { background: #d97706; }
+        .terminal-grid-header .grid-term-name {
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+        .terminal-grid-header .grid-term-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .terminal-grid-header .grid-term-actions button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: #94a3b8;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        .terminal-grid-header .grid-term-actions button:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .terminal-grid-header .grid-term-actions .close-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        /* View mode toggle button */
+        .view-mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: auto;
+            margin-right: 8px;
+        }
+        .view-mode-toggle:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .view-mode-toggle.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .view-mode-toggle svg {
+            width: 16px;
+            height: 16px;
         }
 
         /* Hide mobile elements on desktop */
@@ -1982,12 +2081,6 @@
                 height: 10px;
             }
 
-            /* Paste menu */
-            .terminal-paste-item {
-                padding: 14px 18px;
-                font-size: 1rem;
-            }
-
             /* Home button in mobile header */
             .mobile-home-btn {
                 width: 40px;
@@ -2169,8 +2262,16 @@
                         </svg>
                     </button>
                 </div>
-                <!-- Desktop tabs -->
-                <div class="terminal-tabs terminal-tabs-desktop" id="terminalTabs"></div>
+                <!-- Desktop tabs + view mode toggle -->
+                <div style="display: flex; align-items: flex-end; background: rgba(30, 41, 59, 0.95); border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div class="terminal-tabs terminal-tabs-desktop" id="terminalTabs" style="border-bottom: none; flex: 1;"></div>
+                    <button class="view-mode-toggle" id="viewModeToggle" onclick="toggleViewMode()" title="Basculer vue grille/onglets">
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="viewModeIcon">
+                            <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>
+                        </svg>
+                        <span id="viewModeLabel">Grille</span>
+                    </button>
+                </div>
                 <div class="terminal-container" id="terminalContainer">
                     <div class="terminal-placeholder" id="terminalPlaceholder">
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -2354,13 +2455,6 @@
         </div>
     </div>
 
-    <!-- Terminal Paste Context Menu -->
-    <div class="terminal-paste-menu" id="terminalPasteMenu">
-        <button class="terminal-paste-item" onclick="pasteToTerminal()">
-            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
-            Coller
-        </button>
-    </div>
 
     <script>
         // ============ Configuration ============
@@ -2640,7 +2734,9 @@
             cursorBlink: true,
             scrollback: 10000,
             fontSize: 14,
-            fontFamily: 'monospace',
+            fontFamily: '"DejaVu Sans Mono", "Liberation Mono", "Consolas", "Menlo", "Monaco", "Courier New", monospace',
+            letterSpacing: 0,
+            lineHeight: 1,
             theme: {
                 background: '#1a1b26',
                 foreground: '#c0caf5',
@@ -2654,8 +2750,59 @@
         let waitingTabs = {};  // Track which tabs are waiting for input
         let activityPollInterval = null;
         let lastBeepTime = 0;
+        let viewMode = localStorage.getItem('terminalViewMode') || 'tabs';  // 'tabs' or 'grid'
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver }
-        let terminalPasteTargetTabId = null;
+
+        // ============ View Mode Toggle ============
+        function toggleViewMode() {
+            viewMode = viewMode === 'tabs' ? 'grid' : 'tabs';
+            applyViewMode();
+            // Save to server and localStorage
+            saveTerminalState();
+        }
+
+        function applyViewMode() {
+            const container = document.getElementById('terminalContainer');
+            const toggleBtn = document.getElementById('viewModeToggle');
+            const icon = document.getElementById('viewModeIcon');
+            const label = document.getElementById('viewModeLabel');
+
+            if (!container) return;
+
+            if (viewMode === 'grid') {
+                container.classList.add('grid-view');
+                toggleBtn?.classList.add('active');
+                if (label) label.textContent = 'Onglets';
+                if (icon) icon.innerHTML = '<path d="M4 5h16v2H4V5zm0 6h16v2H4v-2zm0 6h16v2H4v-2z"/>';
+                // Show all terminals in grid mode
+                document.querySelectorAll('.terminal-div').forEach(div => {
+                    div.style.display = 'flex';
+                });
+            } else {
+                container.classList.remove('grid-view');
+                toggleBtn?.classList.remove('active');
+                if (label) label.textContent = 'Grille';
+                if (icon) icon.innerHTML = '<path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>';
+                // Show only active terminal in tabs mode
+                document.querySelectorAll('.terminal-div').forEach(div => {
+                    const isActive = div.dataset.tabId === activeTerminalTabId;
+                    div.style.display = isActive ? 'block' : 'none';
+                    div.classList.toggle('active', isActive);
+                });
+            }
+
+            // Refit all visible terminals
+            requestAnimationFrame(() => {
+                terminalInstances.forEach((instance, tabId) => {
+                    const div = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+                    if (div && div.style.display !== 'none' && instance.fitAddon) {
+                        try {
+                            instance.fitAddon.fit();
+                        } catch (e) {}
+                    }
+                });
+            });
+        }
 
         // ============ Beep Sound ============
         function playBeep() {
@@ -2764,56 +2911,128 @@
             }
         }
 
-        // ============ Right-Click Paste ============
-        function showTerminalPasteMenu(e) {
-            e.preventDefault();
-            const activeDiv = document.querySelector('.terminal-div.active');
-            if (!activeDiv) return;
-
-            terminalPasteTargetTabId = activeDiv.dataset.tabId;
-            const menu = document.getElementById('terminalPasteMenu');
-            menu.style.left = e.clientX + 'px';
-            menu.style.top = e.clientY + 'px';
-            menu.classList.add('active');
-        }
-
-        function hideTerminalPasteMenu() {
-            document.getElementById('terminalPasteMenu').classList.remove('active');
-            terminalPasteTargetTabId = null;
-        }
-
-        async function pasteToTerminal() {
-            if (!terminalPasteTargetTabId) {
-                hideTerminalPasteMenu();
-                return;
+        // ============ Terminal Helpers ============
+        function showToast(message) {
+            let toast = document.getElementById('terminalToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'terminalToast';
+                toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#22c55e;color:#fff;padding:8px 16px;border-radius:6px;z-index:9999;font-size:14px;opacity:0;transition:opacity 0.2s;';
+                document.body.appendChild(toast);
             }
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 1500);
+        }
+
+        function showPasteDialog(tabId) {
+            // Create modal for paste input
+            let dialog = document.getElementById('terminalPasteDialog');
+            if (!dialog) {
+                dialog = document.createElement('div');
+                dialog.id = 'terminalPasteDialog';
+                dialog.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:5000;';
+                dialog.innerHTML = `
+                    <div style="background:#1e293b;border-radius:12px;padding:20px;width:400px;max-width:90vw;">
+                        <div style="color:#fff;margin-bottom:10px;font-weight:500;">Coller du texte</div>
+                        <textarea id="pasteDialogInput" style="width:100%;height:100px;background:#0f172a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;resize:none;font-family:monospace;" placeholder="Ctrl+V ici puis Envoyer"></textarea>
+                        <div style="display:flex;gap:10px;margin-top:15px;justify-content:flex-end;">
+                            <button onclick="closePasteDialog()" style="padding:8px 16px;background:#475569;border:none;border-radius:6px;color:#fff;cursor:pointer;">Annuler</button>
+                            <button onclick="sendPasteDialog()" style="padding:8px 16px;background:#3b82f6;border:none;border-radius:6px;color:#fff;cursor:pointer;">Envoyer</button>
+                        </div>
+                    </div>
+                `;
+                dialog.addEventListener('click', (e) => {
+                    if (e.target === dialog) closePasteDialog();
+                });
+                document.body.appendChild(dialog);
+            }
+            dialog.dataset.tabId = tabId;
+            dialog.style.display = 'flex';
+            setTimeout(() => document.getElementById('pasteDialogInput').focus(), 50);
+        }
+
+        function closePasteDialog() {
+            const dialog = document.getElementById('terminalPasteDialog');
+            if (dialog) {
+                dialog.style.display = 'none';
+                document.getElementById('pasteDialogInput').value = '';
+            }
+        }
+
+        function sendPasteDialog() {
+            const dialog = document.getElementById('terminalPasteDialog');
+            const input = document.getElementById('pasteDialogInput');
+            if (dialog && input && input.value) {
+                sendInputToTerminal(dialog.dataset.tabId, input.value);
+            }
+            closePasteDialog();
+            // Refocus terminal
+            const instance = terminalInstances.get(dialog?.dataset.tabId);
+            if (instance?.terminal) instance.terminal.focus();
+        }
+
+        // Terminal state sync - server first, localStorage fallback
+        let terminalStateSynced = false;
+
+        async function loadTerminalStateFromServer() {
             try {
-                const text = await navigator.clipboard.readText();
-                if (text) {
-                    sendInputToTerminal(terminalPasteTargetTabId, text);
+                const response = await fetch('/api/terminal/state');
+                if (response.ok) {
+                    const state = await response.json();
+                    terminalStateSynced = true;
+                    // Also update viewMode from server
+                    if (state.viewMode) {
+                        viewMode = state.viewMode;
+                    }
+                    return state;
                 }
-            } catch (err) {
-                console.error('Paste failed:', err);
-                if (err.name === 'NotAllowedError') {
-                    alert('Permission refusee. Utilisez Ctrl+Shift+V dans le terminal.');
-                }
+            } catch (e) {
+                console.warn('Failed to load terminal state from server:', e);
             }
-            hideTerminalPasteMenu();
-        }
-
-        function getTerminalState() {
+            // Fallback to localStorage
             const saved = localStorage.getItem('cactusTerminalTabs');
             if (saved) {
                 try { return JSON.parse(saved); } catch (e) { }
             }
-            return { tabs: [], activeTabId: null };
+            return { tabs: [], activeTabId: null, viewMode: 'tabs' };
         }
 
+        function getTerminalState() {
+            // Sync version - returns from cache/localStorage
+            const saved = localStorage.getItem('cactusTerminalTabs');
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) { }
+            }
+            return { tabs: [], activeTabId: null, viewMode: 'tabs' };
+        }
+
+        let saveDebounceTimeout = null;
         function saveTerminalState() {
-            localStorage.setItem('cactusTerminalTabs', JSON.stringify({
+            const state = {
                 tabs: terminalTabs,
-                activeTabId: activeTerminalTabId
-            }));
+                activeTabId: activeTerminalTabId,
+                viewMode: viewMode
+            };
+
+            // Always save to localStorage for instant access
+            localStorage.setItem('cactusTerminalTabs', JSON.stringify(state));
+            localStorage.setItem('terminalViewMode', viewMode);
+
+            // Debounced save to server
+            clearTimeout(saveDebounceTimeout);
+            saveDebounceTimeout = setTimeout(async () => {
+                try {
+                    await fetch('/api/terminal/state', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(state)
+                    });
+                    terminalStateSynced = true;
+                } catch (e) {
+                    console.warn('Failed to save terminal state to server:', e);
+                }
+            }, 500);
         }
 
         function generateTabId() {
@@ -2870,11 +3089,23 @@
                 syncMobileTerminalTabs();
             }
 
+            // Update tab highlighting
             document.querySelectorAll('.terminal-tab').forEach(el => {
                 el.classList.toggle('active', el.dataset.tabId === tabId);
             });
+
+            // Update terminal visibility based on view mode
             document.querySelectorAll('.terminal-div').forEach(div => {
-                div.classList.toggle('active', div.dataset.tabId === tabId);
+                const isActive = div.dataset.tabId === tabId;
+                div.classList.toggle('active', isActive);
+
+                if (viewMode === 'grid') {
+                    // Grid mode: all terminals visible
+                    div.style.display = 'flex';
+                } else {
+                    // Tabs mode: only active terminal visible
+                    div.style.display = isActive ? 'block' : 'none';
+                }
             });
 
             // Resize xterm.js to fit the container when tab becomes active
@@ -2884,6 +3115,10 @@
                 requestAnimationFrame(() => {
                     try {
                         instance.fitAddon.fit();
+                        // Focus terminal so cursor blinks
+                        if (instance.terminal) {
+                            instance.terminal.focus();
+                        }
                     } catch (e) {
                         console.warn('Failed to fit terminal:', e);
                     }
@@ -2995,13 +3230,43 @@
             termDiv = document.createElement('div');
             termDiv.className = 'terminal-div';
             termDiv.dataset.tabId = tab.id;
+
+            // Add grid header (visible only in grid mode)
+            const typeInfo = terminalTypes[tab.type] || { label: '?', color: '' };
+            const gridHeader = document.createElement('div');
+            gridHeader.className = 'terminal-grid-header';
+            gridHeader.innerHTML = `
+                <div class="grid-term-info">
+                    <span class="grid-term-type ${typeInfo.color}">${typeInfo.label}</span>
+                    <span class="grid-term-name">${escapeHtml(tab.name)}</span>
+                </div>
+                <div class="grid-term-actions">
+                    <button onclick="manualRefreshTerminal('${tab.id}', event)" title="Rafraîchir">↻</button>
+                    <button class="close-btn" onclick="closeTerminalTab('${tab.id}', event)" title="Fermer">×</button>
+                </div>
+            `;
+            termDiv.appendChild(gridHeader);
+
+            // Create terminal wrapper for xterm
+            const termWrapper = document.createElement('div');
+            termWrapper.className = 'terminal-wrapper';
+            termWrapper.style.cssText = 'flex: 1; min-height: 0; position: relative;';
+            termDiv.appendChild(termWrapper);
+
             container.appendChild(termDiv);
+
+            // Apply view mode display
+            if (viewMode === 'grid') {
+                termDiv.style.display = 'flex';
+            } else {
+                termDiv.style.display = tab.id === activeTerminalTabId ? 'block' : 'none';
+            }
 
             // Create xterm.js terminal
             const terminal = new Terminal(XTERM_OPTIONS);
             const fitAddon = new FitAddon.FitAddon();
             terminal.loadAddon(fitAddon);
-            terminal.open(termDiv);
+            terminal.open(termWrapper);
 
             // Initial fit
             requestAnimationFrame(() => {
@@ -3024,6 +3289,8 @@
                 if (dims) {
                     ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
                 }
+                // Focus terminal so cursor blinks
+                terminal.focus();
             };
 
             ws.onmessage = (event) => {
@@ -3047,6 +3314,48 @@
                 if (ws.readyState === WebSocket.OPEN) {
                     const encoder = new TextEncoder();
                     ws.send(encoder.encode(data));
+                }
+            });
+
+            // Auto-copy on selection (with small delay to avoid copying while still selecting)
+            let selectionTimeout = null;
+            terminal.onSelectionChange(() => {
+                clearTimeout(selectionTimeout);
+                selectionTimeout = setTimeout(() => {
+                    const selection = terminal.getSelection();
+                    if (selection && selection.length > 0) {
+                        navigator.clipboard.writeText(selection).then(() => {
+                            showToast('Copié !');
+                        }).catch(() => {
+                            // Fallback for HTTP - use execCommand
+                            const textarea = document.createElement('textarea');
+                            textarea.value = selection;
+                            textarea.style.cssText = 'position:fixed;opacity:0;';
+                            document.body.appendChild(textarea);
+                            textarea.select();
+                            try {
+                                document.execCommand('copy');
+                                showToast('Copié !');
+                            } catch (e) { }
+                            document.body.removeChild(textarea);
+                        });
+                    }
+                }, 300);
+            });
+
+            // Handle Ctrl+V for paste
+            termDiv.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                    e.preventDefault();
+                    navigator.clipboard.readText().then(text => {
+                        if (text && ws.readyState === WebSocket.OPEN) {
+                            const encoder = new TextEncoder();
+                            ws.send(encoder.encode(text));
+                        }
+                    }).catch(() => {
+                        // Clipboard API not available on HTTP, show dialog
+                        showPasteDialog(tab.id);
+                    });
                 }
             });
 
@@ -3139,9 +3448,11 @@
         }
 
         async function initTerminalManager() {
-            const state = getTerminalState();
+            // Load state from server (with localStorage fallback)
+            const state = await loadTerminalStateFromServer();
             terminalTabs = state.tabs || [];
             activeTerminalTabId = state.activeTabId;
+            viewMode = state.viewMode || 'tabs';
 
             // Charger les dossiers depuis l'API
             await loadProjectFolders();
@@ -3156,6 +3467,9 @@
             } else if (terminalTabs.length > 0) {
                 activateTerminalTab(terminalTabs[0].id);
             }
+
+            // Apply saved view mode (tabs or grid)
+            applyViewMode();
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
@@ -3172,11 +3486,6 @@
                 if (show) {
                     initTerminalManager();
                     startActivityPolling();
-                    // Add context menu listener for paste
-                    const terminalContainer = document.getElementById('terminalContainer');
-                    if (terminalContainer) {
-                        terminalContainer.addEventListener('contextmenu', showTerminalPasteMenu);
-                    }
                 } else {
                     stopActivityPolling();
                 }
@@ -3759,9 +4068,6 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.context-menu')) {
                 hideContextMenu();
-            }
-            if (!e.target.closest('.terminal-paste-menu')) {
-                hideTerminalPasteMenu();
             }
         });
 

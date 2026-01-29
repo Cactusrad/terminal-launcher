@@ -152,6 +152,40 @@ def update_current_page():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ============ Terminal State (for multi-device sync) ============
+
+@app.route('/api/terminal/state', methods=['GET'])
+def get_terminal_state():
+    """Récupère l'état des terminaux (onglets ouverts, mode de vue)"""
+    try:
+        prefs = load_preferences()
+        terminal_state = prefs.get('terminalState', {
+            'tabs': [],
+            'activeTabId': None,
+            'viewMode': 'tabs'
+        })
+        return jsonify(terminal_state)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/terminal/state', methods=['POST'])
+def update_terminal_state():
+    """Sauvegarde l'état des terminaux"""
+    try:
+        data = request.get_json()
+        prefs = load_preferences()
+        prefs['terminalState'] = {
+            'tabs': data.get('tabs', []),
+            'activeTabId': data.get('activeTabId'),
+            'viewMode': data.get('viewMode', 'tabs')
+        }
+        if save_preferences(prefs):
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/health')
 def health():
     """Endpoint de santé"""
