@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import pty
+import re
 import signal
 import struct
 import subprocess
@@ -23,6 +24,7 @@ import weakref
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import time
 from typing import Dict, Set
 
 from aiohttp import web, WSMsgType
@@ -68,6 +70,86 @@ class SessionBuffer:
         self.total_bytes = 0
 
 
+class EventDetector:
+    """Analyzes PTY output stream for notable events."""
+
+    DEBOUNCE_SECS = 5
+    MAX_LINES = 10
+
+    PERMISSION_PATTERNS = [
+        re.compile(r'\[Y/n\]\s*$', re.MULTILINE),
+        re.compile(r'\[y/N\]\s*$', re.MULTILINE),
+        re.compile(r'\(y/n\)\s*$', re.MULTILINE),
+        re.compile(r'Continue\?\s*$', re.MULTILINE),
+        re.compile(r'Proceed\?\s*$', re.MULTILINE),
+        re.compile(r'Are you sure\?\s*$', re.MULTILINE),
+        re.compile(r'Password:\s*$', re.IGNORECASE | re.MULTILINE),
+        re.compile(r'\[sudo\] password', re.IGNORECASE),
+        re.compile(r'Do you want to proceed\?', re.IGNORECASE),
+        re.compile(r'Press Enter to run'),
+    ]
+
+    ERROR_PATTERNS = [
+        re.compile(r'(?:^|\n)\s*Error:', re.IGNORECASE),
+        re.compile(r'(?:^|\n)\s*FATAL:', re.IGNORECASE),
+        re.compile(r'Traceback \(most recent call last\)'),
+        re.compile(r'panic:'),
+        re.compile(r'Unhandled exception'),
+    ]
+
+    TASK_COMPLETE_PATTERNS = [
+        re.compile(r'Task completed'),
+        re.compile(r'✓.*completed', re.IGNORECASE),
+    ]
+
+    def __init__(self):
+        self.line_buffers = {}    # session_name -> list of lines
+        self.last_events = {}     # session_name -> {event_type: timestamp}
+
+    def strip_ansi(self, text):
+        text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+        text = re.sub(r'\x1B\][^\x07]*\x07', '', text)
+        return text
+
+    def feed(self, session_name, raw_data):
+        text = raw_data.decode('utf-8', errors='ignore')
+        clean = self.strip_ansi(text)
+
+        buf = self.line_buffers.get(session_name, [])
+        buf.extend(clean.split('\n'))
+        self.line_buffers[session_name] = buf[-self.MAX_LINES:]
+
+        context = '\n'.join(self.line_buffers[session_name])
+        events = []
+        now = time()
+
+        for event_type, patterns, severity in [
+            ('permission_request', self.PERMISSION_PATTERNS, 'high'),
+            ('error', self.ERROR_PATTERNS, 'high'),
+            ('task_complete', self.TASK_COMPLETE_PATTERNS, 'medium'),
+        ]:
+            last = self.last_events.get(session_name, {}).get(event_type, 0)
+            if now - last < self.DEBOUNCE_SECS:
+                continue
+
+            for pattern in patterns:
+                if pattern.search(context):
+                    if session_name not in self.last_events:
+                        self.last_events[session_name] = {}
+                    self.last_events[session_name][event_type] = now
+                    events.append({
+                        'type': 'event',
+                        'event': event_type,
+                        'session': session_name,
+                        'timestamp': now,
+                        'context': context[-300:],
+                        'severity': severity
+                    })
+                    break
+
+        return events
+
+
 @dataclass
 class SharedSession:
     """A terminal session that can be shared by multiple WebSocket clients."""
@@ -80,6 +162,9 @@ class SharedSession:
     buffer: SessionBuffer = field(default_factory=SessionBuffer)
     clients: Set = field(default_factory=set)  # Set of WebSocketResponse
     read_task: asyncio.Task = None
+    state: str = "normal"        # normal, waiting_input, idle, error
+    created_at: float = field(default_factory=time)
+    last_output: float = 0
 
     def client_count(self) -> int:
         return len(self.clients)
@@ -87,6 +172,8 @@ class SharedSession:
 
 # Global session registry: session_name -> SharedSession
 active_sessions: Dict[str, SharedSession] = {}
+
+event_detector = EventDetector()
 
 
 def ensure_directories():
@@ -137,7 +224,8 @@ def create_dtach_session(session_name: str, project: str, command: str):
     elif command == "claude":
         inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'claude'"
     else:
-        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c '{command}'"
+        # Use bash -l to source profile (for env vars like ANTHROPIC_API_KEY)
+        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'bash -l -c \"{command}\"'"
 
     # Create empty log file
     log_path.touch()
@@ -283,16 +371,40 @@ async def read_and_broadcast(session: SharedSession):
                 # Add to buffer for reconnection
                 session.buffer.append(data)
 
+                # Update last_output timestamp
+                session.last_output = time()
+
+                # Detect events in the stream
+                events = event_detector.feed(session.session_name, data)
+
+                # Update session state based on events
+                for evt in events:
+                    if evt['event'] == 'permission_request':
+                        session.state = 'waiting_input'
+                    elif evt['event'] == 'error':
+                        session.state = 'error'
+                    elif evt['event'] == 'task_complete':
+                        session.state = 'normal'
+
                 # Broadcast to all connected clients
                 dead_clients = []
                 for ws in session.clients:
                     try:
                         if not ws.closed:
-                            await ws.send_bytes(data)
+                            await asyncio.wait_for(ws.send_bytes(data), timeout=1.0)
                         else:
                             dead_clients.append(ws)
-                    except Exception:
+                    except (asyncio.TimeoutError, Exception):
                         dead_clients.append(ws)
+
+                # Send events as JSON text messages
+                for evt in events:
+                    for ws in session.clients:
+                        try:
+                            if not ws.closed:
+                                await asyncio.wait_for(ws.send_str(json.dumps(evt)), timeout=1.0)
+                        except Exception:
+                            pass
 
                 # Remove dead clients
                 for ws in dead_clients:
@@ -413,6 +525,9 @@ async def sessions_handler(request: web.Request) -> web.Response:
             session_info["buffer_size"] = session.buffer.total_bytes
             session_info["project"] = session.project
             session_info["command"] = session.command
+            session_info["state"] = session.state
+            session_info["created_at"] = session.created_at
+            session_info["last_output"] = session.last_output
         sessions.append(session_info)
 
     return web.json_response({"sessions": sessions})
@@ -433,6 +548,27 @@ async def session_stop_handler(request: web.Request) -> web.Response:
         return web.json_response({"error": "Session not found"}, status=404)
 
 
+async def send_input_handler(request: web.Request) -> web.Response:
+    """Send input to a specific session via HTTP."""
+    name = sanitize_session_name(request.match_info['name'])
+    if name not in active_sessions:
+        return web.json_response({"error": "Session not found"}, status=404)
+    body = await request.json()
+    text = body.get('input', '')
+    if text:
+        session_write(active_sessions[name], text.encode())
+    return web.json_response({"status": "sent"})
+
+
+async def delete_session_handler(request: web.Request) -> web.Response:
+    """Delete (stop) a specific session."""
+    name = sanitize_session_name(request.match_info['name'])
+    if name not in active_sessions:
+        return web.json_response({"error": "Session not found"}, status=404)
+    stop_session(active_sessions[name])
+    return web.json_response({"status": "deleted"})
+
+
 def create_app() -> web.Application:
     """Create the aiohttp application."""
     app = web.Application()
@@ -446,7 +582,7 @@ def create_app() -> web.Application:
                 response = await handler(request)
 
             response.headers['Access-Control-Allow-Origin'] = '*'
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, DELETE, OPTIONS'
             response.headers['Access-Control-Allow-Headers'] = '*'
             return response
         return middleware_handler
@@ -458,6 +594,8 @@ def create_app() -> web.Application:
     app.router.add_get('/health', health_handler)
     app.router.add_get('/sessions', sessions_handler)
     app.router.add_post('/sessions/{name}/stop', session_stop_handler)
+    app.router.add_post('/sessions/{name}/input', send_input_handler)
+    app.router.add_delete('/sessions/{name}', delete_session_handler)
 
     return app
 

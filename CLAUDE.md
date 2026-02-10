@@ -639,3 +639,31 @@ docker restart homepage
 4. Le terminal s'ouvre dans un div (pas iframe)
 5. Taper des commandes, vérifier que le scroll fonctionne
 6. Fermer/rouvrir l'onglet → la session dtach se reconnecte
+
+## Session du 10 février 2026
+
+**Intégration QBO Ask dans la homepage :**
+
+1. **Bouton QBO Ask dans la sidebar Terminaux**
+   - Bouton bleu **Q QBO Ask** en haut de la sidebar, au-dessus de la recherche
+   - Section CSS `.sidebar-quick-tools` avec style gradient bleu (#2563eb)
+   - Type terminal `qbo` ajouté dans `terminalTypes`
+   - Styles CSS pour le badge onglet (`.tab-type.qbo-btn`) et vue grille (`.grid-term-type.qbo-btn`)
+
+2. **Architecture QBO Chat**
+   - Commande : `/home/cactus/claude/qbo-ask/qbo-chat.sh`
+   - Utilise `claude -p` (print mode) avec `--mcp-config` pour le serveur MCP qbo-connect
+   - Affichage chatbot propre : seule la réponse est affichée, pas les tool calls
+   - Utilise l'abonnement Claude (pas l'API payante au token)
+   - 19 outils MCP disponibles (lecture, écriture, rapports)
+   - Session dtach persistante : `qbo_qbo_ask`
+
+3. **terminal-server.py modifié**
+   - Les commandes custom utilisent `bash -l -c "commande"` pour sourcer le profil (variables d'environnement)
+
+**Fichiers modifiés :**
+- `index.html` - Bouton QBO Ask, CSS, type terminal qbo
+- `terminal-server.py` - Support commandes custom avec login shell
+
+**Projet lié :**
+- `/home/cactus/claude/qbo-ask/` - Chatbot QBO (qbo-chat.sh + qbo-ask.js)

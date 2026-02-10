@@ -1523,6 +1523,43 @@
             background: var(--cactus-primary-glow);
             color: var(--cactus-primary);
         }
+        .sidebar-quick-tools {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--cactus-border);
+        }
+        .quick-tool-btn {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .quick-tool-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.15);
+        }
+        .quick-tool-btn.qbo-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
+        .quick-tool-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
         .sidebar-search {
             padding: 12px 16px;
             border-bottom: 1px solid var(--cactus-border);
@@ -1599,6 +1636,10 @@
         }
         .project-btn.claude-btn {
             background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-dark));
+            color: white;
+        }
+        .project-btn.qbo-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: white;
         }
         /* Project Settings Modal */
@@ -1746,6 +1787,7 @@
         }
         .terminal-tab .tab-type.bash { background: var(--cactus-positive); }
         .terminal-tab .tab-type.claude-btn { background: var(--cactus-primary); }
+        .terminal-tab .tab-type.qbo-btn { background: #2563eb; }
         .terminal-tab .tab-type.sudo { background: var(--cactus-negative); }
         .terminal-tab .tab-name {
             overflow: hidden;
@@ -1921,46 +1963,61 @@
             height: 100%;
         }
 
-        /* ============ GRID VIEW MODE ============ */
+        /* ============ GRID VIEW - FULLSCREEN ============ */
         .terminal-container.grid-view {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 8px;
-            padding: 8px;
-            overflow: auto;
+            gap: 2px;
+            background: #000;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
+
+        /* Dynamic grid columns - set by JS via class */
+        .terminal-container.grid-view.grid-cols-1 { grid-template-columns: 1fr; }
+        .terminal-container.grid-view.grid-cols-2 { grid-template-columns: 1fr 1fr; }
+        .terminal-container.grid-view.grid-cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .terminal-container.grid-view.grid-cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
         .terminal-container.grid-view .terminal-placeholder {
             grid-column: 1 / -1;
             position: static;
             transform: none;
             padding: 60px 20px;
         }
+
         .terminal-container.grid-view .terminal-div {
             position: relative;
-            display: flex;
+            display: flex !important;
             flex-direction: column;
-            min-height: 300px;
-            height: auto;
-            border-radius: 8px;
-            border: 2px solid var(--cactus-border);
+            min-height: 0;
+            min-width: 0;
             overflow: hidden;
+            border-left: 3px solid var(--agent-color, var(--cactus-border));
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
+
         .terminal-container.grid-view .terminal-div.active {
-            border-color: var(--cactus-primary);
+            border-left-color: var(--agent-color, var(--cactus-primary));
         }
+
         .terminal-container.grid-view .terminal-div .xterm {
             flex: 1;
-            min-height: 250px;
+            min-height: 0;
         }
-        /* Grid terminal header */
+
+        /* Grid terminal header - always visible in grid mode */
         .terminal-grid-header {
             display: none;
-            padding: 8px 12px;
+            padding: 4px 8px;
             background: var(--cactus-bg-card);
             border-bottom: 1px solid var(--cactus-border);
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
+            height: 28px;
+            min-height: 28px;
         }
         .terminal-container.grid-view .terminal-grid-header {
             display: flex;
@@ -1968,51 +2025,136 @@
         .terminal-grid-header .grid-term-info {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
+            gap: 6px;
+            font-size: 0.8rem;
             color: var(--cactus-text-secondary);
+            overflow: hidden;
         }
-        .terminal-grid-header .grid-term-type {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
+        .terminal-grid-header .grid-term-number {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            background: var(--agent-color, #666);
+            color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 700;
+            flex-shrink: 0;
+        }
+        .terminal-grid-header .grid-term-type {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
         }
         .terminal-grid-header .grid-term-type.bash { background: var(--cactus-positive); }
         .terminal-grid-header .grid-term-type.claude-btn { background: var(--cactus-primary); }
+        .terminal-grid-header .grid-term-type.qbo-btn { background: #2563eb; }
         .terminal-grid-header .grid-term-name {
             font-weight: 500;
             color: var(--cactus-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+        .terminal-grid-header .grid-alert-badge {
+            display: none;
+            align-items: center;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .terminal-grid-header .grid-alert-badge.visible {
+            display: inline-flex;
+        }
+        .grid-alert-badge.permission { background: #dc2626; color: white; }
+        .grid-alert-badge.complete { background: #16a34a; color: white; }
+        .grid-alert-badge.error { background: #ea580c; color: white; }
+        .grid-alert-badge.idle { background: #ca8a04; color: white; }
+
         .terminal-grid-header .grid-term-actions {
             display: flex;
-            gap: 4px;
+            gap: 2px;
+            flex-shrink: 0;
         }
         .terminal-grid-header .grid-term-actions button {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             border: none;
-            background: var(--cactus-bg-hover);
-            color: var(--cactus-text-secondary);
-            border-radius: 4px;
+            background: transparent;
+            color: var(--cactus-text-muted);
+            border-radius: 3px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
         .terminal-grid-header .grid-term-actions button:hover {
-            background: var(--cactus-bg-subtle);
+            background: var(--cactus-bg-hover);
             color: var(--cactus-text-primary);
         }
         .terminal-grid-header .grid-term-actions .close-btn:hover {
             background: rgba(222, 53, 11, 0.3);
             color: var(--cactus-negative);
         }
+
+        /* Zoom mode - terminal takes full screen */
+        .terminal-div.zoomed {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 2000;
+            border-left: none !important;
+            display: flex !important;
+            flex-direction: column;
+        }
+        .terminal-div.zoomed .terminal-grid-header {
+            display: flex;
+            background: #1a1a2e;
+        }
+
+        /* Alert states - border glow */
+        .terminal-div.alert-permission {
+            border-left-color: #ef4444 !important;
+            box-shadow: inset 3px 0 12px rgba(239, 68, 68, 0.3);
+            animation: pulse-permission 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-permission {
+            0%, 100% { box-shadow: inset 3px 0 8px rgba(239, 68, 68, 0.2); }
+            50% { box-shadow: inset 3px 0 20px rgba(239, 68, 68, 0.5); }
+        }
+        .terminal-div.alert-complete {
+            border-left-color: #22c55e !important;
+            box-shadow: inset 3px 0 8px rgba(34, 197, 94, 0.2);
+        }
+        .terminal-div.alert-error {
+            border-left-color: #f97316 !important;
+            box-shadow: inset 3px 0 12px rgba(249, 115, 22, 0.3);
+            animation: pulse-error 1s ease-in-out infinite;
+        }
+        @keyframes pulse-error {
+            0%, 100% { box-shadow: inset 3px 0 6px rgba(249, 115, 22, 0.2); }
+            50% { box-shadow: inset 3px 0 16px rgba(249, 115, 22, 0.5); }
+        }
+        .terminal-div.alert-idle {
+            border-left-color: #eab308 !important;
+            box-shadow: inset 3px 0 4px rgba(234, 179, 8, 0.15);
+        }
+
         /* View mode toggle button */
         .view-mode-toggle {
             display: flex;
@@ -2037,9 +2179,42 @@
             border-color: var(--cactus-primary);
             color: var(--cactus-primary);
         }
-        .view-mode-toggle svg {
-            width: 16px;
-            height: 16px;
+        .view-mode-toggle svg { width: 16px; height: 16px; }
+
+        /* Mute toggle */
+        .mute-toggle {
+            padding: 4px 8px;
+            background: transparent;
+            border: 1px solid var(--cactus-border);
+            border-radius: 4px;
+            color: var(--cactus-text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 4px;
+        }
+        .mute-toggle:hover { background: var(--cactus-bg-hover); }
+        .mute-toggle.muted { color: var(--cactus-text-muted); opacity: 0.5; }
+
+        /* Responsive grid */
+        @media (max-width: 767px) {
+            .terminal-container.grid-view {
+                grid-template-columns: 1fr !important;
+                overflow-y: auto;
+            }
+            .terminal-container.grid-view .terminal-div {
+                min-height: 40vh;
+            }
+        }
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .terminal-container.grid-view.grid-cols-3,
+            .terminal-container.grid-view.grid-cols-4 {
+                grid-template-columns: 1fr 1fr !important;
+            }
+        }
+        @media (min-width: 1921px) {
+            .terminal-container.grid-view.grid-cols-3 {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
         }
 
         /* Hide mobile elements on desktop */
@@ -2413,6 +2588,11 @@
                         <button class="sidebar-btn" onclick="openProjectSettings()" title="Gérer les projets">⚙</button>
                     </div>
                 </div>
+                <div class="sidebar-quick-tools">
+                    <button class="quick-tool-btn qbo-btn" onclick="createTerminalTab('qbo', 'qbo-ask')" title="QBO Ask - Interroger QuickBooks en langage naturel">
+                        <span class="quick-tool-icon">Q</span> QBO Ask
+                    </button>
+                </div>
                 <div class="sidebar-search">
                     <input type="text" id="projectSearch" placeholder="Rechercher..." oninput="renderProjectList(this.value)">
                 </div>
@@ -2456,6 +2636,7 @@
                 <!-- Desktop tabs + view mode toggle -->
                 <div style="display: flex; align-items: flex-end; background: rgba(30, 41, 59, 0.95); border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <div class="terminal-tabs terminal-tabs-desktop" id="terminalTabs" style="border-bottom: none; flex: 1;"></div>
+                    <button class="mute-toggle" id="muteToggle" onclick="toggleAlertMute()" title="Mute/Unmute alertes">🔔</button>
                     <button class="view-mode-toggle" id="viewModeToggle" onclick="toggleViewMode()" title="Basculer vue grille/onglets">
                         <svg viewBox="0 0 24 24" fill="currentColor" id="viewModeIcon">
                             <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>
@@ -2914,8 +3095,87 @@
         // Terminal types (single port for all - terminal-server.py handles routing)
         const terminalTypes = {
             bash:   { label: 'B', command: 'bash', color: 'bash' },
-            claude: { label: 'C', command: 'claude', color: 'claude-btn' }
+            claude: { label: 'C', command: 'claude', color: 'claude-btn' },
+            qbo:    { label: 'Q', command: '/home/cactus/claude/qbo-ask/qbo-chat.sh', color: 'qbo-btn' }
         };
+
+        const AGENT_COLORS = [
+            '#E75B12', '#2563eb', '#36B37E', '#9333ea',
+            '#ec4899', '#f59e0b', '#06b6d4', '#ef4444'
+        ];
+
+        // ============ Alert Sound System ============
+        const ALERT_SOUNDS = {
+            permission_request: {
+                notes: [
+                    { freq: 880, duration: 0.12, wave: 'square', vol: 0.25 },
+                    { freq: 0,   duration: 0.06 },
+                    { freq: 880, duration: 0.12, wave: 'square', vol: 0.25 },
+                ],
+                throttleMs: 5000,
+            },
+            task_complete: {
+                notes: [
+                    { freq: 523, duration: 0.15, wave: 'sine', vol: 0.15 },
+                    { freq: 659, duration: 0.25, wave: 'sine', vol: 0.12 },
+                ],
+                throttleMs: 3000,
+            },
+            error: {
+                notes: [
+                    { freq: 440, duration: 0.1, wave: 'sawtooth', vol: 0.2 },
+                    { freq: 349, duration: 0.1, wave: 'sawtooth', vol: 0.2 },
+                    { freq: 261, duration: 0.15, wave: 'sawtooth', vol: 0.2 },
+                ],
+                throttleMs: 5000,
+            },
+            idle: {
+                notes: [
+                    { freq: 600, duration: 0.05, wave: 'sine', vol: 0.08 },
+                ],
+                throttleMs: 30000,
+            }
+        };
+
+        let audioCtx = null;
+        const lastSoundTime = {};
+
+        function playAlertSound(eventType) {
+            const config = ALERT_SOUNDS[eventType];
+            if (!config) return;
+            const now = Date.now();
+            if (now - (lastSoundTime[eventType] || 0) < config.throttleMs) return;
+            lastSoundTime[eventType] = now;
+            if (localStorage.getItem('alertsMuted') === 'true') return;
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            let offset = audioCtx.currentTime;
+            config.notes.forEach(note => {
+                if (!note.freq || note.freq === 0) { offset += (note.duration || 0); return; }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = note.freq;
+                osc.type = note.wave || 'sine';
+                gain.gain.setValueAtTime(note.vol || 0.15, offset);
+                gain.gain.exponentialRampToValueAtTime(0.001, offset + note.duration);
+                osc.start(offset);
+                osc.stop(offset + note.duration);
+                offset += note.duration;
+            });
+        }
+
+        function toggleAlertMute() {
+            const muted = localStorage.getItem('alertsMuted') === 'true';
+            localStorage.setItem('alertsMuted', !muted ? 'true' : 'false');
+            const btn = document.getElementById('muteToggle');
+            if (btn) {
+                btn.textContent = !muted ? '🔇' : '🔔';
+                btn.classList.toggle('muted', !muted);
+            }
+        }
 
         // Terminal server WebSocket port
         const TERMINAL_WS_PORT = 7681;
@@ -2939,10 +3199,172 @@
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
-        let activityPollInterval = null;
-        let lastBeepTime = 0;
         let viewMode = localStorage.getItem('terminalViewMode') || 'tabs';  // 'tabs' or 'grid'
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver }
+
+        const lastActivity = new Map();  // tabId -> timestamp
+        const terminalAlerts = new Map(); // tabId -> { event, timestamp }
+
+        // Idle checker - runs every 10 seconds
+        setInterval(() => {
+            terminalInstances.forEach((instance, tabId) => {
+                const last = lastActivity.get(tabId) || 0;
+                if (Date.now() - last > 30000 && last > 0) {
+                    handleTerminalEvent(tabId, { event: 'idle', severity: 'low' });
+                }
+            });
+        }, 10000);
+
+        // ============ Terminal Event Handling ============
+        function handleTerminalEvent(tabId, evt) {
+            // Update alert state
+            terminalAlerts.set(tabId, { event: evt.event, timestamp: Date.now() });
+
+            // Visual: update border + badge
+            updateTerminalAlertVisual(tabId, evt.event);
+
+            // Sound
+            playAlertSound(evt.event);
+
+            // Browser notification (when tab not visible)
+            if (document.visibilityState !== 'visible') {
+                queueBrowserNotification(tabId, evt);
+            }
+
+            // Auto-clear task_complete after 10s
+            if (evt.event === 'task_complete') {
+                setTimeout(() => clearTerminalAlert(tabId), 10000);
+            }
+        }
+
+        function updateTerminalAlertVisual(tabId, eventType) {
+            const termDiv = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+            if (!termDiv) return;
+
+            termDiv.classList.remove('alert-permission', 'alert-complete', 'alert-error', 'alert-idle');
+
+            const classMap = {
+                'permission_request': 'alert-permission',
+                'task_complete': 'alert-complete',
+                'error': 'alert-error',
+                'idle': 'alert-idle'
+            };
+            if (classMap[eventType]) termDiv.classList.add(classMap[eventType]);
+
+            // Update badge in grid header
+            const badge = termDiv.querySelector('.grid-alert-badge');
+            if (badge) {
+                const badgeConfig = {
+                    'permission_request': { text: '⚠ Permission', cls: 'permission' },
+                    'task_complete': { text: '✓ Done', cls: 'complete' },
+                    'error': { text: '✗ Error', cls: 'error' },
+                    'idle': { text: '… Idle', cls: 'idle' },
+                };
+                const cfg = badgeConfig[eventType];
+                if (cfg) {
+                    badge.textContent = cfg.text;
+                    badge.className = `grid-alert-badge ${cfg.cls} visible`;
+                }
+            }
+
+            // Also update tab indicator
+            renderTerminalTabs();
+        }
+
+        function clearTerminalAlert(tabId) {
+            terminalAlerts.delete(tabId);
+            const termDiv = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+            if (!termDiv) return;
+            termDiv.classList.remove('alert-permission', 'alert-complete', 'alert-error', 'alert-idle');
+            const badge = termDiv.querySelector('.grid-alert-badge');
+            if (badge) badge.classList.remove('visible');
+        }
+
+        // ============ Browser Notifications ============
+        let pendingNotifs = [];
+        let notifFlushTimer = null;
+
+        function queueBrowserNotification(tabId, evt) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            pendingNotifs.push({ tabId, evt });
+            clearTimeout(notifFlushTimer);
+            notifFlushTimer = setTimeout(flushNotifications, 2000);
+        }
+
+        function flushNotifications() {
+            if (!pendingNotifs.length) return;
+            if (pendingNotifs.length === 1) {
+                const n = pendingNotifs[0];
+                const tab = terminalTabs.find(t => t.id === n.tabId);
+                const titles = {
+                    'permission_request': '⚠ Permission Required',
+                    'task_complete': '✓ Task Complete',
+                    'error': '✗ Error Detected',
+                    'idle': '… Terminal Idle'
+                };
+                new Notification(titles[n.evt.event] || 'Terminal Alert', {
+                    body: tab?.name || 'Terminal',
+                    tag: `terminal-${n.evt.event}`,
+                    requireInteraction: n.evt.severity === 'high',
+                });
+            } else {
+                new Notification(`Terminal Alerts (${pendingNotifs.length})`, {
+                    body: pendingNotifs.map(n => n.evt.event).join(', '),
+                    tag: 'terminal-grouped',
+                });
+            }
+            pendingNotifs = [];
+        }
+
+        // Request notification permission on first click
+        document.addEventListener('click', function requestNotifPerm() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            document.removeEventListener('click', requestNotifPerm);
+        }, { once: true });
+
+        // ============ Zoom Terminal ============
+        function toggleZoomTerminal(tabId) {
+            const termDiv = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+            if (!termDiv) return;
+
+            const isZoomed = termDiv.classList.toggle('zoomed');
+
+            // Fit terminal after zoom change
+            const instance = terminalInstances.get(tabId);
+            if (instance) {
+                requestAnimationFrame(() => {
+                    try {
+                        instance.fitAddon.fit();
+                        instance.terminal.focus();
+                        // Send resize to server
+                        const dims = instance.fitAddon.proposeDimensions();
+                        if (dims && instance.ws.readyState === WebSocket.OPEN) {
+                            instance.ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+                        }
+                    } catch(e) {}
+                });
+            }
+        }
+
+        // Escape key to unzoom (capture phase to intercept before xterm.js)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const zoomed = document.querySelector('.terminal-div.zoomed');
+                if (zoomed) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    zoomed.classList.remove('zoomed');
+                    // Refit all terminals
+                    requestAnimationFrame(() => {
+                        terminalInstances.forEach((inst) => {
+                            try { inst.fitAddon.fit(); } catch(e) {}
+                        });
+                    });
+                }
+            }
+        }, true);
 
         // ============ View Mode Toggle ============
         function toggleViewMode() {
@@ -2952,126 +3374,61 @@
             saveTerminalState();
         }
 
+        function calculateGridCols(n) {
+            if (n <= 0) return 1;
+            if (n === 1) return 1;
+            return Math.ceil(Math.sqrt(n));
+        }
+
         function applyViewMode() {
             const container = document.getElementById('terminalContainer');
             const toggleBtn = document.getElementById('viewModeToggle');
-            const icon = document.getElementById('viewModeIcon');
             const label = document.getElementById('viewModeLabel');
-
             if (!container) return;
+
+            // Remove old grid-cols classes
+            container.className = container.className.replace(/grid-cols-\d+/g, '').trim();
 
             if (viewMode === 'grid') {
                 container.classList.add('grid-view');
+                const cols = calculateGridCols(terminalTabs.length);
+                container.classList.add(`grid-cols-${cols}`);
                 toggleBtn?.classList.add('active');
                 if (label) label.textContent = 'Onglets';
-                if (icon) icon.innerHTML = '<path d="M4 5h16v2H4V5zm0 6h16v2H4v-2zm0 6h16v2H4v-2z"/>';
-                // Show all terminals in grid mode
-                document.querySelectorAll('.terminal-div').forEach(div => {
+
+                // Show all terminals + assign agent colors
+                document.querySelectorAll('.terminal-div').forEach((div, index) => {
                     div.style.display = 'flex';
+                    div.style.setProperty('--agent-color', AGENT_COLORS[index % AGENT_COLORS.length]);
+                });
+
+                // Fit all terminals
+                requestAnimationFrame(() => {
+                    terminalInstances.forEach((inst) => {
+                        try { inst.fitAddon.fit(); } catch(e) {}
+                    });
                 });
             } else {
                 container.classList.remove('grid-view');
                 toggleBtn?.classList.remove('active');
                 if (label) label.textContent = 'Grille';
-                if (icon) icon.innerHTML = '<path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>';
-                // Show only active terminal in tabs mode
+
+                // Show only active terminal
                 document.querySelectorAll('.terminal-div').forEach(div => {
-                    const isActive = div.dataset.tabId === activeTerminalTabId;
-                    div.style.display = isActive ? 'block' : 'none';
-                    div.classList.toggle('active', isActive);
-                });
-            }
-
-            // Refit all visible terminals
-            requestAnimationFrame(() => {
-                terminalInstances.forEach((instance, tabId) => {
-                    const div = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
-                    if (div && div.style.display !== 'none' && instance.fitAddon) {
-                        try {
-                            instance.fitAddon.fit();
-                        } catch (e) {}
-                    }
-                });
-            });
-        }
-
-        // ============ Beep Sound ============
-        function playBeep() {
-            const now = Date.now();
-            if (now - lastBeepTime < 3000) return;  // Throttle: max 1 beep every 3 seconds
-            lastBeepTime = now;
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.2);
-            } catch (e) {
-                console.warn('Could not play beep:', e);
-            }
-        }
-
-        // ============ Activity Detection ============
-        async function checkTerminalActivity() {
-            if (terminalTabs.length === 0) return;
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-                const response = await fetch('/api/terminal/activity', { signal: controller.signal });
-                clearTimeout(timeout);
-                const activity = await response.json();
-
-                let anyNewWaiting = false;
-                let stateChanged = false;
-
-                terminalTabs.forEach(tab => {
-                    const sessionActivity = activity[tab.tmuxSession];
-                    const wasWaiting = waitingTabs[tab.tmuxSession] || false;
-                    const isWaiting = sessionActivity?.waiting || false;
-
-                    if (isWaiting !== wasWaiting) {
-                        stateChanged = true;
-                    }
-                    if (isWaiting && !wasWaiting && tab.id !== activeTerminalTabId) {
-                        anyNewWaiting = true;
-                    }
-                    waitingTabs[tab.tmuxSession] = isWaiting;
+                    div.style.display = div.dataset.tabId === activeTerminalTabId ? 'block' : 'none';
                 });
 
-                if (anyNewWaiting) {
-                    playBeep();
-                }
-                // Only re-render if state actually changed
-                if (stateChanged) {
-                    renderTerminalTabs();
-                    syncMobileTerminalTabs();
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error checking terminal activity:', error);
+                // Fit active terminal
+                const activeInstance = terminalInstances.get(activeTerminalTabId);
+                if (activeInstance) {
+                    requestAnimationFrame(() => {
+                        try { activeInstance.fitAddon.fit(); } catch(e) {}
+                    });
                 }
             }
         }
 
-        function startActivityPolling() {
-            if (!activityPollInterval) {
-                checkTerminalActivity();  // Check immediately
-                activityPollInterval = setInterval(checkTerminalActivity, 2000);
-            }
-        }
-
-        function stopActivityPolling() {
-            if (activityPollInterval) {
-                clearInterval(activityPollInterval);
-                activityPollInterval = null;
-            }
-        }
+        // Activity polling removed - events now come via WebSocket from terminal-server.py
 
         // ============ Terminal Input Helpers ============
         function getTerminalInstance(tabId) {
@@ -3262,6 +3619,7 @@
             renderTerminalTabs();
             syncMobileTerminalTabs();
             loadTerminal(tab);
+            applyViewMode();
             // Close mobile sidebar when opening a terminal
             if (isMobile()) closeMobileSidebar();
         }
@@ -3278,6 +3636,11 @@
                 waitingTabs[tab.tmuxSession] = false;
                 renderTerminalTabs();
                 syncMobileTerminalTabs();
+            }
+
+            // Clear alert state when user activates a tab
+            if (terminalAlerts.has(tabId)) {
+                clearTerminalAlert(tabId);
             }
 
             // Update tab highlighting
@@ -3382,6 +3745,7 @@
 
             saveTerminalState();
             renderTerminalTabs(); syncMobileTerminalTabs();
+            applyViewMode();
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
@@ -3424,18 +3788,26 @@
 
             // Add grid header (visible only in grid mode)
             const typeInfo = terminalTypes[tab.type] || { label: '?', color: '' };
+            const tabIndex = terminalTabs.indexOf(tab);
+            const agentColor = AGENT_COLORS[tabIndex % AGENT_COLORS.length];
+            termDiv.style.setProperty('--agent-color', agentColor);
+
             const gridHeader = document.createElement('div');
             gridHeader.className = 'terminal-grid-header';
             gridHeader.innerHTML = `
                 <div class="grid-term-info">
+                    <span class="grid-term-number" style="background:${agentColor}">${tabIndex + 1}</span>
                     <span class="grid-term-type ${typeInfo.color}">${typeInfo.label}</span>
                     <span class="grid-term-name">${escapeHtml(tab.name)}</span>
+                    <span class="grid-alert-badge"></span>
                 </div>
                 <div class="grid-term-actions">
+                    <button onclick="toggleZoomTerminal('${tab.id}')" title="Zoom">⤢</button>
                     <button onclick="manualRefreshTerminal('${tab.id}', event)" title="Rafraîchir">↻</button>
                     <button class="close-btn" onclick="closeTerminalTab('${tab.id}', event)" title="Fermer">×</button>
                 </div>
             `;
+            gridHeader.addEventListener('dblclick', () => toggleZoomTerminal(tab.id));
             termDiv.appendChild(gridHeader);
 
             // Create terminal wrapper for xterm
@@ -3488,6 +3860,22 @@
                 if (event.data instanceof ArrayBuffer) {
                     const text = new TextDecoder().decode(event.data);
                     terminal.write(text);
+                    // Track activity for idle detection
+                    lastActivity.set(tab.id, Date.now());
+                    // Clear idle alert on new data
+                    if (terminalAlerts.get(tab.id)?.event === 'idle') {
+                        clearTerminalAlert(tab.id);
+                    }
+                } else if (typeof event.data === 'string') {
+                    // JSON event from server
+                    try {
+                        const evt = JSON.parse(event.data);
+                        if (evt.type === 'event') {
+                            handleTerminalEvent(tab.id, evt);
+                        }
+                    } catch (e) {
+                        console.warn('Invalid JSON event:', e);
+                    }
                 }
             };
 
@@ -3537,19 +3925,21 @@
             // Note: Ctrl+V paste requires HTTPS due to browser security restrictions
             // In HTTP, use right-click context menu to paste
 
-            // Handle resize
+            // Handle resize (debounced to avoid resize loops)
+            let gridResizeTimeout = null;
             const resizeObserver = new ResizeObserver(() => {
-                try {
-                    fitAddon.fit();
-                    const dims = fitAddon.proposeDimensions();
-                    if (dims && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
-                    }
-                } catch (e) {
-                    // Ignore resize errors
-                }
+                clearTimeout(gridResizeTimeout);
+                gridResizeTimeout = setTimeout(() => {
+                    try {
+                        fitAddon.fit();
+                        const dims = fitAddon.proposeDimensions();
+                        if (dims && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+                        }
+                    } catch (e) {}
+                }, 150);
             });
-            resizeObserver.observe(termDiv);
+            resizeObserver.observe(termWrapper);
 
             // Store instance
             terminalInstances.set(tab.id, {
@@ -3649,6 +4039,14 @@
             // Apply saved view mode (tabs or grid)
             applyViewMode();
 
+            // Restore mute button state
+            const isMuted = localStorage.getItem('alertsMuted') === 'true';
+            const muteBtn = document.getElementById('muteToggle');
+            if (muteBtn) {
+                muteBtn.textContent = isMuted ? '🔇' : '🔔';
+                muteBtn.classList.toggle('muted', isMuted);
+            }
+
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
         }
@@ -3663,9 +4061,6 @@
                 document.body.classList.toggle('terminal-mode', show);
                 if (show) {
                     initTerminalManager();
-                    startActivityPolling();
-                } else {
-                    stopActivityPolling();
                 }
             }
         }
