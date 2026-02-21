@@ -498,5 +498,247 @@ def get_terminal_sessions():
 
     return jsonify({'sessions': sessions})
 
+# ============ Subagents API ============
+import time
+
+CLAUDE_PROJECTS_BASE = '/home/cactus/.claude/projects'
+
+def get_claude_project_path(project_name):
+    """Convert project name (e.g., 'guillevin') to Claude project path"""
+    # Format: -home-cactus-claude-{project_name}
+    project_dir_name = f'-home-cactus-claude-{project_name}'
+    project_path = os.path.join(CLAUDE_PROJECTS_BASE, project_dir_name)
+    if os.path.exists(project_path):
+        return project_path
+    return None
+
+def get_active_session(project_path):
+    """Find the most recent session with subagents in the project"""
+    if not project_path or not os.path.exists(project_path):
+        return None
+
+    best_session = None
+    best_mtime = 0
+
+    for item in os.listdir(project_path):
+        item_path = os.path.join(project_path, item)
+        # Session directories are UUIDs (with dashes)
+        if os.path.isdir(item_path) and '-' in item and len(item) == 36:
+            subagents_path = os.path.join(item_path, 'subagents')
+            if os.path.exists(subagents_path):
+                # Get the most recently modified session
+                mtime = os.path.getmtime(subagents_path)
+                if mtime > best_mtime:
+                    best_mtime = mtime
+                    best_session = item_path
+
+    return best_session
+
+def parse_agent_status(jsonl_path):
+    """Parse agent info from JSONL file (reads from end for efficiency)"""
+    try:
+        mtime = os.path.getmtime(jsonl_path)
+        now = time.time()
+        age_seconds = now - mtime
+
+        # Read the entire file to get first and last lines
+        with open(jsonl_path, 'r', encoding='utf-8', errors='ignore') as f:
+            all_lines = [l.strip() for l in f if l.strip()]
+
+        if not all_lines:
+            return None
+
+        message_count = len(all_lines)
+
+        # Parse first line to get task description
+        import json
+        first_data = json.loads(all_lines[0])
+        first_msg = first_data.get('message', {})
+        first_content = first_msg.get('content', '')
+
+        # Extract task description from first user message
+        task_description = ''
+        if isinstance(first_content, str) and first_content:
+            # Take first line, limit to 80 chars
+            first_line = first_content.split('\n')[0].strip()
+            task_description = first_line[:80]
+            if len(first_line) > 80:
+                task_description += '...'
+
+        # Parse last line for status
+        last_line = all_lines[-1]
+        data = json.loads(last_line)
+
+        agent_id = data.get('agentId', os.path.basename(jsonl_path).replace('agent-', '').replace('.jsonl', ''))
+        slug = data.get('slug', 'unknown')
+        message = data.get('message', {})
+        role = message.get('role', 'unknown')
+        stop_reason = message.get('stop_reason')
+        timestamp = data.get('timestamp', '')
+
+        # Determine status based on file age
+        if age_seconds < 30:
+            status = 'running'
+        elif age_seconds < 120:
+            status = 'idle'
+        else:
+            status = 'completed'
+
+        # If stop_reason is explicitly set to end_turn, mark as completed
+        if stop_reason == 'end_turn':
+            status = 'completed'
+
+        return {
+            'agentId': agent_id,
+            'slug': slug,
+            'taskDescription': task_description,
+            'status': status,
+            'messageCount': message_count,
+            'lastActivity': mtime,
+            'ageSeconds': int(age_seconds),
+            'lastRole': role,
+            'stopReason': stop_reason,
+            'timestamp': timestamp
+        }
+    except Exception as e:
+        print(f"Error parsing agent {jsonl_path}: {e}")
+        return None
+
+@app.route('/api/subagents/<project>')
+def get_subagents(project):
+    """Get list of subagents for a project"""
+    project_path = get_claude_project_path(project)
+    if not project_path:
+        return jsonify({'agents': [], 'error': 'Project not found'})
+
+    session_path = get_active_session(project_path)
+    if not session_path:
+        return jsonify({'agents': [], 'sessionId': None})
+
+    subagents_path = os.path.join(session_path, 'subagents')
+    agents = []
+
+    if os.path.exists(subagents_path):
+        for filename in os.listdir(subagents_path):
+            if filename.startswith('agent-') and filename.endswith('.jsonl'):
+                filepath = os.path.join(subagents_path, filename)
+                agent_info = parse_agent_status(filepath)
+                if agent_info:
+                    agents.append(agent_info)
+
+    # Sort by last activity (most recent first)
+    agents.sort(key=lambda x: x['lastActivity'], reverse=True)
+
+    return jsonify({
+        'agents': agents,
+        'sessionId': os.path.basename(session_path),
+        'sessionPath': session_path
+    })
+
+@app.route('/api/subagents/<project>/stats')
+def get_subagents_stats(project):
+    """Get subagent statistics for a project"""
+    project_path = get_claude_project_path(project)
+    if not project_path:
+        return jsonify({'total': 0, 'running': 0, 'completed': 0, 'idle': 0})
+
+    session_path = get_active_session(project_path)
+    if not session_path:
+        return jsonify({'total': 0, 'running': 0, 'completed': 0, 'idle': 0, 'sessionId': None})
+
+    subagents_path = os.path.join(session_path, 'subagents')
+    stats = {'total': 0, 'running': 0, 'completed': 0, 'idle': 0}
+
+    if os.path.exists(subagents_path):
+        for filename in os.listdir(subagents_path):
+            if filename.startswith('agent-') and filename.endswith('.jsonl'):
+                filepath = os.path.join(subagents_path, filename)
+                agent_info = parse_agent_status(filepath)
+                if agent_info:
+                    stats['total'] += 1
+                    status = agent_info['status']
+                    if status in stats:
+                        stats[status] += 1
+
+    stats['sessionId'] = os.path.basename(session_path)
+    return jsonify(stats)
+
+@app.route('/api/subagents/<project>/<agent_id>/logs')
+def get_agent_logs(project, agent_id):
+    """Get formatted messages from an agent's JSONL file"""
+    lines_param = request.args.get('lines', 50, type=int)
+    lines_param = min(lines_param, 200)  # Cap at 200 lines
+
+    project_path = get_claude_project_path(project)
+    if not project_path:
+        return jsonify({'messages': [], 'error': 'Project not found'})
+
+    session_path = get_active_session(project_path)
+    if not session_path:
+        return jsonify({'messages': [], 'error': 'No active session'})
+
+    # Find the agent file
+    subagents_path = os.path.join(session_path, 'subagents')
+    agent_file = None
+
+    for filename in os.listdir(subagents_path):
+        if filename.startswith(f'agent-{agent_id}') and filename.endswith('.jsonl'):
+            agent_file = os.path.join(subagents_path, filename)
+            break
+
+    if not agent_file or not os.path.exists(agent_file):
+        return jsonify({'messages': [], 'error': 'Agent not found'})
+
+    try:
+        import json
+        messages = []
+
+        # Read from end for efficiency (most recent messages)
+        with open(agent_file, 'rb') as f:
+            f.seek(0, 2)
+            size = f.tell()
+            # Read enough to get requested lines (estimate ~2KB per message)
+            read_size = min(size, lines_param * 3000)
+            f.seek(max(0, size - read_size))
+            content = f.read().decode('utf-8', errors='ignore')
+
+        lines = content.strip().split('\n')
+
+        for line in lines:
+            if not line.strip() or not line.startswith('{'):
+                continue
+            try:
+                data = json.loads(line)
+                msg = data.get('message', {})
+
+                # Extract text content
+                content_text = ''
+                if isinstance(msg.get('content'), str):
+                    content_text = msg['content']
+                elif isinstance(msg.get('content'), list):
+                    for block in msg['content']:
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            content_text += block.get('text', '')
+
+                if content_text:
+                    messages.append({
+                        'role': msg.get('role', 'unknown'),
+                        'content': content_text[:5000],  # Truncate long messages
+                        'timestamp': data.get('timestamp', ''),
+                        'uuid': data.get('uuid', '')
+                    })
+            except json.JSONDecodeError:
+                continue
+
+        # Return last N messages
+        return jsonify({
+            'messages': messages[-lines_param:],
+            'total': len(messages),
+            'agentId': agent_id
+        })
+
+    except Exception as e:
+        return jsonify({'messages': [], 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=False)

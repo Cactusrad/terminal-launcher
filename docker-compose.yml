@@ -11,6 +11,7 @@ services:
     volumes:
       - homepage-data:/data
       - /home/cactus/claude:/home/cactus/claude:ro
+      - /home/cactus/.claude:/home/cactus/.claude:ro
       - /tmp/terminal-logs:/tmp/terminal-logs:ro
       - /tmp/dtach-sessions:/tmp/dtach-sessions:ro
     healthcheck:

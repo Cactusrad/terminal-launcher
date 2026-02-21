@@ -640,30 +640,46 @@ docker restart homepage
 5. Taper des commandes, vérifier que le scroll fonctionne
 6. Fermer/rouvrir l'onglet → la session dtach se reconnecte
 
-## Session du 10 février 2026
+## Session du 21 février 2026
 
-**Intégration QBO Ask dans la homepage :**
+**Version publique Terminal Launcher :**
 
-1. **Bouton QBO Ask dans la sidebar Terminaux**
-   - Bouton bleu **Q QBO Ask** en haut de la sidebar, au-dessus de la recherche
-   - Section CSS `.sidebar-quick-tools` avec style gradient bleu (#2563eb)
-   - Type terminal `qbo` ajouté dans `terminalTypes`
-   - Styles CSS pour le badge onglet (`.tab-type.qbo-btn`) et vue grille (`.grid-term-type.qbo-btn`)
+1. **Création du sous-projet `terminal-launcher-public/`**
+   - Version sanitized sans informations confidentielles
+   - Suppression des références QBO Ask
+   - IP, tokens et chemins utilisateur généralisés
 
-2. **Architecture QBO Chat**
-   - Commande : `/home/cactus/claude/qbo-ask/qbo-chat.sh`
-   - Utilise `claude -p` (print mode) avec `--mcp-config` pour le serveur MCP qbo-connect
-   - Affichage chatbot propre : seule la réponse est affichée, pas les tool calls
-   - Utilise l'abonnement Claude (pas l'API payante au token)
-   - 19 outils MCP disponibles (lecture, écriture, rapports)
-   - Session dtach persistante : `qbo_qbo_ask`
+2. **Repo GitHub public**
+   - URL : https://github.com/Cactusrad/terminal-launcher
+   - License MIT
 
-3. **terminal-server.py modifié**
-   - Les commandes custom utilisent `bash -l -c "commande"` pour sourcer le profil (variables d'environnement)
+3. **Fonctionnalités**
+   - Dashboard d'apps avec création de raccourcis
+   - 100+ icônes intégrées (Lucide-style)
+   - 16 couleurs gradient prédéfinies
+   - Interface de création : nom, URL, description, icône, couleur
+   - Prévisualisation en temps réel
+   - Section Terminaux avec xterm.js
+   - Support Docker
 
-**Fichiers modifiés :**
-- `index.html` - Bouton QBO Ask, CSS, type terminal qbo
-- `terminal-server.py` - Support commandes custom avec login shell
+4. **Fichiers du sous-projet**
+```
+terminal-launcher-public/
+├── index.html          # Frontend complet
+├── server.py           # API Flask
+├── terminal-server.py  # WebSocket terminaux
+├── config.py           # Configuration (env vars)
+├── docker-compose.yml  # Déploiement Docker
+├── Dockerfile
+├── .env.example        # Template configuration
+├── requirements.txt
+├── README.md           # Documentation
+├── LICENSE             # MIT
+└── .gitignore
+```
 
-**Projet lié :**
-- `/home/cactus/claude/qbo-ask/` - Chatbot QBO (qbo-chat.sh + qbo-ask.js)
+5. **Informations supprimées (sanitized)**
+   - `192.168.1.200` → placeholder ou env var
+   - `HOM_xxx` API key → env var `BUGS_API_KEY`
+   - `/home/cactus/` → chemins génériques
+   - QBO Ask → supprimé complètement

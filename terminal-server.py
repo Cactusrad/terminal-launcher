@@ -254,8 +254,19 @@ def get_or_create_shared_session(session_name: str, project: str, command: str) 
     """Get existing session or create a new one."""
     if session_name in active_sessions:
         session = active_sessions[session_name]
-        logger.info(f"Reusing existing session: {session_name} (clients: {session.client_count()})")
-        return session
+        # Check if the dtach socket still exists - if not, the session is dead
+        if session_exists(session_name):
+            logger.info(f"Reusing existing session: {session_name} (clients: {session.client_count()})")
+            return session
+        else:
+            logger.warning(f"Session {session_name} found in memory but dtach socket is gone, recreating")
+            # Clean up the dead session
+            if session.master_fd is not None:
+                try:
+                    os.close(session.master_fd)
+                except OSError:
+                    pass
+            del active_sessions[session_name]
 
     # Create new shared session
     session = SharedSession(
