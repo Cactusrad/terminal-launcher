@@ -480,6 +480,102 @@
         .context-item.current::after { content: ' ✓'; margin-left: auto; }
         .context-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
         .context-new { color: #4ade80 !important; }
+        .context-edit {
+            color: var(--cactus-primary, #E75B12) !important;
+            font-weight: 500;
+        }
+        .context-edit:hover {
+            background: rgba(231, 91, 18, 0.15) !important;
+        }
+        .context-edit svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        /* Edit App Modal */
+        .edit-modal-content {
+            max-width: 500px;
+        }
+        .edit-modal-content label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .edit-modal-content input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            margin-bottom: 15px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+        .edit-modal-content input:focus {
+            outline: none;
+            border-color: var(--cactus-primary, #E75B12);
+            box-shadow: 0 0 0 2px rgba(231, 91, 18, 0.2);
+        }
+        .edit-modal-content input::placeholder {
+            color: #475569;
+        }
+        .edit-modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .edit-modal-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        .btn-edit-save {
+            background: var(--cactus-primary, #E75B12);
+            color: white;
+            flex: 1;
+        }
+        .btn-edit-save:hover { background: #d45210; }
+        .btn-edit-reset {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        .btn-edit-reset:hover { background: rgba(239, 68, 68, 0.3); }
+        .btn-edit-cancel {
+            background: rgba(255,255,255,0.1);
+            color: #94a3b8;
+        }
+        .btn-edit-cancel:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        /* Customized app indicator */
+        .card-customized-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            background: var(--cactus-primary, #E75B12);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            z-index: 1;
+        }
+        .card-customized-badge svg {
+            width: 12px;
+            height: 12px;
+            fill: white;
+        }
+        .card { position: relative; }
 
         /* Page manager in admin */
         .page-item {
@@ -3182,10 +3278,39 @@
 
     <!-- Context Menu -->
     <div class="context-menu" id="contextMenu">
+        <button class="context-item context-edit" onclick="openEditApp(contextAppId)">
+            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            Modifier
+        </button>
+        <div class="context-divider"></div>
         <div class="context-title">Déplacer vers...</div>
         <div id="contextPages"></div>
         <div class="context-divider"></div>
         <button class="context-item context-new" onclick="createPageFromContext()">+ Nouvelle page</button>
+    </div>
+
+    <!-- Edit App Modal -->
+    <div class="modal" id="editAppModal" onclick="if(event.target===this)closeEditApp()">
+        <div class="modal-content edit-modal-content">
+            <button class="modal-close" onclick="closeEditApp()">&times;</button>
+            <h2 id="editAppTitle">Modifier l'application</h2>
+            <input type="hidden" id="editAppId">
+
+            <label for="editAppName">Nom</label>
+            <input type="text" id="editAppName" placeholder="Nom de l'application">
+
+            <label for="editAppUrl">URL complète</label>
+            <input type="text" id="editAppUrl" placeholder="http://192.168.1.200:8123">
+
+            <label for="editAppDesc">Description</label>
+            <input type="text" id="editAppDesc" placeholder="Description courte">
+
+            <div class="edit-modal-buttons">
+                <button class="btn-edit-save" onclick="saveEditApp()">Sauvegarder</button>
+                <button class="btn-edit-reset" onclick="resetEditApp()">Réinitialiser</button>
+                <button class="btn-edit-cancel" onclick="closeEditApp()">Annuler</button>
+            </div>
+        </div>
     </div>
 
     <!-- Admin Modal -->
@@ -5077,6 +5202,8 @@
         let currentProjectId = null;
         let projectIssues = {};
         let agentTasks = {};
+        let appOverrides = {};  // { appId: { url, name, desc, port } }
+        let overrideDebounceTimer = null;
 
         // ============ API Functions ============
         const API_BASE = '/api';
@@ -5098,9 +5225,12 @@
                     apiEnabled = true;
                     cachedPages = data.pages || JSON.parse(JSON.stringify(defaultPages));
                     currentPageId = data.currentPage || 'main';
+                    // Load app overrides
+                    appOverrides = data.appOverrides || {};
                     // Also save to localStorage as backup
                     localStorage.setItem('cactusPages', JSON.stringify(cachedPages));
                     localStorage.setItem('cactusCurrentPage', currentPageId);
+                    localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
                     updateSyncStatus('', 'Sync serveur');
                     return true;
                 }
@@ -5108,6 +5238,15 @@
                 console.log('API non disponible, utilisation du localStorage');
             }
             apiEnabled = false;
+            // Load overrides from localStorage fallback
+            try {
+                const savedOverrides = localStorage.getItem('cactusAppOverrides');
+                if (savedOverrides) {
+                    appOverrides = JSON.parse(savedOverrides);
+                }
+            } catch (e) {
+                appOverrides = {};
+            }
             updateSyncStatus('local', 'Local uniquement');
             return false;
         }
@@ -5285,7 +5424,11 @@
 
         // ============ App Management ============
         function getAppById(appId) {
-            return defaultApps.find(a => a.id === appId);
+            const base = defaultApps.find(a => a.id === appId);
+            if (!base) return null;
+            const override = appOverrides[appId];
+            if (!override) return base;
+            return { ...base, ...override, id: appId };  // id never changes
         }
 
         function moveAppToPage(appId, targetPageId) {
@@ -5319,29 +5462,39 @@
         }
 
         // ============ Rendering ============
+        function createCustomizedBadge(appId) {
+            if (!appOverrides[appId]) return '';
+            return `<div class="card-customized-badge" title="Personnalisé"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>`;
+        }
+
         function createCard(app) {
+            const badge = createCustomizedBadge(app.id);
+            const hasOverride = !!appOverrides[app.id];
+            const portHtml = hasOverride ? '' : `<span class="port">${app.port}</span>`;
             if (app.isProject) {
                 // Project card - opens project view instead of external URL
                 const projectId = app.url.replace('#project:', '');
                 return `
                     <div class="card" draggable="true" data-id="${app.id}" onclick="openProjectView('${projectId}')" oncontextmenu="showContextMenu(event, '${app.id}'); return false;" style="cursor: pointer;">
+                        ${badge}
                         <div class="card-icon ${app.icon}">
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
                         </div>
                         <h2>${app.name}</h2>
                         <p>${app.desc}</p>
-                        <span class="port">${app.port}</span>
+                        ${portHtml}
                     </div>
                 `;
             }
             return `
                 <a href="${app.url}" class="card" draggable="true" data-id="${app.id}" target="_blank" oncontextmenu="showContextMenu(event, '${app.id}'); return false;">
+                    ${badge}
                     <div class="card-icon ${app.icon}">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
                     </div>
                     <h2>${app.name}</h2>
                     <p>${app.desc}</p>
-                    <span class="port">${app.port}</span>
+                    ${portHtml}
                 </a>
             `;
         }
@@ -5487,6 +5640,104 @@
             hideContextMenu();
         }
 
+        // ============ Edit App Modal ============
+        function openEditApp(appId) {
+            if (!appId) return;
+            hideContextMenu();
+
+            const app = getAppById(appId);
+            if (!app) return;
+
+            document.getElementById('editAppId').value = appId;
+            document.getElementById('editAppName').value = app.name || '';
+            document.getElementById('editAppUrl').value = app.url || '';
+            document.getElementById('editAppDesc').value = app.desc || '';
+            document.getElementById('editAppTitle').textContent = `Modifier: ${app.name}`;
+
+            document.getElementById('editAppModal').classList.add('active');
+        }
+
+        function closeEditApp() {
+            document.getElementById('editAppModal').classList.remove('active');
+        }
+
+        function saveEditApp() {
+            const appId = document.getElementById('editAppId').value;
+            if (!appId) return;
+
+            const base = defaultApps.find(a => a.id === appId);
+            if (!base) return;
+
+            const newName = document.getElementById('editAppName').value.trim();
+            const newUrl = document.getElementById('editAppUrl').value.trim();
+            const newDesc = document.getElementById('editAppDesc').value.trim();
+
+            // Build override object with only changed fields
+            const override = {};
+            if (newName && newName !== base.name) override.name = newName;
+            if (newUrl && newUrl !== base.url) override.url = newUrl;
+            if (newDesc && newDesc !== base.desc) override.desc = newDesc;
+
+            if (Object.keys(override).length > 0) {
+                appOverrides[appId] = override;
+            } else {
+                // No changes from default, remove override if any
+                delete appOverrides[appId];
+            }
+
+            // Save to localStorage as backup
+            localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
+
+            // Sync to server
+            saveAppOverridesToAPI();
+
+            // Re-render
+            renderApps();
+            closeEditApp();
+        }
+
+        function resetEditApp() {
+            const appId = document.getElementById('editAppId').value;
+            if (!appId) return;
+
+            if (!confirm('Réinitialiser cette application aux valeurs par défaut ?')) return;
+
+            delete appOverrides[appId];
+
+            // Save to localStorage as backup
+            localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
+
+            // Sync to server
+            saveAppOverridesToAPI();
+
+            // Re-render
+            renderApps();
+            closeEditApp();
+        }
+
+        async function saveAppOverridesToAPI() {
+            if (!apiEnabled) return;
+
+            clearTimeout(overrideDebounceTimer);
+            overrideDebounceTimer = setTimeout(async () => {
+                updateSyncStatus('syncing', 'Synchronisation...');
+                try {
+                    const response = await fetch(`${API_BASE}/preferences/app-overrides`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appOverrides })
+                    });
+                    if (response.ok) {
+                        updateSyncStatus('', 'Sync serveur');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Erreur sauvegarde overrides API:', e);
+                }
+                updateSyncStatus('error', 'Erreur sync');
+            }, 500);
+        }
+
         // ============ Admin Modal ============
         function openAdmin() {
             renderPageManager();
@@ -5504,8 +5755,10 @@
             if (!confirm('Réinitialiser toutes les pages et positions ?')) return;
             localStorage.removeItem('cactusPages');
             localStorage.removeItem('cactusCurrentPage');
+            localStorage.removeItem('cactusAppOverrides');
             cachedPages = JSON.parse(JSON.stringify(defaultPages));
             currentPageId = 'main';
+            appOverrides = {};
 
             // Reset on server too
             if (apiEnabled) {
@@ -5513,7 +5766,7 @@
                     await fetch(`${API_BASE}/preferences`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pages: cachedPages, currentPage: 'main' })
+                        body: JSON.stringify({ pages: cachedPages, currentPage: 'main', appOverrides: {} })
                     });
                 } catch (e) {
                     console.error('Erreur reset API:', e);

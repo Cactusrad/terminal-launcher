@@ -152,6 +152,20 @@ def update_current_page():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/preferences/app-overrides', methods=['POST'])
+def update_app_overrides():
+    """Met à jour les overrides d'applications (URL, nom, description, port personnalisés)"""
+    try:
+        data = request.get_json()
+        prefs = load_preferences()
+        prefs['appOverrides'] = data.get('appOverrides', {})
+        if save_preferences(prefs):
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ============ Terminal State (for multi-device sync) ============
 
 @app.route('/api/terminal/state', methods=['GET'])
