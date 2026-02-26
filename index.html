@@ -493,6 +493,137 @@
             fill: currentColor;
             flex-shrink: 0;
         }
+        .context-delete {
+            color: #ef4444 !important;
+            font-weight: 500;
+        }
+        .context-delete:hover {
+            background: rgba(239, 68, 68, 0.15) !important;
+        }
+        .context-delete svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        /* Create App Modal */
+        .create-modal-content {
+            max-width: 550px;
+        }
+        .create-modal-content label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .create-modal-content input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            margin-bottom: 15px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+        .create-modal-content input:focus {
+            outline: none;
+            border-color: var(--cactus-primary, #E75B12);
+            box-shadow: 0 0 0 2px rgba(231, 91, 18, 0.2);
+        }
+        .create-modal-content input::placeholder {
+            color: #475569;
+        }
+        .icon-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .icon-picker-item {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+            background: rgba(255,255,255,0.05);
+            transition: all 0.15s ease;
+        }
+        .icon-picker-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .icon-picker-item.selected {
+            border-color: var(--cactus-primary, #E75B12);
+            background: rgba(231, 91, 18, 0.15);
+        }
+        .icon-picker-item svg {
+            width: 20px;
+            height: 20px;
+            fill: #c0caf5;
+        }
+        .color-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .color-picker-item {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .color-picker-item:hover {
+            transform: scale(1.1);
+        }
+        .color-picker-item.selected {
+            border-color: #fff;
+            box-shadow: 0 0 0 2px var(--cactus-primary, #E75B12);
+        }
+        .create-preview-container {
+            display: flex;
+            justify-content: center;
+            margin: 15px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .create-preview-card {
+            background: var(--cactus-bg-card, #1E1E1E);
+            border: 1px solid var(--cactus-border, #333);
+            border-radius: var(--radius-md, 8px);
+            padding: 20px;
+            text-align: center;
+            width: 160px;
+        }
+        .create-preview-card .preview-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+        }
+        .create-preview-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--cactus-text-primary, #E0E0E0);
+            margin-bottom: 4px;
+        }
+        .create-preview-card p {
+            color: var(--cactus-text-secondary, #A0A0A0);
+            font-size: 0.8rem;
+        }
 
         /* Edit App Modal */
         .edit-modal-content {
@@ -2350,6 +2481,8 @@
         .terminal-container {
             flex: 1;
             position: relative;
+            min-height: 0;
+            min-width: 0;
             background: var(--cactus-bg-subtle);
         }
         .terminal-placeholder {
@@ -2378,6 +2511,7 @@
             width: 100%;
             height: 100%;
             display: none;
+            flex-direction: column;
             position: absolute;
             top: 0;
             left: 0;
@@ -2385,7 +2519,7 @@
             bottom: 0;
         }
         .terminal-div.active {
-            display: block;
+            display: flex;
         }
 
         /* Header scroll to bottom button */
@@ -3287,6 +3421,52 @@
         <div id="contextPages"></div>
         <div class="context-divider"></div>
         <button class="context-item context-new" onclick="createPageFromContext()">+ Nouvelle page</button>
+        <div id="contextDeleteSection" style="display:none;">
+            <div class="context-divider"></div>
+            <button class="context-item context-delete" onclick="deleteCustomApp(contextAppId)">
+                <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                Supprimer
+            </button>
+        </div>
+    </div>
+
+    <!-- Create App Modal -->
+    <div class="modal" id="createAppModal" onclick="if(event.target===this)closeCreateApp()">
+        <div class="modal-content create-modal-content">
+            <button class="modal-close" onclick="closeCreateApp()">&times;</button>
+            <h2>Nouveau raccourci</h2>
+
+            <label for="createAppName">Nom *</label>
+            <input type="text" id="createAppName" placeholder="Mon Application" oninput="updateCreatePreview()">
+
+            <label for="createAppUrl">URL *</label>
+            <input type="text" id="createAppUrl" placeholder="http://192.168.1.200:8080">
+
+            <label for="createAppDesc">Description</label>
+            <input type="text" id="createAppDesc" placeholder="Description courte" oninput="updateCreatePreview()">
+
+            <label>Icône</label>
+            <div class="icon-picker-grid" id="iconPickerGrid"></div>
+
+            <label>Couleur</label>
+            <div class="color-picker-grid" id="colorPickerGrid"></div>
+
+            <label>Aperçu</label>
+            <div class="create-preview-container">
+                <div class="create-preview-card">
+                    <div class="preview-icon" id="createPreviewIcon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white" id="createPreviewSvg"></svg>
+                    </div>
+                    <h3 id="createPreviewName">Mon Application</h3>
+                    <p id="createPreviewDesc">Description</p>
+                </div>
+            </div>
+
+            <div class="edit-modal-buttons">
+                <button class="btn-edit-save" onclick="saveCreateApp()">Créer</button>
+                <button class="btn-edit-cancel" onclick="closeCreateApp()">Annuler</button>
+            </div>
+        </div>
     </div>
 
     <!-- Edit App Modal -->
@@ -3307,9 +3487,10 @@
 
             <div class="edit-modal-buttons">
                 <button class="btn-edit-save" onclick="saveEditApp()">Sauvegarder</button>
-                <button class="btn-edit-reset" onclick="resetEditApp()">Réinitialiser</button>
+                <button class="btn-edit-reset" id="editBtnReset" onclick="resetEditApp()">Réinitialiser</button>
                 <button class="btn-edit-cancel" onclick="closeEditApp()">Annuler</button>
             </div>
+            <button id="editBtnDelete" class="btn-reset" onclick="deleteCustomApp(document.getElementById('editAppId').value); closeEditApp();" style="display:none; width:100%; margin-top:15px;">Supprimer ce raccourci</button>
         </div>
     </div>
 
@@ -3326,6 +3507,8 @@
             <h3>Applications</h3>
             <p style="color:#64748b;font-size:0.85rem;margin-bottom:15px;">Assignez chaque application à une page</p>
             <div id="appToggles"></div>
+
+            <button class="btn-add-page" onclick="openCreateApp()" style="margin-top:15px;">+ Nouveau raccourci</button>
 
             <button class="btn-reset" onclick="resetAll()">Réinitialiser tout</button>
         </div>
@@ -3938,7 +4121,7 @@
 
                 // Show only active terminal
                 document.querySelectorAll('.terminal-div').forEach(div => {
-                    div.style.display = div.dataset.tabId === activeTerminalTabId ? 'block' : 'none';
+                    div.style.display = div.dataset.tabId === activeTerminalTabId ? 'flex' : 'none';
                 });
 
                 // Fit active terminal
@@ -4075,38 +4258,16 @@
             return [];
         }
 
-        // Sync tabs with actual dtach sessions
+        // Sync tabs with actual dtach sessions (only remove dead ones, don't auto-add)
         async function syncTabsWithActiveSessions(existingTabs) {
             const activeSessions = await fetchActiveSessions();
             const activeSessionNames = new Set(activeSessions.map(s => s.name));
 
-            // Remove tabs for dead sessions
+            // Remove tabs for dead sessions only
             const validTabs = existingTabs.filter(tab => {
                 if (!tab.tmuxSession) return false;
                 return activeSessionNames.has(tab.tmuxSession);
             });
-
-            // Add tabs for new sessions (sessions without a tab)
-            const existingSessionNames = new Set(validTabs.map(t => t.tmuxSession));
-
-            for (const session of activeSessions) {
-                if (!existingSessionNames.has(session.name)) {
-                    const parsed = parseSessionName(session.name);
-                    if (parsed) {
-                        const typeInfo = terminalTypes[parsed.type];
-                        const newTab = {
-                            id: generateTabId(),
-                            name: parsed.project,
-                            type: parsed.type,
-                            project: parsed.project,
-                            tmuxSession: session.name,
-                            command: typeInfo?.command || '',
-                            createdAt: session.mtime * 1000 || Date.now()
-                        };
-                        validTabs.push(newTab);
-                    }
-                }
-            }
 
             // Sort by creation time (oldest first)
             validTabs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -4264,7 +4425,7 @@
                     div.style.display = 'flex';
                 } else {
                     // Tabs mode: only active terminal visible
-                    div.style.display = isActive ? 'block' : 'none';
+                    div.style.display = isActive ? 'flex' : 'none';
                 }
             });
 
@@ -4445,7 +4606,7 @@
             if (viewMode === 'grid') {
                 termDiv.style.display = 'flex';
             } else {
-                termDiv.style.display = tab.id === activeTerminalTabId ? 'block' : 'none';
+                termDiv.style.display = tab.id === activeTerminalTabId ? 'flex' : 'none';
             }
 
             // Create xterm.js terminal
@@ -4454,13 +4615,15 @@
             terminal.loadAddon(fitAddon);
             terminal.open(termWrapper);
 
-            // Initial fit
+            // Initial fit (double rAF to ensure layout is resolved)
             requestAnimationFrame(() => {
-                try {
-                    fitAddon.fit();
-                } catch (e) {
-                    console.warn('Initial fit failed:', e);
-                }
+                requestAnimationFrame(() => {
+                    try {
+                        fitAddon.fit();
+                    } catch (e) {
+                        console.warn('Initial fit failed:', e);
+                    }
+                });
             });
 
             // Connect WebSocket
@@ -4477,6 +4640,23 @@
                 }
                 // Focus terminal so cursor blinks
                 terminal.focus();
+                // After buffer replay + resize, force a screen redraw (Ctrl+L)
+                // This fixes garbled display when reconnecting at different dimensions
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        // Re-fit and re-send resize to ensure correct dimensions
+                        try {
+                            fitAddon.fit();
+                            const newDims = fitAddon.proposeDimensions();
+                            if (newDims) {
+                                ws.send(JSON.stringify({ type: 'resize', cols: newDims.cols, rows: newDims.rows }));
+                            }
+                        } catch (e) {}
+                        // Send Ctrl+L to force application redraw
+                        const encoder = new TextEncoder();
+                        ws.send(encoder.encode('\x0c'));
+                    }
+                }, 500);
             };
 
             ws.onmessage = (event) => {
@@ -5204,6 +5384,31 @@
         let agentTasks = {};
         let appOverrides = {};  // { appId: { url, name, desc, port } }
         let overrideDebounceTimer = null;
+        let customApps = {};  // { appId: { id, name, url, desc, icon, gradient } }
+        let customAppsDebounceTimer = null;
+        let selectedCreateIcon = 'ha';
+        let selectedCreateGradient = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+
+        const customGradients = [
+            'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            'linear-gradient(135deg, #0ea5e9, #0284c7)',
+            'linear-gradient(135deg, #06b6d4, #0891b2)',
+            'linear-gradient(135deg, #14b8a6, #0d9488)',
+            'linear-gradient(135deg, #22c55e, #16a34a)',
+            'linear-gradient(135deg, #10b981, #059669)',
+            'linear-gradient(135deg, #eab308, #ca8a04)',
+            'linear-gradient(135deg, #f59e0b, #d97706)',
+            'linear-gradient(135deg, #f97316, #ea580c)',
+            'linear-gradient(135deg, #E75B12, #C94D0E)',
+            'linear-gradient(135deg, #ef4444, #dc2626)',
+            'linear-gradient(135deg, #f43f5e, #e11d48)',
+            'linear-gradient(135deg, #ec4899, #db2777)',
+            'linear-gradient(135deg, #a855f7, #9333ea)',
+            'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+            'linear-gradient(135deg, #6366f1, #4f46e5)',
+        ];
+
+        const pickableIcons = ['ha', 'grafana', 'terminal', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin', 'project-card', 'chromium', 'portainer', 'influxdb', 'neviweb', 'n8n', 'claude'];
 
         // ============ API Functions ============
         const API_BASE = '/api';
@@ -5227,10 +5432,13 @@
                     currentPageId = data.currentPage || 'main';
                     // Load app overrides
                     appOverrides = data.appOverrides || {};
+                    // Load custom apps
+                    customApps = data.customApps || {};
                     // Also save to localStorage as backup
                     localStorage.setItem('cactusPages', JSON.stringify(cachedPages));
                     localStorage.setItem('cactusCurrentPage', currentPageId);
                     localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
+                    localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
                     updateSyncStatus('', 'Sync serveur');
                     return true;
                 }
@@ -5246,6 +5454,15 @@
                 }
             } catch (e) {
                 appOverrides = {};
+            }
+            // Load custom apps from localStorage fallback
+            try {
+                const savedCustomApps = localStorage.getItem('cactusCustomApps');
+                if (savedCustomApps) {
+                    customApps = JSON.parse(savedCustomApps);
+                }
+            } catch (e) {
+                customApps = {};
             }
             updateSyncStatus('local', 'Local uniquement');
             return false;
@@ -5424,6 +5641,12 @@
 
         // ============ App Management ============
         function getAppById(appId) {
+            // Check custom apps first
+            if (customApps[appId]) {
+                const custom = customApps[appId];
+                const override = appOverrides[appId];
+                return override ? { ...custom, ...override, id: appId } : custom;
+            }
             const base = defaultApps.find(a => a.id === appId);
             if (!base) return null;
             const override = appOverrides[appId];
@@ -5469,16 +5692,25 @@
 
         function createCard(app) {
             const badge = createCustomizedBadge(app.id);
+            const isCustom = !!customApps[app.id];
             const hasOverride = !!appOverrides[app.id];
-            const portHtml = hasOverride ? '' : `<span class="port">${app.port}</span>`;
+            const portHtml = (hasOverride || isCustom) ? '' : `<span class="port">${app.port}</span>`;
+
+            // Custom apps use inline gradient style instead of CSS class
+            const iconStyle = isCustom && app.gradient
+                ? `style="background:${app.gradient}"`
+                : '';
+            const iconClass = isCustom && app.gradient ? '' : app.icon;
+            const iconSvg = icons[app.icon] || icons['project-card'];
+
             if (app.isProject) {
                 // Project card - opens project view instead of external URL
                 const projectId = app.url.replace('#project:', '');
                 return `
                     <div class="card" draggable="true" data-id="${app.id}" onclick="openProjectView('${projectId}')" oncontextmenu="showContextMenu(event, '${app.id}'); return false;" style="cursor: pointer;">
                         ${badge}
-                        <div class="card-icon ${app.icon}">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
+                        <div class="card-icon ${iconClass}" ${iconStyle}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${iconSvg}</svg>
                         </div>
                         <h2>${app.name}</h2>
                         <p>${app.desc}</p>
@@ -5489,8 +5721,8 @@
             return `
                 <a href="${app.url}" class="card" draggable="true" data-id="${app.id}" target="_blank" oncontextmenu="showContextMenu(event, '${app.id}'); return false;">
                     ${badge}
-                    <div class="card-icon ${app.icon}">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
+                    <div class="card-icon ${iconClass}" ${iconStyle}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${iconSvg}</svg>
                     </div>
                     <h2>${app.name}</h2>
                     <p>${app.desc}</p>
@@ -5518,7 +5750,7 @@
                 grid.innerHTML = `
                     <div class="empty-page" style="grid-column: 1 / -1;">
                         <p>Cette page est vide</p>
-                        <p style="font-size:0.85rem;">Utilisez le clic droit sur une app pour la déplacer ici</p>
+                        <p style="font-size:0.85rem;">Clic droit pour créer un raccourci ou déplacez une app ici</p>
                     </div>
                 `;
                 return;
@@ -5571,17 +5803,29 @@
             const pages = getPages();
             const container = document.getElementById('appToggles');
 
-            container.innerHTML = defaultApps.map(app => {
+            // Combine default apps and custom apps
+            const allApps = [...defaultApps];
+            Object.values(customApps).forEach(app => {
+                allApps.push(app);
+            });
+
+            container.innerHTML = allApps.map(app => {
                 const currentPage = getAppPage(app.id);
                 const currentPageId = currentPage ? currentPage.id : '';
+                const isCustom = !!customApps[app.id];
+                const iconStyle = isCustom && app.gradient
+                    ? `style="width:36px;height:36px;border-radius:8px;background:${app.gradient}"`
+                    : `style="width:36px;height:36px;border-radius:8px;"`;
+                const iconClass = isCustom && app.gradient ? 'card-icon' : `card-icon ${app.icon}`;
+                const iconSvg = icons[app.icon] || icons['project-card'];
 
                 return `
                     <div class="app-toggle">
                         <label>
-                            <div class="card-icon ${app.icon}" style="width:36px;height:36px;border-radius:8px;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">${icons[app.icon]}</svg>
+                            <div class="${iconClass}" ${iconStyle}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">${iconSvg}</svg>
                             </div>
-                            ${app.name}
+                            ${app.name}${isCustom ? ' <span style="color:#E75B12;font-size:0.7rem;">(custom)</span>' : ''}
                         </label>
                         <select onchange="moveAppToPage('${app.id}', this.value)">
                             <option value="">-- Non assignée --</option>
@@ -5610,6 +5854,12 @@
                     ${page.name}
                 </button>
             `).join('');
+
+            // Show/hide delete button based on whether it's a custom app
+            const deleteSection = document.getElementById('contextDeleteSection');
+            if (deleteSection) {
+                deleteSection.style.display = customApps[appId] ? '' : 'none';
+            }
 
             menu.style.left = e.clientX + 'px';
             menu.style.top = e.clientY + 'px';
@@ -5654,6 +5904,11 @@
             document.getElementById('editAppDesc').value = app.desc || '';
             document.getElementById('editAppTitle').textContent = `Modifier: ${app.name}`;
 
+            // Show delete button only for custom apps, hide reset for custom apps
+            const isCustom = !!customApps[appId];
+            document.getElementById('editBtnDelete').style.display = isCustom ? '' : 'none';
+            document.getElementById('editBtnReset').style.display = isCustom ? 'none' : '';
+
             document.getElementById('editAppModal').classList.add('active');
         }
 
@@ -5665,12 +5920,24 @@
             const appId = document.getElementById('editAppId').value;
             if (!appId) return;
 
-            const base = defaultApps.find(a => a.id === appId);
-            if (!base) return;
-
             const newName = document.getElementById('editAppName').value.trim();
             const newUrl = document.getElementById('editAppUrl').value.trim();
             const newDesc = document.getElementById('editAppDesc').value.trim();
+
+            // For custom apps, update the custom app directly
+            if (customApps[appId]) {
+                if (newName) customApps[appId].name = newName;
+                if (newUrl) customApps[appId].url = newUrl;
+                customApps[appId].desc = newDesc;
+                localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
+                saveCustomAppsToAPI();
+                renderApps();
+                closeEditApp();
+                return;
+            }
+
+            const base = defaultApps.find(a => a.id === appId);
+            if (!base) return;
 
             // Build override object with only changed fields
             const override = {};
@@ -5738,6 +6005,163 @@
             }, 500);
         }
 
+        // ============ Custom Apps & Save ============
+        async function saveCustomAppsToAPI() {
+            if (!apiEnabled) return;
+
+            clearTimeout(customAppsDebounceTimer);
+            customAppsDebounceTimer = setTimeout(async () => {
+                updateSyncStatus('syncing', 'Synchronisation...');
+                try {
+                    const response = await fetch(`${API_BASE}/preferences/custom-apps`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ customApps })
+                    });
+                    if (response.ok) {
+                        updateSyncStatus('', 'Sync serveur');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Erreur sauvegarde custom apps API:', e);
+                }
+                updateSyncStatus('error', 'Erreur sync');
+            }, 500);
+        }
+
+        // ============ Create App Modal ============
+        function openCreateApp() {
+            hideContextMenu();
+
+            selectedCreateIcon = 'ha';
+            selectedCreateGradient = customGradients[0];
+
+            // Reset fields
+            document.getElementById('createAppName').value = '';
+            document.getElementById('createAppUrl').value = '';
+            document.getElementById('createAppDesc').value = '';
+
+            // Render icon picker
+            const iconGrid = document.getElementById('iconPickerGrid');
+            iconGrid.innerHTML = pickableIcons.map(iconKey => {
+                const svg = icons[iconKey] || '';
+                return `
+                    <div class="icon-picker-item ${iconKey === selectedCreateIcon ? 'selected' : ''}"
+                         data-icon="${iconKey}" onclick="selectCreateIcon('${iconKey}')">
+                        <svg viewBox="0 0 24 24">${svg}</svg>
+                    </div>
+                `;
+            }).join('');
+
+            // Render color picker
+            const colorGrid = document.getElementById('colorPickerGrid');
+            colorGrid.innerHTML = customGradients.map((grad, i) => `
+                <div class="color-picker-item ${i === 0 ? 'selected' : ''}"
+                     data-gradient="${grad}" onclick="selectCreateGradient(this, '${grad}')"
+                     style="background:${grad};"></div>
+            `).join('');
+
+            updateCreatePreview();
+            document.getElementById('createAppModal').classList.add('active');
+        }
+
+        function closeCreateApp() {
+            document.getElementById('createAppModal').classList.remove('active');
+        }
+
+        function selectCreateIcon(iconKey) {
+            selectedCreateIcon = iconKey;
+            document.querySelectorAll('#iconPickerGrid .icon-picker-item').forEach(el => {
+                el.classList.toggle('selected', el.dataset.icon === iconKey);
+            });
+            updateCreatePreview();
+        }
+
+        function selectCreateGradient(el, gradient) {
+            selectedCreateGradient = gradient;
+            document.querySelectorAll('#colorPickerGrid .color-picker-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            el.classList.add('selected');
+            updateCreatePreview();
+        }
+
+        function updateCreatePreview() {
+            const name = document.getElementById('createAppName').value || 'Mon Application';
+            const desc = document.getElementById('createAppDesc').value || 'Description';
+            const iconSvg = icons[selectedCreateIcon] || icons['ha'];
+
+            document.getElementById('createPreviewName').textContent = name;
+            document.getElementById('createPreviewDesc').textContent = desc;
+            document.getElementById('createPreviewIcon').style.background = selectedCreateGradient;
+            document.getElementById('createPreviewSvg').innerHTML = iconSvg;
+        }
+
+        function saveCreateApp() {
+            const name = document.getElementById('createAppName').value.trim();
+            const url = document.getElementById('createAppUrl').value.trim();
+            const desc = document.getElementById('createAppDesc').value.trim();
+
+            if (!name) { alert('Le nom est requis'); return; }
+            if (!url) { alert('L\'URL est requise'); return; }
+
+            const id = 'custom_' + Date.now();
+            const newApp = {
+                id: id,
+                name: name,
+                url: url,
+                desc: desc || '',
+                port: '',
+                icon: selectedCreateIcon,
+                gradient: selectedCreateGradient
+            };
+
+            // Save to customApps
+            customApps[id] = newApp;
+            localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
+            saveCustomAppsToAPI();
+
+            // Add to current page
+            const pages = getPages();
+            const currentPage = pages.find(p => p.id === currentPageId);
+            if (currentPage) {
+                currentPage.apps.push(id);
+                savePages(pages);
+            }
+
+            renderApps();
+            renderAppToggles();
+            closeCreateApp();
+        }
+
+        function deleteCustomApp(appId) {
+            if (!appId || !customApps[appId]) return;
+            if (!confirm('Supprimer ce raccourci personnalisé ?')) return;
+
+            // Remove from all pages
+            const pages = getPages();
+            pages.forEach(page => {
+                page.apps = page.apps.filter(id => id !== appId);
+            });
+            savePages(pages);
+
+            // Remove from customApps
+            delete customApps[appId];
+            localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
+            saveCustomAppsToAPI();
+
+            // Remove from overrides if any
+            if (appOverrides[appId]) {
+                delete appOverrides[appId];
+                localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
+                saveAppOverridesToAPI();
+            }
+
+            renderApps();
+            renderAppToggles();
+            hideContextMenu();
+        }
+
         // ============ Admin Modal ============
         function openAdmin() {
             renderPageManager();
@@ -5756,9 +6180,11 @@
             localStorage.removeItem('cactusPages');
             localStorage.removeItem('cactusCurrentPage');
             localStorage.removeItem('cactusAppOverrides');
+            localStorage.removeItem('cactusCustomApps');
             cachedPages = JSON.parse(JSON.stringify(defaultPages));
             currentPageId = 'main';
             appOverrides = {};
+            customApps = {};
 
             // Reset on server too
             if (apiEnabled) {
@@ -5766,7 +6192,7 @@
                     await fetch(`${API_BASE}/preferences`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pages: cachedPages, currentPage: 'main', appOverrides: {} })
+                        body: JSON.stringify({ pages: cachedPages, currentPage: 'main', appOverrides: {}, customApps: {} })
                     });
                 } catch (e) {
                     console.error('Erreur reset API:', e);
