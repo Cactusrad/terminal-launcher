@@ -4,13 +4,13 @@ Serveur Flask pour Homepage Cactus
 Fournit une API pour sauvegarder les préférences globalement
 """
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
 import json
 import os
 import requests as http_requests
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__, static_folder=None)
 
 # Telegram Bot Configuration (from environment variables)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
@@ -63,12 +63,7 @@ def get_default_preferences():
             {
                 "id": "main",
                 "name": "Accueil",
-                "apps": ["ha", "grafana", "portainer", "influxdb", "neviweb", "n8n", "notify", "mcp-manager", "serial-numbers", "opermax-quote", "trading-bot", "guillevin"]
-            },
-            {
-                "id": "terminals",
-                "name": "Terminaux",
-                "apps": ["terminal", "claude", "sudo-claude"]
+                "apps": []
             }
         ],
         "currentPage": "main"
@@ -97,8 +92,13 @@ def save_preferences(prefs):
 
 @app.route('/')
 def index():
-    """Sert la page principale"""
-    return send_from_directory('.', 'index.html')
+    """Sert la page principale - read fresh each time"""
+    with open('/app/index.html', 'r', encoding='utf-8') as f:
+        content = f.read()
+    response = make_response(content)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 @app.route('/chromium/')
 @app.route('/chromium/<path:filename>')
@@ -145,6 +145,20 @@ def update_current_page():
         data = request.get_json()
         prefs = load_preferences()
         prefs['currentPage'] = data.get('currentPage', 'main')
+        if save_preferences(prefs):
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/preferences/custom-apps', methods=['POST'])
+def update_custom_apps():
+    """Met à jour les applications personnalisées"""
+    try:
+        data = request.get_json()
+        prefs = load_preferences()
+        prefs['customApps'] = data.get('customApps', {})
         if save_preferences(prefs):
             return jsonify({"status": "ok"})
         else:

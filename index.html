@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cactus Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- xterm.js for terminal integration -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -23,18 +26,18 @@
             --cactus-info: #0065FF;
             --cactus-warning: #FFAB00;
 
-            /* Light Mode (default) */
-            --cactus-bg-page: #F4F5F7;
-            --cactus-bg-card: #FFFFFF;
-            --cactus-bg-subtle: #FAFBFC;
-            --cactus-bg-hover: #EBECF0;
-            --cactus-text-primary: #172B4D;
-            --cactus-text-secondary: #6B778C;
-            --cactus-text-muted: #97A0AF;
-            --cactus-border: #DFE1E6;
-            --cactus-shadow-sm: 0 1px 3px rgba(9, 30, 66, 0.12);
-            --cactus-shadow-md: 0 3px 6px rgba(9, 30, 66, 0.15);
-            --cactus-shadow-lg: 0 8px 16px rgba(9, 30, 66, 0.2);
+            /* Dark Mode (default) */
+            --cactus-bg-page: #0a0a0f;
+            --cactus-bg-card: rgba(255, 255, 255, 0.04);
+            --cactus-bg-subtle: rgba(255, 255, 255, 0.06);
+            --cactus-bg-hover: rgba(255, 255, 255, 0.08);
+            --cactus-text-primary: #f0f0f5;
+            --cactus-text-secondary: #8a8a9a;
+            --cactus-text-muted: #555566;
+            --cactus-border: rgba(255, 255, 255, 0.08);
+            --cactus-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --cactus-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --cactus-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
 
             /* Spacing */
             --space-xs: 4px;
@@ -45,47 +48,50 @@
             --space-2xl: 48px;
 
             /* Border Radius */
-            --radius-sm: 4px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
 
             /* Transitions */
             --transition-fast: 0.15s ease;
-            --transition-normal: 0.2s ease;
+            --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Dark Mode */
-        body.body--dark {
-            --cactus-bg-page: #121212;
-            --cactus-bg-card: #1E1E1E;
-            --cactus-bg-subtle: #2A2A2A;
-            --cactus-bg-hover: #333333;
-            --cactus-text-primary: #E0E0E0;
-            --cactus-text-secondary: #A0A0A0;
-            --cactus-text-muted: #707070;
-            --cactus-border: #333333;
-            --cactus-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-            --cactus-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.5);
-            --cactus-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
+        /* Light Mode */
+        body.body--light {
+            --cactus-bg-page: #f5f5f7;
+            --cactus-bg-card: #ffffff;
+            --cactus-bg-subtle: #f0f0f2;
+            --cactus-bg-hover: #e8e8ec;
+            --cactus-text-primary: #1a1a2e;
+            --cactus-text-secondary: #6b6b80;
+            --cactus-text-muted: #9a9aad;
+            --cactus-border: rgba(0, 0, 0, 0.08);
+            --cactus-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+            --cactus-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --cactus-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
         }
 
         /* ============ Reset & Base ============ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--cactus-bg-page);
             min-height: 100vh;
             color: var(--cactus-text-primary);
-            padding: var(--space-lg);
+            padding: var(--space-xl) var(--space-lg);
             line-height: 1.5;
             font-size: 14px;
             transition: background-color var(--transition-normal), color var(--transition-normal);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .container {
             width: 100%;
-            max-width: none;
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
         /* ============ Header ============ */
@@ -93,24 +99,30 @@
             text-align: center;
             margin-bottom: var(--space-xl);
             position: relative;
+            padding: var(--space-lg) 0;
         }
 
         header h1 {
-            font-size: 1.75rem;
-            font-weight: 600;
-            margin-bottom: var(--space-xs);
-            letter-spacing: -0.02em;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+            letter-spacing: -0.03em;
             color: var(--cactus-text-primary);
         }
 
         header h1 span {
-            color: var(--cactus-primary);
+            background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         header p {
-            color: var(--cactus-text-secondary);
-            font-size: 0.875rem;
+            color: var(--cactus-text-muted);
+            font-size: 0.8rem;
             font-weight: 400;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
         /* ============ Top Bar & Buttons ============ */
@@ -118,30 +130,33 @@
             display: flex;
             justify-content: center;
             gap: var(--space-sm);
-            margin-bottom: var(--space-lg);
+            margin-bottom: var(--space-xl);
             flex-wrap: wrap;
         }
 
         .top-btn {
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-sm);
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
             border: 1px solid var(--cactus-border);
             cursor: pointer;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             font-weight: 500;
-            transition: all var(--transition-fast);
+            transition: all var(--transition-normal);
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: var(--space-sm);
             background: var(--cactus-bg-card);
             color: var(--cactus-text-secondary);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .top-btn:hover {
             background: var(--cactus-bg-hover);
-            border-color: var(--cactus-primary);
+            border-color: rgba(231, 91, 18, 0.3);
             color: var(--cactus-text-primary);
+            box-shadow: 0 0 20px rgba(231, 91, 18, 0.08);
         }
 
         .btn-admin {
@@ -149,38 +164,54 @@
             color: var(--cactus-text-secondary);
         }
 
+        .btn-create {
+            background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-dark));
+            color: #fff;
+            border-color: transparent;
+            font-weight: 600;
+        }
+
+        .btn-create:hover {
+            background: linear-gradient(135deg, var(--cactus-primary-light), var(--cactus-primary));
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(231, 91, 18, 0.35);
+            transform: translateY(-1px);
+        }
+
         /* Theme Toggle Button */
         .theme-toggle {
             background: var(--cactus-bg-card);
             border: 1px solid var(--cactus-border);
             color: var(--cactus-text-secondary);
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
             cursor: pointer;
-            font-size: 1rem;
-            transition: all var(--transition-fast);
+            font-size: 0.9rem;
+            transition: all var(--transition-normal);
             display: inline-flex;
             align-items: center;
             gap: var(--space-sm);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .theme-toggle:hover {
             background: var(--cactus-bg-hover);
-            border-color: var(--cactus-primary);
+            border-color: rgba(231, 91, 18, 0.3);
         }
 
         /* ============ App Grid & Cards ============ */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: var(--space-md);
         }
 
         .card {
             background: var(--cactus-bg-card);
             border: 1px solid var(--cactus-border);
-            border-radius: var(--radius-md);
-            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg) var(--space-md);
             text-decoration: none;
             color: var(--cactus-text-primary);
             transition: all var(--transition-normal);
@@ -190,13 +221,30 @@
             text-align: center;
             cursor: grab;
             user-select: none;
-            box-shadow: var(--cactus-shadow-sm);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: var(--radius-lg);
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+            background: radial-gradient(circle at 50% 0%, rgba(231, 91, 18, 0.08), transparent 70%);
         }
 
         .card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--cactus-shadow-lg);
-            border-color: var(--cactus-primary);
+            transform: translateY(-6px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(231, 91, 18, 0.25);
+        }
+
+        .card:hover::before {
+            opacity: 1;
         }
 
         .card.dragging {
@@ -206,37 +254,38 @@
         }
 
         .card-icon {
-            width: 56px;
-            height: 56px;
+            width: 52px;
+            height: 52px;
             border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: var(--space-md);
-            box-shadow: var(--cactus-shadow-sm);
+            position: relative;
         }
 
         .card h2 {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            margin-bottom: var(--space-xs);
+            margin-bottom: 2px;
             color: var(--cactus-text-primary);
+            letter-spacing: -0.01em;
         }
 
         .card p {
             color: var(--cactus-text-secondary);
-            font-size: 0.8rem;
-            margin-bottom: var(--space-md);
+            font-size: 0.75rem;
+            margin-bottom: var(--space-sm);
             line-height: 1.4;
         }
 
         .card .port {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--cactus-text-muted);
             background: var(--cactus-bg-subtle);
-            padding: var(--space-xs) var(--space-sm);
+            padding: 2px 8px;
             border-radius: 100px;
-            font-family: 'SF Mono', Monaco, monospace;
+            font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
             border: 1px solid var(--cactus-border);
         }
 
@@ -264,31 +313,37 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
         }
         .modal.active { display: flex; }
         .modal-content {
-            background: #1e293b;
-            border-radius: 20px;
-            padding: 30px;
+            background: #141420;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--radius-lg);
+            padding: 28px;
             max-width: 600px;
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
         }
-        .modal h2 { margin-bottom: 20px; font-weight: 500; }
-        .modal h3 { margin: 25px 0 15px; font-weight: 500; color: #94a3b8; font-size: 0.9rem; }
+        .modal h2 { margin-bottom: 20px; font-weight: 600; font-size: 1.1rem; letter-spacing: -0.02em; }
+        .modal h3 { margin: 25px 0 15px; font-weight: 500; color: #8a8a9a; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .modal-close {
             float: right;
             background: none;
             border: none;
-            color: #94a3b8;
+            color: #555;
             font-size: 1.5rem;
             cursor: pointer;
+            transition: color var(--transition-fast);
         }
+        .modal-close:hover { color: #fff; }
         .app-toggle {
             display: flex;
             align-items: center;
@@ -321,26 +376,28 @@
         /* ============ Footer ============ */
         footer {
             text-align: center;
-            margin-top: var(--space-xl);
+            margin-top: var(--space-2xl);
             padding-top: var(--space-lg);
             border-top: 1px solid var(--cactus-border);
             color: var(--cactus-text-muted);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
         }
 
         .status {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             background: var(--cactus-positive);
             border-radius: 50%;
-            margin-right: var(--space-sm);
+            margin-right: 6px;
+            box-shadow: 0 0 6px rgba(54, 179, 126, 0.5);
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.4; }
         }
 
         .drag-over {
@@ -353,16 +410,17 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: var(--space-xs);
-            margin: var(--space-lg) 0 var(--space-md);
-            padding: var(--space-xs);
+            gap: 2px;
+            margin: var(--space-lg) 0 var(--space-xl);
+            padding: 3px;
             background: var(--cactus-bg-card);
             border-radius: var(--radius-md);
             border: 1px solid var(--cactus-border);
             width: fit-content;
             margin-left: auto;
             margin-right: auto;
-            box-shadow: var(--cactus-shadow-sm);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .page-dot {
@@ -407,16 +465,17 @@
 
         /* Page tabs (named buttons) */
         .page-tab {
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-sm);
+            padding: 6px 16px;
+            border-radius: 8px;
             background: transparent;
             border: none;
-            color: var(--cactus-text-secondary);
+            color: var(--cactus-text-muted);
             cursor: pointer;
-            transition: all var(--transition-fast);
-            font-size: 0.875rem;
+            transition: all var(--transition-normal);
+            font-size: 0.8rem;
             font-weight: 500;
             position: relative;
+            letter-spacing: 0.01em;
         }
 
         .page-tab:hover {
@@ -425,33 +484,28 @@
         }
 
         .page-tab.active {
-            background: rgba(231, 91, 18, 0.1);
-            color: var(--cactus-primary);
+            background: var(--cactus-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(231, 91, 18, 0.3);
         }
 
         .page-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 24px;
-            height: 3px;
-            background: var(--cactus-primary);
-            border-radius: 2px;
+            display: none;
         }
 
         /* Context menu */
         .context-menu {
             position: fixed;
-            background: #1e293b;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 8px 0;
+            background: #141420;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-md);
+            padding: 6px 0;
             min-width: 200px;
             display: none;
             z-index: 2000;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
         .context-menu.active { display: block; }
         .context-title {
@@ -509,125 +563,143 @@
 
         /* Create App Modal */
         .create-modal-content {
-            max-width: 650px;
+            max-width: 640px;
         }
         .create-modal-content label {
             display: block;
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin-bottom: 5px;
+            color: #8a8a9a;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .create-modal-content input {
             width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            padding: 10px;
-            color: #fff;
-            margin-bottom: 15px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            color: #f0f0f5;
+            margin-bottom: 16px;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             box-sizing: border-box;
+            transition: all var(--transition-fast);
         }
         .create-modal-content input:focus {
             outline: none;
-            border-color: var(--cactus-primary, #E75B12);
-            box-shadow: 0 0 0 2px rgba(231, 91, 18, 0.2);
+            border-color: var(--cactus-primary);
+            box-shadow: 0 0 0 3px rgba(231, 91, 18, 0.15);
+            background: rgba(255,255,255,0.06);
         }
         .create-modal-content input::placeholder {
-            color: #475569;
+            color: #444;
         }
         .icon-picker-grid {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
-            gap: 6px;
-            margin-bottom: 15px;
-            max-height: 250px;
+            gap: 4px;
+            margin-bottom: 16px;
+            max-height: 220px;
             overflow-y: auto;
-            padding: 5px;
-            border-radius: 8px;
-            background: rgba(0,0,0,0.15);
+            padding: 6px;
+            border-radius: var(--radius-sm);
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
         }
+        .icon-picker-grid::-webkit-scrollbar { width: 4px; }
+        .icon-picker-grid::-webkit-scrollbar-track { background: transparent; }
+        .icon-picker-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
         .icon-picker-item {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             border: 2px solid transparent;
-            background: rgba(255,255,255,0.05);
-            transition: all 0.15s ease;
+            background: rgba(255,255,255,0.03);
+            transition: all var(--transition-fast);
         }
         .icon-picker-item:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.08);
+            transform: scale(1.05);
         }
         .icon-picker-item.selected {
-            border-color: var(--cactus-primary, #E75B12);
-            background: rgba(231, 91, 18, 0.15);
+            border-color: var(--cactus-primary);
+            background: rgba(231, 91, 18, 0.12);
+            box-shadow: 0 0 12px rgba(231, 91, 18, 0.2);
         }
         .icon-picker-item svg {
-            width: 20px;
-            height: 20px;
-            fill: #c0caf5;
+            width: 18px;
+            height: 18px;
+            fill: #8a8a9a;
+        }
+        .icon-picker-item:hover svg,
+        .icon-picker-item.selected svg {
+            fill: #f0f0f5;
         }
         .color-picker-grid {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
-            gap: 8px;
-            margin-bottom: 15px;
+            gap: 6px;
+            margin-bottom: 16px;
         }
         .color-picker-item {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
             cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.15s ease;
+            border: 3px solid transparent;
+            transition: all var(--transition-fast);
         }
         .color-picker-item:hover {
-            transform: scale(1.1);
+            transform: scale(1.15);
         }
         .color-picker-item.selected {
             border-color: #fff;
-            box-shadow: 0 0 0 2px var(--cactus-primary, #E75B12);
+            box-shadow: 0 0 0 2px var(--cactus-primary), 0 4px 12px rgba(231, 91, 18, 0.3);
+            transform: scale(1.1);
         }
         .create-preview-container {
             display: flex;
             justify-content: center;
-            margin: 15px 0;
-            padding: 20px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.08);
+            margin: 16px 0;
+            padding: 24px;
+            background: rgba(255,255,255,0.02);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255,255,255,0.05);
         }
         .create-preview-card {
-            background: var(--cactus-bg-card, #1E1E1E);
-            border: 1px solid var(--cactus-border, #333);
-            border-radius: var(--radius-md, 8px);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--radius-lg);
             padding: 20px;
             text-align: center;
             width: 160px;
+            transition: all var(--transition-normal);
         }
         .create-preview-card .preview-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 8px;
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 12px;
         }
         .create-preview-card h3 {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            color: var(--cactus-text-primary, #E0E0E0);
+            color: #f0f0f5;
             margin-bottom: 4px;
+            letter-spacing: -0.01em;
         }
         .create-preview-card p {
-            color: var(--cactus-text-secondary, #A0A0A0);
-            font-size: 0.8rem;
+            color: #8a8a9a;
+            font-size: 0.75rem;
         }
 
         /* Edit App Modal */
@@ -636,29 +708,34 @@
         }
         .edit-modal-content label {
             display: block;
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin-bottom: 5px;
+            color: #8a8a9a;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .edit-modal-content input {
             width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            padding: 10px;
-            color: #fff;
-            margin-bottom: 15px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            color: #f0f0f5;
+            margin-bottom: 16px;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             box-sizing: border-box;
+            transition: all var(--transition-fast);
         }
         .edit-modal-content input:focus {
             outline: none;
-            border-color: var(--cactus-primary, #E75B12);
-            box-shadow: 0 0 0 2px rgba(231, 91, 18, 0.2);
+            border-color: var(--cactus-primary);
+            box-shadow: 0 0 0 3px rgba(231, 91, 18, 0.15);
+            background: rgba(255,255,255,0.06);
         }
         .edit-modal-content input::placeholder {
-            color: #475569;
+            color: #444;
         }
         .edit-modal-buttons {
             display: flex;
@@ -777,10 +854,13 @@
 
         .empty-page {
             text-align: center;
-            padding: 60px 20px;
-            color: #64748b;
+            padding: 80px 20px;
+            color: var(--cactus-text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .empty-page p { margin-bottom: 15px; }
+        .empty-page p { margin-bottom: 8px; color: var(--cactus-text-secondary); }
 
         /* Sync status indicator */
         .sync-status {
@@ -3093,17 +3173,21 @@
 <body>
     <div class="container">
         <header>
-            <h1><span>Cactus</span> Home Server</h1>
-            <p>cactus.local</p>
+            <h1><span>Cactus</span> Home</h1>
+            <p>Dashboard</p>
         </header>
 
         <div class="top-bar">
+            <button class="top-btn btn-create" onclick="openCreateApp()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                Nouveau
+            </button>
             <button class="top-btn btn-admin" onclick="openAdmin()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 Admin
             </button>
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Basculer mode clair/sombre">
-                <span id="themeIcon">🌙</span>
+                <span id="themeIcon">☀️</span>
             </button>
         </div>
 
@@ -3294,7 +3378,7 @@
 
         <footer>
             <p>
-                <span class="status"></span>Serveur Ubuntu 24.04 LTS - Clic droit pour déplacer une app
+                <span class="status"></span>Clic droit sur une carte pour la modifier ou la supprimer
                 <span class="sync-status" id="syncStatus">
                     <span class="sync-dot" id="syncDot"></span>
                     <span id="syncText">Chargement...</span>
@@ -3562,153 +3646,19 @@
         let erpTasksInProgress = [];
         let erpBlockedTasks = [];
 
-        const defaultApps = [
-            { id: 'ha', name: 'Home Assistant', desc: 'Domotique et automatisation', port: ':8123', url: baseUrl(8123), icon: 'ha' },
-            { id: 'grafana', name: 'Grafana', desc: 'Dashboards et monitoring', port: ':3000', url: baseUrl(3000), icon: 'grafana' },
-            { id: 'portainer', name: 'Portainer', desc: 'Gestion conteneurs Docker', port: ':9443', url: baseUrlHttps(9443), icon: 'portainer' },
-            { id: 'influxdb', name: 'InfluxDB', desc: 'Base de données temporelles', port: ':8086', url: baseUrl(8086), icon: 'influxdb' },
-            { id: 'neviweb', name: 'Thermostats Neviweb', desc: 'Dashboard températures', port: 'Grafana', url: baseUrl(3000, '/d/57457f87-ce81-4198-a405-ac2c14946376/thermostats-neviweb'), icon: 'neviweb' },
-            { id: 'n8n', name: 'n8n', desc: 'Automatisation workflows', port: ':5678', url: baseUrl(5678), icon: 'n8n' },
-            { id: 'notify', name: 'Claude Notify Config', desc: 'Configuration notifications push', port: ':5003', url: baseUrl(5003), icon: 'notify' },
-            { id: 'terminal', name: 'Terminal', desc: 'Terminal Bash web', port: ':7680', url: baseUrl(7680), icon: 'terminal' },
-            { id: 'claude', name: 'Claude Terminal', desc: 'Terminal web Claude Code', port: ':7681', url: baseUrl(7681), icon: 'claude' },
-            { id: 'sudo-claude', name: 'Sudo Claude Terminal', desc: 'Terminal web sudo Claude', port: ':7682', url: baseUrl(7682), icon: 'sudo-claude' },
-            { id: 'mcp-manager', name: 'MCP Manager', desc: 'Gestionnaire serveurs MCP', port: ':3456', url: baseUrl(3456), icon: 'mcp-manager' },
-            { id: 'serial-numbers', name: 'Serial Numbers', desc: 'Base de données numéros de série', port: ':8000', url: baseUrl(8000), icon: 'serial-numbers' },
-            { id: 'opermax-quote', name: 'Soumission Opermax', desc: 'Générateur de soumissions', port: ':5002', url: baseUrl(5002), icon: 'opermax-quote' },
-            { id: 'trading-bot', name: 'Trading Bot', desc: 'Grid Trading Binance', port: ':8080', url: baseUrl(8080), icon: 'trading-bot' },
-            { id: 'guillevin', name: 'Guillevin Prix', desc: 'Gestion des prix fournisseurs', port: ':5050', url: baseUrl(5050), icon: 'guillevin' },
-            { id: 'chromium', name: 'Chromium Remote', desc: 'Navigateur distant Kasm', port: ':6901', url: baseUrl(1000, '/chromium/'), icon: 'chromium' },
-            { id: 'todo-list', name: 'Todo List ERP', desc: 'Module Todo pour ERP', port: ':7690', url: '#project:todo-list', icon: 'project-card', isProject: true },
-            { id: 'rad-serial', name: 'Rad Serial DB', desc: 'Gestion numéros de série', port: ':7692', url: '#project:rad-serial', icon: 'project-card', isProject: true },
-            { id: 'rad-quote', name: 'Rad Quote (Opermax)', desc: 'Générateur soumissions', port: ':7693', url: '#project:rad-quote', icon: 'project-card', isProject: true },
-            { id: 'homepage-dev', name: 'Homepage App', desc: 'Dashboard Cactus Home', port: ':7694', url: '#project:homepage-dev', icon: 'project-card', isProject: true }
-        ];
+        const defaultApps = [];
 
         // ============ Projects Configuration ============
-        const projectsConfig = {
-            'todo-list': {
-                id: 'todo-list',
-                name: 'Todo List ERP',
-                terminalPort: 7690,
-                tmuxSession: 'todo-erp',
-                description: 'Module Todo List pour système ERP maison - React + FastAPI',
-                windows: [
-                    { num: 1, icon: '🎯', name: 'Claude' },
-                    { num: 2, icon: '📁', name: 'Structure' },
-                    { num: 3, icon: '📋', name: 'DevLog' },
-                    { num: 4, icon: '⚙️', name: 'Backend' },
-                    { num: 5, icon: '🎨', name: 'Frontend' },
-                    { num: 6, icon: '🧪', name: 'Tests' },
-                    { num: 7, icon: '📦', name: 'Git' }
-                ]
-            },
-            'rad-serial': {
-                id: 'rad-serial',
-                name: 'Rad Serial DB',
-                terminalPort: 7692,
-                tmuxSession: 'rad-serial',
-                description: 'Base de données numéros de série - FastAPI + SQLite',
-                windows: [
-                    { num: 1, icon: '🎯', name: 'Claude' },
-                    { num: 2, icon: '📁', name: 'Structure' },
-                    { num: 3, icon: '🐳', name: 'Docker' },
-                    { num: 4, icon: '⚙️', name: 'App' },
-                    { num: 5, icon: '📜', name: 'Logs' },
-                    { num: 6, icon: '🗄️', name: 'DB' },
-                    { num: 7, icon: '📦', name: 'Git' }
-                ]
-            },
-            'rad-quote': {
-                id: 'rad-quote',
-                name: 'Rad Quote (Opermax)',
-                terminalPort: 7693,
-                tmuxSession: 'rad-quote',
-                description: 'Générateur de soumissions Opermax',
-                windows: [
-                    { num: 1, icon: '🎯', name: 'Claude' },
-                    { num: 2, icon: '📁', name: 'Structure' },
-                    { num: 3, icon: '⚙️', name: 'App' },
-                    { num: 4, icon: '📜', name: 'Logs' },
-                    { num: 5, icon: '📦', name: 'Git' }
-                ]
-            },
-            'homepage-dev': {
-                id: 'homepage-dev',
-                name: 'Homepage App',
-                terminalPort: 7694,
-                tmuxSession: 'homepage',
-                description: 'Dashboard Cactus Home Server - Flask + Docker',
-                windows: [
-                    { num: 1, icon: '🎯', name: 'Claude' },
-                    { num: 2, icon: '📁', name: 'Structure' },
-                    { num: 3, icon: '🐳', name: 'Docker' },
-                    { num: 4, icon: '📜', name: 'Logs' },
-                    { num: 5, icon: '📦', name: 'Git' }
-                ]
-            }
-        };
+        const projectsConfig = {};
 
         // ============ Default Issues per Project ============
-        const defaultIssues = {
-            'todo-list': [
-                { id: 'issue_init_1', title: 'Initialiser le projet', description: 'Exécuter build init pour créer la structure React + FastAPI', priority: 'high', status: 'open' },
-                { id: 'issue_init_2', title: 'CRUD basique todos', description: 'Implémenter Create, Read, Update, Delete pour les todos', priority: 'high', status: 'open' },
-                { id: 'issue_init_3', title: 'Interface utilisateur', description: 'Créer les composants React: TodoList, TodoItem, TodoForm', priority: 'medium', status: 'open' },
-                { id: 'issue_init_4', title: 'Filtres et recherche', description: 'Ajouter filtrage par statut et recherche par texte', priority: 'medium', status: 'open' },
-                { id: 'issue_init_5', title: 'Catégories de todos', description: 'Permettre de classer les todos par catégorie', priority: 'low', status: 'open' },
-                { id: 'issue_init_6', title: 'Intégration ERP', description: 'Préparer webhooks et API keys pour intégration avec rad_serial_db', priority: 'low', status: 'open' }
-            ],
-            'rad-serial': [
-                { id: 'rs_1', title: 'Maintenance base données', description: 'Vérifier intégrité et optimiser la DB SQLite', priority: 'medium', status: 'open' },
-                { id: 'rs_2', title: 'Améliorer UI recherche', description: 'Ajouter recherche avancée et filtres multiples', priority: 'medium', status: 'open' },
-                { id: 'rs_3', title: 'Export CSV/Excel', description: 'Permettre export des données en différents formats', priority: 'low', status: 'open' }
-            ],
-            'rad-quote': [
-                { id: 'rq_1', title: 'Mise à jour calculateur', description: 'Intégrer les nouveaux tarifs Opermax 2026', priority: 'high', status: 'open' },
-                { id: 'rq_2', title: 'Génération PDF', description: 'Améliorer le template PDF des soumissions', priority: 'medium', status: 'open' },
-                { id: 'rq_3', title: 'Historique soumissions', description: 'Sauvegarder et consulter les anciennes soumissions', priority: 'low', status: 'open' }
-            ],
-            'homepage-dev': [
-                { id: 'hp_1', title: 'Améliorer responsive', description: 'Optimiser affichage mobile et tablette', priority: 'medium', status: 'open' },
-                { id: 'hp_2', title: 'Health check services', description: 'Ajouter indicateur de status pour chaque service', priority: 'medium', status: 'open' },
-                { id: 'hp_3', title: 'Thème clair', description: 'Option pour basculer en mode clair', priority: 'low', status: 'open' }
-            ]
-        };
+        const defaultIssues = {};
 
         // ============ Default Agent Tasks per Project ============
-        const defaultAgentTasks = {
-            'todo-list': [
-                { id: 'task_1', agent: '🎯 Maître d\'œuvre', task: 'Orchestration du projet', status: 'pending' },
-                { id: 'task_2', agent: '⚙️ Backend', task: 'API FastAPI + SQLAlchemy', status: 'pending' },
-                { id: 'task_3', agent: '🎨 Frontend', task: 'Composants React + UI', status: 'pending' },
-                { id: 'task_4', agent: '🧪 Testeur', task: 'Tests pytest + vitest', status: 'pending' },
-                { id: 'task_5', agent: '🔥 Critique', task: 'Code review + sécurité', status: 'pending' }
-            ],
-            'rad-serial': [
-                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
-                { id: 'task_2', agent: '⚙️ Serveur', task: 'FastAPI sur port 8000', status: 'pending' },
-                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
-                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
-            ],
-            'rad-quote': [
-                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
-                { id: 'task_2', agent: '⚙️ Serveur', task: 'Serveur Opermax', status: 'pending' },
-                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
-                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
-            ],
-            'homepage-dev': [
-                { id: 'task_1', agent: '🎯 Claude', task: 'Session principale', status: 'pending' },
-                { id: 'task_2', agent: '🐳 Docker', task: 'Container homepage', status: 'pending' },
-                { id: 'task_3', agent: '📁 Structure', task: 'Arborescence projet', status: 'pending' },
-                { id: 'task_4', agent: '📦 Git', task: 'Versioning', status: 'pending' }
-            ]
-        };
+        const defaultAgentTasks = {};
 
         const defaultPages = [
-            { id: 'main', name: 'Accueil', apps: ['ha', 'grafana', 'portainer', 'influxdb', 'neviweb', 'n8n', 'notify', 'mcp-manager', 'serial-numbers', 'opermax-quote', 'trading-bot', 'guillevin', 'chromium'] },
-            { id: 'terminals', name: 'Terminaux', apps: ['terminal', 'claude', 'sudo-claude'] },
-            { id: 'projets', name: 'Projets', apps: ['todo-list', 'rad-serial', 'rad-quote', 'homepage-dev'] }
+            { id: 'main', name: 'Accueil', apps: [] }
         ];
 
         const icons = {
@@ -5415,30 +5365,27 @@
         // ============ Theme Toggle ============
         function toggleTheme() {
             const body = document.body;
-            const isDark = body.classList.toggle('body--dark');
+            const isLight = body.classList.toggle('body--light');
             const themeIcon = document.getElementById('themeIcon');
 
-            // Update icon
             if (themeIcon) {
-                themeIcon.textContent = isDark ? '☀️' : '🌙';
+                themeIcon.textContent = isLight ? '🌙' : '☀️';
             }
 
-            // Save preference
-            localStorage.setItem('cactusTheme', isDark ? 'dark' : 'light');
+            localStorage.setItem('cactusTheme', isLight ? 'light' : 'dark');
         }
 
         function initTheme() {
             const savedTheme = localStorage.getItem('cactusTheme');
             const themeIcon = document.getElementById('themeIcon');
 
-            // Default to dark mode if no preference saved
+            // Default to dark mode (no class needed)
             if (savedTheme === 'light') {
-                document.body.classList.remove('body--dark');
+                document.body.classList.add('body--light');
                 if (themeIcon) themeIcon.textContent = '🌙';
             } else {
-                document.body.classList.add('body--dark');
+                document.body.classList.remove('body--light');
                 if (themeIcon) themeIcon.textContent = '☀️';
-                localStorage.setItem('cactusTheme', 'dark');
             }
         }
 
@@ -5821,8 +5768,9 @@
             if (!currentPage || currentPage.apps.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-page" style="grid-column: 1 / -1;">
-                        <p>Cette page est vide</p>
-                        <p style="font-size:0.85rem;">Clic droit pour créer un raccourci ou déplacez une app ici</p>
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3; margin-bottom: 16px;"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+                        <p style="font-size:1.1rem; font-weight:500; margin-bottom:8px;">Ajoutez votre premier raccourci</p>
+                        <p style="font-size:0.85rem; opacity:0.7;">Cliquez sur le bouton <strong>+</strong> ci-dessus ou faites un clic droit ici</p>
                     </div>
                 `;
                 return;
@@ -6193,11 +6141,14 @@
             if (!name) { alert('Le nom est requis'); return; }
             if (!url) { alert('L\'URL est requise'); return; }
 
+            // Auto-add http:// if no protocol specified
+            const finalUrl = /^https?:\/\//i.test(url) ? url : 'http://' + url;
+
             const id = 'custom_' + Date.now();
             const newApp = {
                 id: id,
                 name: name,
-                url: url,
+                url: finalUrl,
                 desc: desc || '',
                 port: '',
                 icon: selectedCreateIcon,
