@@ -130,3 +130,36 @@ homepage-app/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
+
+## Session du 27 février 2026
+
+**Synchronisation des terminaux entre postes**
+
+Permet à plusieurs appareils de voir les mêmes onglets terminaux en temps réel.
+
+1. **Auto-reconnexion WebSocket**
+   - `loadTerminal()` refactorisé avec fonction interne `connectWs()` rappelable
+   - `ws.onclose` déclenche une reconnexion automatique avec backoff exponentiel (2s → 4s → 8s → 16s → 30s max)
+   - Message jaune "Connexion perdue. Reconnexion..." affiché dans le terminal xterm.js
+   - `terminal.onData` et `ResizeObserver` utilisent `getWs()` (lookup dans `terminalInstances`) au lieu d'une référence fermée, pour survivre aux reconnexions
+   - `disposedTabs` Set + flag `ws._manualClose` empêchent la reconnexion lors d'un close volontaire
+   - `manualRefreshTerminal()` nettoie `disposedTabs` après dispose pour permettre la recréation
+
+2. **Sync polling toutes les 5 secondes (`syncTerminalTabs()`)**
+   - Fetch `/api/terminal/state` (état serveur) et `http://host:7681/sessions` (sessions dtach actives)
+   - Merge par `tmuxSession` (clé unique) :
+     - Session sur serveur mais pas locale → créer le tab + `loadTerminal()`
+     - Session locale mais dtach morte → `closeTerminalTab()`
+   - `startTerminalSync()` / `stopTerminalSync()` gèrent le `setInterval`
+   - Polling démarré dans `initTerminalManager()`, stoppé quand on quitte la page Terminaux
+   - Skip si `saveDebounceTimeout` actif (l'utilisateur vient de faire un changement)
+
+3. **Smart save anti-écrasement (`saveTerminalState()`)**
+   - Avant de sauver vers le serveur, fetch l'état courant
+   - Merge par union sur `tmuxSession` : les tabs distants absents localement sont conservés
+   - `saveDebounceTimeout` remis à `null` après exécution du callback
+
+**Structures de données modifiées :**
+- `terminalInstances` Map : tabId → `{ terminal, fitAddon, ws, resizeObserver, reconnectTimer }`
+- `disposedTabs` Set : tabIds fermés volontairement (empêche la reconnexion)
+- `syncInterval` : ID du setInterval de polling
