@@ -180,6 +180,20 @@ def update_app_overrides():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/preferences/custom-apps', methods=['POST'])
+def update_custom_apps():
+    """Met à jour les applications personnalisées (raccourcis créés par l'utilisateur)"""
+    try:
+        data = request.get_json()
+        prefs = load_preferences()
+        prefs['customApps'] = data.get('customApps', {})
+        if save_preferences(prefs):
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ============ Terminal State (for multi-device sync) ============
 
 @app.route('/api/terminal/state', methods=['GET'])

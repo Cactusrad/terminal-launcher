@@ -165,6 +165,8 @@ class SharedSession:
     state: str = "normal"        # normal, waiting_input, idle, error
     created_at: float = field(default_factory=time)
     last_output: float = 0
+    last_cols: int = 200
+    last_rows: int = 50
 
     def client_count(self) -> int:
         return len(self.clients)
@@ -302,6 +304,14 @@ def start_session_pty(session: SharedSession):
         session.master_fd = master_fd
         session.running = True
 
+        # Set initial PTY size to something large so apps render correctly
+        # before the client sends its actual dimensions
+        try:
+            winsize = struct.pack('HHHH', 50, 200, 0, 0)
+            fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
+        except Exception:
+            pass
+
         # Set non-blocking mode
         flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
         fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -315,6 +325,8 @@ def session_resize(session: SharedSession, rows: int, cols: int):
         try:
             winsize = struct.pack('HHHH', rows, cols, 0, 0)
             fcntl.ioctl(session.master_fd, termios.TIOCSWINSZ, winsize)
+            session.last_cols = cols
+            session.last_rows = rows
         except Exception as e:
             logger.warning(f"Failed to resize PTY: {e}")
 
