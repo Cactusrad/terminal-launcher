@@ -3928,10 +3928,13 @@
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
         let viewMode = localStorage.getItem('terminalViewMode') || 'tabs';  // 'tabs' or 'grid'
-        const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver }
+        const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver, disposed, reconnectTimer }
+        const disposedTabs = new Set();  // Track disposed tabs to prevent reconnection
 
         const lastActivity = new Map();  // tabId -> timestamp
         const terminalAlerts = new Map(); // tabId -> { event, timestamp }
+
+        let syncInterval = null;  // Polling interval for cross-device sync
 
         // Idle checker - runs every 10 seconds
         setInterval(() => {
@@ -4356,14 +4359,43 @@
             localStorage.setItem('cactusTerminalTabs', JSON.stringify(state));
             localStorage.setItem('terminalViewMode', viewMode);
 
-            // Debounced save to server
+            // Debounced save to server with smart merge
             clearTimeout(saveDebounceTimeout);
             saveDebounceTimeout = setTimeout(async () => {
+                saveDebounceTimeout = null;  // Clear so sync polling can run
                 try {
+                    // Fetch current server state to merge (avoid overwriting other device's tabs)
+                    let serverTabs = [];
+                    try {
+                        const resp = await fetch('/api/terminal/state');
+                        if (resp.ok) {
+                            const serverState = await resp.json();
+                            serverTabs = serverState.tabs || [];
+                        }
+                    } catch (e) { /* server unreachable, just save local */ }
+
+                    // Merge: union by tmuxSession (local tabs take priority for shared sessions)
+                    const localBySession = new Map();
+                    terminalTabs.forEach(t => { if (t.tmuxSession) localBySession.set(t.tmuxSession, t); });
+
+                    // Add remote tabs that don't exist locally
+                    const mergedTabs = [...terminalTabs];
+                    serverTabs.forEach(remoteTab => {
+                        if (remoteTab.tmuxSession && !localBySession.has(remoteTab.tmuxSession)) {
+                            mergedTabs.push(remoteTab);
+                        }
+                    });
+
+                    const mergedState = {
+                        tabs: mergedTabs,
+                        activeTabId: activeTerminalTabId,
+                        viewMode: viewMode
+                    };
+
                     await fetch('/api/terminal/state', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(state)
+                        body: JSON.stringify(mergedState)
                     });
                     terminalStateSynced = true;
                 } catch (e) {
@@ -4490,6 +4522,8 @@
 
             // Dispose old terminal and recreate
             disposeTerminal(tabId);
+            // Clear disposed flag so loadTerminal can reconnect
+            disposedTabs.delete(tabId);
             loadTerminal(tab);
         }
 
@@ -4508,12 +4542,21 @@
         }
 
         function disposeTerminal(tabId) {
+            // Mark as disposed to prevent reconnection attempts
+            disposedTabs.add(tabId);
+
             const instance = terminalInstances.get(tabId);
             if (instance) {
+                // Cancel any pending reconnection
+                if (instance.reconnectTimer) {
+                    clearTimeout(instance.reconnectTimer);
+                    instance.reconnectTimer = null;
+                }
                 if (instance.resizeObserver) {
                     instance.resizeObserver.disconnect();
                 }
                 if (instance.ws) {
+                    instance.ws._manualClose = true;  // Flag to skip reconnection in onclose
                     instance.ws.close();
                 }
                 if (instance.terminal) {
@@ -4648,76 +4691,108 @@
                 });
             });
 
-            // Connect WebSocket
-            const wsUrl = `ws://${host}:${TERMINAL_WS_PORT}/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`;
-            const ws = new WebSocket(wsUrl);
-            ws.binaryType = 'arraybuffer';
+            // Helper: get current WS from instance (for closures that outlive reconnections)
+            const getWs = () => terminalInstances.get(tab.id)?.ws;
 
-            ws.onopen = () => {
-                console.log(`Terminal connected: ${tab.tmuxSession}`);
-                // Send initial resize
-                const dims = fitAddon.proposeDimensions();
-                if (dims) {
-                    ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
-                }
-                // Focus terminal so cursor blinks
-                terminal.focus();
-                // After buffer replay + resize, force a screen redraw (Ctrl+L)
-                // This fixes garbled display when reconnecting at different dimensions
-                setTimeout(() => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        // Re-fit and re-send resize to ensure correct dimensions
-                        try {
-                            fitAddon.fit();
-                            const newDims = fitAddon.proposeDimensions();
-                            if (newDims) {
-                                ws.send(JSON.stringify({ type: 'resize', cols: newDims.cols, rows: newDims.rows }));
-                            }
-                        } catch (e) {}
-                        // Send Ctrl+L to force application redraw
-                        const encoder = new TextEncoder();
-                        ws.send(encoder.encode('\x0c'));
-                    }
-                }, 500);
-            };
+            // Connect WebSocket with auto-reconnection
+            let reconnectDelay = 2000;
+            const MAX_RECONNECT_DELAY = 30000;
 
-            ws.onmessage = (event) => {
-                if (event.data instanceof ArrayBuffer) {
-                    const text = new TextDecoder().decode(event.data);
-                    terminal.write(text);
-                    // Track activity for idle detection
-                    lastActivity.set(tab.id, Date.now());
-                    // Clear idle alert on new data
-                    if (terminalAlerts.get(tab.id)?.event === 'idle') {
-                        clearTerminalAlert(tab.id);
+            function connectWs() {
+                if (disposedTabs.has(tab.id)) return;
+
+                const wsUrl = `ws://${host}:${TERMINAL_WS_PORT}/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`;
+                const ws = new WebSocket(wsUrl);
+                ws.binaryType = 'arraybuffer';
+
+                ws.onopen = () => {
+                    console.log(`Terminal connected: ${tab.tmuxSession}`);
+                    reconnectDelay = 2000;  // Reset backoff on success
+                    // Send initial resize
+                    const dims = fitAddon.proposeDimensions();
+                    if (dims) {
+                        ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
                     }
-                } else if (typeof event.data === 'string') {
-                    // JSON event from server
-                    try {
-                        const evt = JSON.parse(event.data);
-                        if (evt.type === 'event') {
-                            handleTerminalEvent(tab.id, evt);
+                    // Focus terminal so cursor blinks
+                    terminal.focus();
+                    // After buffer replay + resize, force a screen redraw (Ctrl+L)
+                    setTimeout(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            try {
+                                fitAddon.fit();
+                                const newDims = fitAddon.proposeDimensions();
+                                if (newDims) {
+                                    ws.send(JSON.stringify({ type: 'resize', cols: newDims.cols, rows: newDims.rows }));
+                                }
+                            } catch (e) {}
+                            const encoder = new TextEncoder();
+                            ws.send(encoder.encode('\x0c'));
                         }
-                    } catch (e) {
-                        console.warn('Invalid JSON event:', e);
+                    }, 500);
+                };
+
+                ws.onmessage = (event) => {
+                    if (event.data instanceof ArrayBuffer) {
+                        const text = new TextDecoder().decode(event.data);
+                        terminal.write(text);
+                        lastActivity.set(tab.id, Date.now());
+                        if (terminalAlerts.get(tab.id)?.event === 'idle') {
+                            clearTerminalAlert(tab.id);
+                        }
+                    } else if (typeof event.data === 'string') {
+                        try {
+                            const evt = JSON.parse(event.data);
+                            if (evt.type === 'event') {
+                                handleTerminalEvent(tab.id, evt);
+                            }
+                        } catch (e) {
+                            console.warn('Invalid JSON event:', e);
+                        }
                     }
+                };
+
+                ws.onerror = (e) => {
+                    console.error('WebSocket error:', e);
+                };
+
+                ws.onclose = () => {
+                    console.log(`Terminal disconnected: ${tab.tmuxSession}`);
+                    // Auto-reconnect unless manually closed or disposed
+                    if (ws._manualClose || disposedTabs.has(tab.id)) return;
+
+                    terminal.write('\r\n\x1b[33mConnexion perdue. Reconnexion...\x1b[0m\r\n');
+
+                    const instance = terminalInstances.get(tab.id);
+                    if (instance) {
+                        instance.reconnectTimer = setTimeout(() => {
+                            if (disposedTabs.has(tab.id)) return;
+                            console.log(`Reconnecting ${tab.tmuxSession} (delay: ${reconnectDelay}ms)`);
+                            connectWs();
+                            // Exponential backoff: 2s, 4s, 8s, 16s, 30s max
+                            reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+                        }, reconnectDelay);
+                    }
+                };
+
+                // Update the ws reference in the instance
+                const instance = terminalInstances.get(tab.id);
+                if (instance) {
+                    instance.ws = ws;
+                } else {
+                    // First connection - will be stored below
                 }
-            };
 
-            ws.onerror = (e) => {
-                console.error('WebSocket error:', e);
-                terminal.write('\r\n\x1b[31mConnexion perdue. Cliquez sur le bouton rafraichir.\x1b[0m\r\n');
-            };
+                return ws;
+            }
 
-            ws.onclose = () => {
-                console.log(`Terminal disconnected: ${tab.tmuxSession}`);
-            };
+            const ws = connectWs();
 
-            // Send input to server
+            // Send input to server (uses getWs() to survive reconnections)
             terminal.onData((data) => {
-                if (ws.readyState === WebSocket.OPEN) {
+                const currentWs = getWs();
+                if (currentWs && currentWs.readyState === WebSocket.OPEN) {
                     const encoder = new TextEncoder();
-                    ws.send(encoder.encode(data));
+                    currentWs.send(encoder.encode(data));
                 }
             });
 
@@ -4731,7 +4806,6 @@
                         navigator.clipboard.writeText(selection).then(() => {
                             showToast('Copié !');
                         }).catch(() => {
-                            // Fallback for HTTP - use execCommand
                             const textarea = document.createElement('textarea');
                             textarea.value = selection;
                             textarea.style.cssText = 'position:fixed;opacity:0;';
@@ -4750,7 +4824,7 @@
             // Note: Ctrl+V paste requires HTTPS due to browser security restrictions
             // In HTTP, use right-click context menu to paste
 
-            // Handle resize (debounced to avoid resize loops)
+            // Handle resize (debounced, uses getWs() to survive reconnections)
             let gridResizeTimeout = null;
             const resizeObserver = new ResizeObserver(() => {
                 clearTimeout(gridResizeTimeout);
@@ -4758,8 +4832,9 @@
                     try {
                         fitAddon.fit();
                         const dims = fitAddon.proposeDimensions();
-                        if (dims && ws.readyState === WebSocket.OPEN) {
-                            ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
+                        const currentWs = getWs();
+                        if (dims && currentWs && currentWs.readyState === WebSocket.OPEN) {
+                            currentWs.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }));
                         }
                     } catch (e) {}
                 }, 150);
@@ -4771,7 +4846,8 @@
                 terminal,
                 fitAddon,
                 ws,
-                resizeObserver
+                resizeObserver,
+                reconnectTimer: null
             });
 
             // Activate this terminal
@@ -5258,6 +5334,126 @@
             });
         }
 
+        // Cross-device sync: poll server state every 5 seconds
+        let _syncInProgress = false;
+        async function syncTerminalTabs() {
+            // Skip if save is pending (user just made a change)
+            if (saveDebounceTimeout) return;
+            // Skip if sync already in progress
+            if (_syncInProgress) return;
+            _syncInProgress = true;
+
+            try {
+                // 1. Fetch server state
+                let serverState;
+                try {
+                    const resp = await fetch('/api/terminal/state');
+                    if (!resp.ok) return;
+                    serverState = await resp.json();
+                } catch (e) { return; }
+
+                const serverTabs = serverState.tabs || [];
+                if (serverTabs.length === 0 && terminalTabs.length === 0) return;
+
+                // 2. Fetch active dtach sessions
+                let activeSessions = [];
+                try {
+                    const resp2 = await fetch(`http://${host}:${TERMINAL_WS_PORT}/sessions`);
+                    if (resp2.ok) {
+                        const data = await resp2.json();
+                        activeSessions = data.sessions || data || [];
+                    }
+                } catch (e) { /* terminal-server might be down */ }
+                const activeSessionNames = new Set(activeSessions.map(s => s.name || s));
+
+                // 3. Build maps by tmuxSession
+                const localBySession = new Map();
+                terminalTabs.forEach(t => { if (t.tmuxSession) localBySession.set(t.tmuxSession, t); });
+
+                const serverBySession = new Map();
+                serverTabs.forEach(t => { if (t.tmuxSession) serverBySession.set(t.tmuxSession, t); });
+
+                let changed = false;
+
+                // 4a. Add tabs from server that we don't have locally (if dtach session is alive)
+                serverBySession.forEach((remoteTab, sessionName) => {
+                    if (!localBySession.has(sessionName) && activeSessionNames.has(sessionName)) {
+                        // New tab from another device - add it
+                        terminalTabs.push(remoteTab);
+                        loadTerminal(remoteTab);
+                        changed = true;
+                    }
+                });
+
+                // 4b. Remove local tabs whose dtach session is dead AND not on server
+                const toRemove = [];
+                terminalTabs.forEach(tab => {
+                    if (tab.tmuxSession && !activeSessionNames.has(tab.tmuxSession) && !serverBySession.has(tab.tmuxSession)) {
+                        toRemove.push(tab.id);
+                    }
+                });
+                toRemove.forEach(tabId => {
+                    disposeTerminal(tabId);
+                    terminalTabs = terminalTabs.filter(t => t.id !== tabId);
+                    if (activeTerminalTabId === tabId) {
+                        activeTerminalTabId = terminalTabs.length > 0 ? terminalTabs[0].id : null;
+                    }
+                    // Clean up disposedTabs set (tab was removed by sync, not user)
+                    disposedTabs.delete(tabId);
+                    changed = true;
+                });
+
+                // 4c. Remove local tabs that server no longer has AND dtach session is dead
+                const toRemove2 = [];
+                terminalTabs.forEach(tab => {
+                    if (tab.tmuxSession && !serverBySession.has(tab.tmuxSession) && !activeSessionNames.has(tab.tmuxSession)) {
+                        // Already handled above, skip
+                    } else if (tab.tmuxSession && !activeSessionNames.has(tab.tmuxSession) && serverBySession.has(tab.tmuxSession)) {
+                        // dtach dead but still on server - clean up both
+                        toRemove2.push(tab.id);
+                    }
+                });
+                toRemove2.forEach(tabId => {
+                    disposeTerminal(tabId);
+                    terminalTabs = terminalTabs.filter(t => t.id !== tabId);
+                    if (activeTerminalTabId === tabId) {
+                        activeTerminalTabId = terminalTabs.length > 0 ? terminalTabs[0].id : null;
+                    }
+                    disposedTabs.delete(tabId);
+                    changed = true;
+                });
+
+                if (changed) {
+                    renderTerminalTabs(); syncMobileTerminalTabs();
+                    applyViewMode();
+                    if (activeTerminalTabId) {
+                        activateTerminalTab(activeTerminalTabId);
+                    }
+                    // Save merged state back to server
+                    saveTerminalState();
+
+                    const placeholder = document.getElementById('terminalPlaceholder');
+                    if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+                }
+            } catch (e) {
+                console.warn('Terminal sync error:', e);
+            } finally {
+                _syncInProgress = false;
+            }
+        }
+
+        function startTerminalSync() {
+            stopTerminalSync();
+            syncInterval = setInterval(syncTerminalTabs, 5000);
+        }
+
+        function stopTerminalSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+        }
+
         async function initTerminalManager() {
             // Load state from server (with localStorage fallback)
             const state = await loadTerminalStateFromServer();
@@ -5292,6 +5488,9 @@
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
+
+            // Start cross-device sync polling
+            startTerminalSync();
         }
 
         function showTerminalManager(show) {
@@ -5302,6 +5501,9 @@
                 manager.classList.toggle('active', show);
                 grid.style.display = show ? 'none' : '';
                 document.body.classList.toggle('terminal-mode', show);
+                if (!show) {
+                    stopTerminalSync();
+                }
                 if (show) {
                     initTerminalManager();
                 }
