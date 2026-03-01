@@ -180,20 +180,6 @@ def update_app_overrides():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/preferences/custom-apps', methods=['POST'])
-def update_custom_apps():
-    """Met à jour les applications personnalisées (raccourcis créés par l'utilisateur)"""
-    try:
-        data = request.get_json()
-        prefs = load_preferences()
-        prefs['customApps'] = data.get('customApps', {})
-        if save_preferences(prefs):
-            return jsonify({"status": "ok"})
-        else:
-            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 # ============ Terminal State (for multi-device sync) ============
 
 @app.route('/api/terminal/state', methods=['GET'])
@@ -248,12 +234,13 @@ def get_project_folders():
                     folders.append(item)
         folders.sort(key=str.lower)
 
-        # Charger les dossiers cachés
+        # Charger les dossiers cachés et les filtrer
         prefs = load_preferences()
         hidden = prefs.get('hiddenFolders', [])
+        visible_folders = [f for f in folders if f not in hidden]
 
         return jsonify({
-            "folders": folders,
+            "folders": visible_folders,
             "hidden": hidden
         })
     except Exception as e:

@@ -4285,14 +4285,8 @@
 
         // Sync tabs with actual dtach sessions (only remove dead ones, don't auto-add)
         async function syncTabsWithActiveSessions(existingTabs) {
-            const activeSessions = await fetchActiveSessions();
-            const activeSessionNames = new Set(activeSessions.map(s => s.name));
-
-            // Remove tabs for dead sessions only
-            const validTabs = existingTabs.filter(tab => {
-                if (!tab.tmuxSession) return false;
-                return activeSessionNames.has(tab.tmuxSession);
-            });
+            // Don't filter by dtach status - terminal-server creates sessions on demand
+            const validTabs = existingTabs.filter(tab => tab.tmuxSession);
 
             // Sort by creation time (oldest first)
             validTabs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -5399,26 +5393,6 @@
                         activeTerminalTabId = terminalTabs.length > 0 ? terminalTabs[0].id : null;
                     }
                     // Clean up disposedTabs set (tab was removed by sync, not user)
-                    disposedTabs.delete(tabId);
-                    changed = true;
-                });
-
-                // 4c. Remove local tabs that server no longer has AND dtach session is dead
-                const toRemove2 = [];
-                terminalTabs.forEach(tab => {
-                    if (tab.tmuxSession && !serverBySession.has(tab.tmuxSession) && !activeSessionNames.has(tab.tmuxSession)) {
-                        // Already handled above, skip
-                    } else if (tab.tmuxSession && !activeSessionNames.has(tab.tmuxSession) && serverBySession.has(tab.tmuxSession)) {
-                        // dtach dead but still on server - clean up both
-                        toRemove2.push(tab.id);
-                    }
-                });
-                toRemove2.forEach(tabId => {
-                    disposeTerminal(tabId);
-                    terminalTabs = terminalTabs.filter(t => t.id !== tabId);
-                    if (activeTerminalTabId === tabId) {
-                        activeTerminalTabId = terminalTabs.length > 0 ? terminalTabs[0].id : null;
-                    }
                     disposedTabs.delete(tabId);
                     changed = true;
                 });
