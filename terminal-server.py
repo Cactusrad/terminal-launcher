@@ -340,16 +340,28 @@ def session_write(session: SharedSession, data: bytes):
             logger.warning(f"Failed to write to PTY: {e}")
 
 
-def session_read(session: SharedSession) -> bytes | None:
-    """Read data from the PTY (non-blocking)."""
+class _EOFSentinel:
+    """Sentinel to distinguish EOF from no-data-available."""
+    pass
+
+EOF_SENTINEL = _EOFSentinel()
+
+
+def session_read(session: SharedSession) -> bytes | None | _EOFSentinel:
+    """Read data from the PTY (non-blocking).
+    Returns bytes if data available, None if no data, EOF_SENTINEL if session ended."""
     if session.master_fd is None:
         return None
     try:
-        return os.read(session.master_fd, 4096)
+        data = os.read(session.master_fd, 4096)
+        if data == b'':
+            return EOF_SENTINEL
+        return data
     except BlockingIOError:
         return None
     except OSError:
-        return None
+        # EIO typically means the child process exited
+        return EOF_SENTINEL
 
 
 def stop_session(session: SharedSession):
@@ -390,6 +402,22 @@ async def read_and_broadcast(session: SharedSession):
         try:
             # Use run_in_executor for non-blocking read
             data = await loop.run_in_executor(None, lambda: session_read(session))
+
+            if isinstance(data, _EOFSentinel):
+                # PTY closed - the session process has ended
+                logger.info(f"Session ended (EOF): {session.session_name}")
+                ended_msg = json.dumps({
+                    'type': 'session_ended',
+                    'session': session.session_name
+                })
+                for ws in list(session.clients):
+                    try:
+                        if not ws.closed:
+                            await asyncio.wait_for(ws.send_str(ended_msg), timeout=2.0)
+                    except Exception:
+                        pass
+                break
+
             if data:
                 # Add to buffer for reconnection
                 session.buffer.append(data)
@@ -443,6 +471,9 @@ async def read_and_broadcast(session: SharedSession):
                 logger.warning(f"Error reading PTY for {session.session_name}: {e}")
             break
 
+    # Clean up the session after the read loop ends
+    if session.session_name in active_sessions:
+        stop_session(session)
     logger.info(f"Read task ended for session: {session.session_name}")
 
 

@@ -1889,6 +1889,21 @@
         .project-item:hover .project-actions {
             opacity: 1;
         }
+        .project-active-badge {
+            min-width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            background: var(--cactus-primary);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
         .project-btn {
             width: 28px;
             height: 28px;
@@ -1913,6 +1928,10 @@
             background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-dark));
             color: white;
         }
+        .project-btn.team {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
         /* Project Settings Modal */
         .project-settings-modal {
             display: none;
@@ -1930,7 +1949,8 @@
             display: flex;
         }
         .project-settings-content {
-            background: var(--cactus-bg-card);
+            background: #141420;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
             border-radius: 12px;
             width: 90%;
             max-width: 400px;
@@ -2058,6 +2078,7 @@
         }
         .terminal-tab .tab-type.bash { background: var(--cactus-positive); }
         .terminal-tab .tab-type.claude-btn { background: var(--cactus-primary); }
+        .terminal-tab .tab-type.team { background: #2563eb; }
         .terminal-tab .tab-type.sudo { background: var(--cactus-negative); }
         .terminal-tab .tab-name {
             overflow: hidden;
@@ -3832,7 +3853,8 @@
         // Terminal types (single port for all - terminal-server.py handles routing)
         const terminalTypes = {
             bash:   { label: 'B', command: 'bash', color: 'bash' },
-            claude: { label: 'C', command: 'claude', color: 'claude-btn' }
+            claude: { label: 'C', command: 'claude', color: 'claude-btn' },
+            team:   { label: 'T', command: 'claude', color: 'team' }
         };
 
         const AGENT_COLORS = [
@@ -4423,7 +4445,10 @@
         }
 
         function openBashTerminal() {
-            createTerminalTab('bash', 'home');
+            // Generate unique name so multiple bash tabs can coexist
+            const existingCount = terminalTabs.filter(t => t.type === 'bash' && t.project.startsWith('home')).length;
+            const project = existingCount === 0 ? 'home' : `home_${existingCount + 1}`;
+            createTerminalTab('bash', project);
         }
 
         // ============ Tab Drag & Drop ============
@@ -4505,9 +4530,44 @@
             saveTerminalState();
             renderTerminalTabs();
             syncMobileTerminalTabs();
+            renderProjectList();
             loadTerminal(tab);
             applyViewMode();
             // Close mobile sidebar when opening a terminal
+            if (isMobile()) closeMobileSidebar();
+        }
+
+        function createTeamTerminal(project) {
+            const agentName = prompt('Nom du teammate (ex: researcher, tester):');
+            if (!agentName || !agentName.trim()) return;
+
+            const name = agentName.trim();
+            const sessionName = `team_${project}_${name}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+            const existingTab = terminalTabs.find(t => t.tmuxSession === sessionName);
+            if (existingTab) {
+                activateTerminalTab(existingTab.id);
+                return;
+            }
+
+            const tabId = generateTabId();
+            const tab = {
+                id: tabId,
+                name: `${project} → ${name}`,
+                type: 'team',
+                project: project,
+                tmuxSession: sessionName,
+                command: `cd /home/cactus/claude/${project} && claude --team ${name}`,
+                createdAt: Date.now()
+            };
+
+            terminalTabs.push(tab);
+            activeTerminalTabId = tabId;
+            saveTerminalState();
+            renderTerminalTabs();
+            syncMobileTerminalTabs();
+            loadTerminal(tab);
+            applyViewMode();
             if (isMobile()) closeMobileSidebar();
         }
 
@@ -4664,6 +4724,7 @@
 
             saveTerminalState();
             renderTerminalTabs(); syncMobileTerminalTabs();
+            renderProjectList();
             applyViewMode();
 
             const placeholder = document.getElementById('terminalPlaceholder');
@@ -4812,7 +4873,15 @@
                     } else if (typeof event.data === 'string') {
                         try {
                             const evt = JSON.parse(event.data);
-                            if (evt.type === 'event') {
+                            if (evt.type === 'session_ended') {
+                                console.log(`Session ended: ${evt.session}`);
+                                // Show brief message then close tab
+                                terminal.write('\r\n\x1b[90m[Session terminée]\x1b[0m\r\n');
+                                ws._manualClose = true;
+                                setTimeout(() => {
+                                    closeTerminalTab(tab.id);
+                                }, 1500);
+                            } else if (evt.type === 'event') {
                                 handleTerminalEvent(tab.id, evt);
                             }
                         } catch (e) {
@@ -4983,11 +5052,14 @@
             container.innerHTML = filteredProjects.map(project => {
                 const safeProject = escapeHtml(project);
                 const jsProject = project.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const activeCount = terminalTabs.filter(t => t.project === project).length;
+                const badge = activeCount > 0 ? `<span class="project-active-badge">${activeCount}</span>` : '';
                 return `
                 <div class="project-item">
-                    <span class="project-name" title="${safeProject}">${safeProject}</span>
+                    <span class="project-name" title="${safeProject}">${safeProject}${badge}</span>
                     <div class="project-actions">
                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${jsProject}')" title="Claude">C</button>
+                        <button class="project-btn team" onclick="createTeamTerminal('${jsProject}')" title="Team Agent">T</button>
                     </div>
                 </div>
             `;
@@ -5485,6 +5557,7 @@
 
                 if (changed) {
                     renderTerminalTabs(); syncMobileTerminalTabs();
+                    renderProjectList();
                     applyViewMode();
                     if (activeTerminalTabId) {
                         activateTerminalTab(activeTerminalTabId);
