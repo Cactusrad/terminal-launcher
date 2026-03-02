@@ -15,12 +15,6 @@
 - [ ] Supprimer l'ancien service : `sudo rm /etc/systemd/system/homepage-workspace.service`
 - [ ] Commiter les changements et push
 
-## Terminal Manager
-
-- [ ] **Drag & drop onglets** : pouvoir glisser les onglets pour réorganiser leur position
-- [ ] **Couleur par projet** : chaque projet a une couleur d'onglet distincte (attribuée automatiquement)
-- [ ] **Bouton Bash global** : supprimer le bouton bash de chaque projet, ajouter un seul bouton Bash dans le header à côté de Reload et Config (icône cohérente avec le style existant)
-
 ## Améliorations prévues
 
 - [ ] Ajouter logging structuré (remplacer les `print()` par `logging`)
@@ -30,15 +24,17 @@
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Séparer index.html en fichiers modulaires (CSS, JS)
 
-## Bugs connus
+## Complété
 
-- [x] **Terminal se réouvre après fermeture** : quand on ferme un onglet terminal, il se réouvre automatiquement (probablement le sync polling qui le recrée depuis l'état serveur ou les sessions dtach) — **CORRIGÉ** : disposedSessions empêche le merge de ré-ajouter les tabs fermés
-
-## Nouvelles fonctionnalités
-
-- [ ] **Détecter "exit" dans un terminal Claude** : Quand l'utilisateur tape "exit" dans un terminal (surtout Claude), la session ne doit plus être considérée comme active/ouverte. Détecter la commande exit et fermer/retirer le tab automatiquement.
-- [ ] **Indicateur de terminal actif dans le menu projets** : Afficher quelque chose à côté du nom de chaque projet dans le sidebar qui indique qu'il y a un ou des terminaux actifs pour ce projet (ex: un badge, un point coloré, ou un compteur).
-- [ ] **Terminal pour discuter avec un agent d'un team** : Pouvoir ouvrir un nouveau type de terminal qui permet de communiquer/discuter avec un agent membre d'un team (Claude Code teams/subagents).
+- [x] **Drag & drop onglets** : glisser les onglets pour réorganiser leur position
+- [x] **Couleur par projet** : chaque projet a une couleur d'onglet distincte (border-left coloré par hash)
+- [x] **Bouton Bash global** : bouton Bash dans le header sidebar (icône >_), bouton B retiré des projets
+- [x] **Terminal se réouvre après fermeture** : fix via `disposedSessions` + guard dans merge et sync
+- [x] **Détecter "exit" / fin de session** : terminal-server.py envoie `session_ended`, client ferme le tab auto
+- [x] **Indicateur de terminal actif dans le menu projets** : badge orange avec compteur par projet
+- [x] **Terminal pour discuter avec un agent de team** : bouton "T" par projet, type `team` avec prompt du nom d'agent
+- [x] **Bash multiples** : le bouton Bash global ouvre un nouveau terminal à chaque clic (home, home_2, home_3...)
+- [x] **Modal config opaque** : fond #141420 au lieu de transparent
 
 ## Notes
 
