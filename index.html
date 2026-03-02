@@ -5619,16 +5619,26 @@
 
         async function loadPreferencesFromAPI() {
             try {
-                const response = await fetch(`${API_BASE}/preferences`);
-                if (response.ok) {
-                    const data = await response.json();
+                // Load preferences and apps in parallel
+                const [prefsResponse, appsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/preferences`),
+                    fetch(`${API_BASE}/apps`)
+                ]);
+                if (prefsResponse.ok) {
+                    const data = await prefsResponse.json();
                     apiEnabled = true;
                     cachedPages = data.pages || JSON.parse(JSON.stringify(defaultPages));
                     currentPageId = data.currentPage || 'main';
                     // Load app overrides
                     appOverrides = data.appOverrides || {};
-                    // Load custom apps
-                    customApps = data.customApps || {};
+                    // Load custom apps from /api/apps
+                    if (appsResponse.ok) {
+                        const appsData = await appsResponse.json();
+                        customApps = appsData.apps || {};
+                    } else {
+                        // Fallback to preferences data
+                        customApps = data.customApps || {};
+                    }
                     // Also save to localStorage as backup
                     localStorage.setItem('cactusPages', JSON.stringify(cachedPages));
                     localStorage.setItem('cactusCurrentPage', currentPageId);
@@ -6125,11 +6135,13 @@
 
             // For custom apps, update the custom app directly
             if (customApps[appId]) {
-                if (newName) customApps[appId].name = newName;
-                if (newUrl) customApps[appId].url = newUrl;
-                customApps[appId].desc = newDesc;
+                const updates = {};
+                if (newName) { customApps[appId].name = newName; updates.name = newName; }
+                if (newUrl) { customApps[appId].url = newUrl; updates.url = newUrl; }
+                customApps[appId].desc = newDesc; updates.desc = newDesc;
                 localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
-                saveCustomAppsToAPI();
+                // Use individual REST update
+                updateAppAPI(appId, updates);
                 renderApps();
                 closeEditApp();
                 return;
@@ -6204,7 +6216,66 @@
             }, 500);
         }
 
-        // ============ Custom Apps & Save ============
+        // ============ Custom Apps REST CRUD ============
+        async function createAppAPI(app) {
+            if (!apiEnabled) return;
+            updateSyncStatus('syncing', 'Synchronisation...');
+            try {
+                const response = await fetch(`${API_BASE}/apps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(app)
+                });
+                if (response.ok) {
+                    updateSyncStatus('', 'Sync serveur');
+                    return await response.json();
+                }
+            } catch (e) {
+                console.error('Erreur création app API:', e);
+            }
+            updateSyncStatus('error', 'Erreur sync');
+            return null;
+        }
+
+        async function updateAppAPI(appId, fields) {
+            if (!apiEnabled) return;
+            updateSyncStatus('syncing', 'Synchronisation...');
+            try {
+                const response = await fetch(`${API_BASE}/apps/${appId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fields)
+                });
+                if (response.ok) {
+                    updateSyncStatus('', 'Sync serveur');
+                    return await response.json();
+                }
+            } catch (e) {
+                console.error('Erreur mise à jour app API:', e);
+            }
+            updateSyncStatus('error', 'Erreur sync');
+            return null;
+        }
+
+        async function deleteAppAPI(appId) {
+            if (!apiEnabled) return;
+            updateSyncStatus('syncing', 'Synchronisation...');
+            try {
+                const response = await fetch(`${API_BASE}/apps/${appId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    updateSyncStatus('', 'Sync serveur');
+                    return true;
+                }
+            } catch (e) {
+                console.error('Erreur suppression app API:', e);
+            }
+            updateSyncStatus('error', 'Erreur sync');
+            return false;
+        }
+
+        // Legacy bulk save - kept as fallback
         async function saveCustomAppsToAPI() {
             if (!apiEnabled) return;
 
@@ -6331,10 +6402,11 @@
                 gradient: selectedCreateGradient
             };
 
-            // Save to customApps
+            // Save to customApps locally
             customApps[id] = newApp;
             localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
-            saveCustomAppsToAPI();
+            // Use individual REST create
+            createAppAPI(newApp);
 
             // Add to current page
             const pages = getPages();
@@ -6360,10 +6432,11 @@
             });
             savePages(pages);
 
-            // Remove from customApps
+            // Remove from customApps locally
             delete customApps[appId];
             localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
-            saveCustomAppsToAPI();
+            // Use individual REST delete (also cleans pages server-side)
+            deleteAppAPI(appId);
 
             // Remove from overrides if any
             if (appOverrides[appId]) {
@@ -6394,7 +6467,8 @@
             if (customApps[appId]) {
                 delete customApps[appId];
                 localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
-                saveCustomAppsToAPI();
+                // Use individual REST delete
+                deleteAppAPI(appId);
             }
 
             // Remove from overrides if any
@@ -6436,11 +6510,19 @@
             // Reset on server too
             if (apiEnabled) {
                 try {
-                    await fetch(`${API_BASE}/preferences`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pages: cachedPages, currentPage: 'main', appOverrides: {}, customApps: {} })
-                    });
+                    await Promise.all([
+                        fetch(`${API_BASE}/preferences`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pages: cachedPages, currentPage: 'main', appOverrides: {} })
+                        }),
+                        // Also reset apps.json via legacy endpoint
+                        fetch(`${API_BASE}/preferences/custom-apps`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ customApps: {} })
+                        })
+                    ]);
                 } catch (e) {
                     console.error('Erreur reset API:', e);
                 }

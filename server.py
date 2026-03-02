@@ -8,17 +8,39 @@ from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
 import json
 import os
-import requests as http_requests
+import re
+import glob
+import time
+
+try:
+    from config import *
+except ImportError:
+    DATA_DIR = '/data'
+    PREFERENCES_FILE = '/data/preferences.json'
+    APPS_FILE = '/data/apps.json'
+    ERP_REQUESTS_FILE = '/data/erp_requests.json'
+    PROJECTS_DIR = '/home/cactus/claude'
+    CLAUDE_CONFIG_DIR = '/home/cactus/.claude/projects'
+    TERMINAL_LOG_DIR = '/tmp/terminal-logs'
+    SOCKET_DIR = '/tmp/dtach-sessions'
+    TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+    TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
+    def ensure_data_dir():
+        os.makedirs(DATA_DIR, exist_ok=True)
+
+try:
+    import requests as http_requests
+except ImportError:
+    http_requests = None
 
 app = Flask(__name__, static_folder=None)
 
-# Telegram Bot Configuration (from environment variables)
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
-
 def send_telegram(message, parse_mode="HTML"):
     """Envoie un message via Telegram"""
+    if http_requests is None:
+        print("Module requests non disponible")
+        return False
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram non configuré (variables d'environnement manquantes)")
         return False
@@ -54,8 +76,6 @@ def notify_claude_request(req_data):
 
 CORS(app)
 
-PREFERENCES_FILE = '/data/preferences.json'
-
 def get_default_preferences():
     """Préférences par défaut si le fichier n'existe pas"""
     return {
@@ -69,26 +89,66 @@ def get_default_preferences():
         "currentPage": "main"
     }
 
-def load_preferences():
-    """Charge les préférences depuis le fichier JSON"""
+def load_json_file(filepath, default_func):
+    """Generic JSON file loader with fallback to default"""
     try:
-        if os.path.exists(PREFERENCES_FILE):
-            with open(PREFERENCES_FILE, 'r', encoding='utf-8') as f:
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        print(f"Erreur lecture préférences: {e}")
-    return get_default_preferences()
+        print(f"Error reading {filepath}: {e}")
+    return default_func()
 
-def save_preferences(prefs):
-    """Sauvegarde les préférences dans le fichier JSON"""
+def save_json_file(filepath, data):
+    """Generic JSON file saver"""
     try:
-        os.makedirs(os.path.dirname(PREFERENCES_FILE), exist_ok=True)
-        with open(PREFERENCES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(prefs, f, indent=2, ensure_ascii=False)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
-        print(f"Erreur sauvegarde préférences: {e}")
+        print(f"Error writing {filepath}: {e}")
         return False
+
+def load_preferences():
+    return load_json_file(PREFERENCES_FILE, get_default_preferences)
+
+def save_preferences(prefs):
+    return save_json_file(PREFERENCES_FILE, prefs)
+
+def load_apps():
+    return load_json_file(APPS_FILE, lambda: {"apps": {}})
+
+def save_apps(data):
+    return save_json_file(APPS_FILE, data)
+
+def migrate_custom_apps():
+    """Migrate customApps from preferences.json to apps.json if needed"""
+    prefs = load_preferences()
+    custom_apps = prefs.get('customApps', {})
+    if not custom_apps:
+        return
+
+    apps_data = load_apps()
+    from datetime import datetime
+    now = datetime.now().isoformat()
+
+    for app_id, app in custom_apps.items():
+        if app_id not in apps_data['apps']:
+            app_entry = dict(app)
+            app_entry.setdefault('created_at', now)
+            app_entry.setdefault('updated_at', now)
+            apps_data['apps'][app_id] = app_entry
+
+    save_apps(apps_data)
+
+    # Remove customApps from preferences
+    del prefs['customApps']
+    save_preferences(prefs)
+    print(f"Migrated {len(custom_apps)} custom apps to apps.json")
+
+# Run migration on startup
+migrate_custom_apps()
 
 @app.route('/')
 def index():
@@ -110,6 +170,9 @@ def chromium_files(filename='autologin.html'):
 def get_preferences():
     """Récupère les préférences"""
     prefs = load_preferences()
+    # Merge apps from apps.json for backward compatibility
+    apps_data = load_apps()
+    prefs['customApps'] = apps_data.get('apps', {})
     return jsonify(prefs)
 
 @app.route('/api/preferences', methods=['POST'])
@@ -154,15 +217,32 @@ def update_current_page():
 
 @app.route('/api/preferences/custom-apps', methods=['POST'])
 def update_custom_apps():
-    """Met à jour les applications personnalisées"""
+    """Legacy endpoint - proxies to apps.json"""
     try:
-        data = request.get_json()
-        prefs = load_preferences()
-        prefs['customApps'] = data.get('customApps', {})
-        if save_preferences(prefs):
+        from datetime import datetime
+        req_data = request.get_json()
+        incoming_apps = req_data.get('customApps', {})
+        now = datetime.now().isoformat()
+
+        data = load_apps()
+
+        # Sync: add/update incoming apps
+        for app_id, app in incoming_apps.items():
+            app_entry = dict(app)
+            app_entry.setdefault('created_at', now)
+            app_entry['updated_at'] = now
+            data['apps'][app_id] = app_entry
+
+        # Remove apps not in incoming set
+        current_ids = set(data['apps'].keys())
+        incoming_ids = set(incoming_apps.keys())
+        for removed_id in current_ids - incoming_ids:
+            del data['apps'][removed_id]
+
+        if save_apps(data):
             return jsonify({"status": "ok"})
         else:
-            return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+            return jsonify({"status": "error", "message": "Save failed"}), 500
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -177,6 +257,105 @@ def update_app_overrides():
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============ Apps CRUD (separate file) ============
+
+@app.route('/api/apps', methods=['GET'])
+def get_apps():
+    """List all custom apps"""
+    data = load_apps()
+    return jsonify(data)
+
+@app.route('/api/apps', methods=['POST'])
+def create_app():
+    """Create a new custom app"""
+    try:
+        from datetime import datetime
+        req_data = request.get_json()
+
+        app_id = req_data.get('id', 'custom_' + str(int(datetime.now().timestamp() * 1000)))
+        now = datetime.now().isoformat()
+
+        new_app = {
+            'id': app_id,
+            'name': req_data.get('name', ''),
+            'url': req_data.get('url', ''),
+            'desc': req_data.get('desc', ''),
+            'port': req_data.get('port', ''),
+            'icon': req_data.get('icon', 'globe'),
+            'gradient': req_data.get('gradient', 'linear-gradient(135deg, #3b82f6, #1d4ed8)'),
+            'created_at': now,
+            'updated_at': now
+        }
+
+        data = load_apps()
+        data['apps'][app_id] = new_app
+
+        if save_apps(data):
+            return jsonify({"status": "ok", "app": new_app}), 201
+        else:
+            return jsonify({"status": "error", "message": "Save failed"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/apps/<app_id>', methods=['GET'])
+def get_app(app_id):
+    """Get a single app by ID"""
+    data = load_apps()
+    app = data['apps'].get(app_id)
+    if not app:
+        return jsonify({"status": "error", "message": "App not found"}), 404
+    return jsonify(app)
+
+@app.route('/api/apps/<app_id>', methods=['PUT'])
+def update_app(app_id):
+    """Update an existing app"""
+    try:
+        from datetime import datetime
+        req_data = request.get_json()
+
+        data = load_apps()
+        if app_id not in data['apps']:
+            return jsonify({"status": "error", "message": "App not found"}), 404
+
+        app = data['apps'][app_id]
+
+        # Update only provided fields
+        for field in ['name', 'url', 'desc', 'port', 'icon', 'gradient']:
+            if field in req_data:
+                app[field] = req_data[field]
+
+        app['updated_at'] = datetime.now().isoformat()
+        data['apps'][app_id] = app
+
+        if save_apps(data):
+            return jsonify({"status": "ok", "app": app})
+        else:
+            return jsonify({"status": "error", "message": "Save failed"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/apps/<app_id>', methods=['DELETE'])
+def delete_app(app_id):
+    """Delete an app and remove from all pages"""
+    try:
+        data = load_apps()
+        if app_id not in data['apps']:
+            return jsonify({"status": "error", "message": "App not found"}), 404
+
+        del data['apps'][app_id]
+        save_apps(data)
+
+        # Also remove from all pages in preferences
+        prefs = load_preferences()
+        for page in prefs.get('pages', []):
+            if app_id in page.get('apps', []):
+                page['apps'] = [a for a in page['apps'] if a != app_id]
+        save_preferences(prefs)
+
+        return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -220,7 +399,7 @@ def health():
     return jsonify({"status": "healthy"})
 
 # ============ Projects/Folders Management ============
-CLAUDE_PROJECTS_DIR = '/home/cactus/claude'
+CLAUDE_PROJECTS_DIR = PROJECTS_DIR
 
 @app.route('/api/projects/folders', methods=['GET'])
 def get_project_folders():
@@ -264,28 +443,12 @@ def update_hidden_folders():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ============ ERP Requests Management ============
-ERP_REQUESTS_FILE = '/data/erp_requests.json'
 
 def load_erp_requests():
-    """Charge les demandes ERP"""
-    try:
-        if os.path.exists(ERP_REQUESTS_FILE):
-            with open(ERP_REQUESTS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Erreur lecture demandes ERP: {e}")
-    return {"requests": [], "progress": []}
+    return load_json_file(ERP_REQUESTS_FILE, lambda: {"requests": [], "progress": []})
 
 def save_erp_requests(data):
-    """Sauvegarde les demandes ERP"""
-    try:
-        os.makedirs(os.path.dirname(ERP_REQUESTS_FILE), exist_ok=True)
-        with open(ERP_REQUESTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e:
-        print(f"Erreur sauvegarde demandes ERP: {e}")
-        return False
+    return save_json_file(ERP_REQUESTS_FILE, data)
 
 @app.route('/api/erp/requests', methods=['GET'])
 def get_erp_requests():
@@ -400,10 +563,6 @@ def erp_progress():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ============ Terminal Activity Detection ============
-import re
-import glob
-
-TERMINAL_LOG_DIR = '/tmp/terminal-logs'
 
 # Patterns that indicate terminal is waiting for input
 # Be careful not to match status bars or regular output
@@ -511,7 +670,7 @@ def get_terminal_activity():
 def get_terminal_sessions():
     """List active dtach sessions"""
     sessions = []
-    socket_dir = '/tmp/dtach-sessions'
+    socket_dir = SOCKET_DIR
 
     if os.path.exists(socket_dir):
         for item in os.listdir(socket_dir):
@@ -528,9 +687,8 @@ def get_terminal_sessions():
     return jsonify({'sessions': sessions})
 
 # ============ Subagents API ============
-import time
 
-CLAUDE_PROJECTS_BASE = '/home/cactus/.claude/projects'
+CLAUDE_PROJECTS_BASE = CLAUDE_CONFIG_DIR
 
 def get_claude_project_path(project_name):
     """Convert project name (e.g., 'guillevin') to Claude project path"""
