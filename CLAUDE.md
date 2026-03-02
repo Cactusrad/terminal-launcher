@@ -18,7 +18,17 @@ Navigateur ──► Docker (terminal-launcher, port 80)
                 │       └── /api/*         → JSON preferences
                 └── Volume launcher-data
                     └── /data/preferences.json
+
+           ──► terminal-server.py (hôte, port 7681, systemd)
+                └── WebSocket + PTY sessions (aiohttp, venv Python)
+
+           ──► ttyd (hôte, port 7694, systemd)
+                └── terminal-launcher-workspace (tmux)
 ```
+
+**Serveur de production** : `192.168.1.100`
+**Paths sur l'hôte** : `~/terminal-launcher/` (pas `~/claude/terminal-launcher/`)
+**Dev/git** : `~/claude/terminal-launcher/` sur 192.168.1.200
 
 **Fichier unique** : `index.html` (~290KB) contient tout le CSS, JS et HTML.
 

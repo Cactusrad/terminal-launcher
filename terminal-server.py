@@ -221,13 +221,14 @@ def create_dtach_session(session_name: str, project: str, command: str):
         project_path = Path.home()
 
     # Build the command to run inside dtach
+    # stty susp undef disables Ctrl+Z (SIGTSTP) inside the script pty
     if command == "bash":
-        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'bash -l'"
+        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'stty susp undef && exec bash -l'"
     elif command == "claude":
-        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'claude'"
+        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'stty susp undef && exec claude'"
     else:
         # Use bash -l to source profile (for env vars like ANTHROPIC_API_KEY)
-        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'bash -l -c \"{command}\"'"
+        inner_cmd = f"cd '{project_path}' && exec script -f -q '{log_path}' -c 'stty susp undef && exec bash -l -c \"{command}\"'"
 
     # Create empty log file
     log_path.touch()
