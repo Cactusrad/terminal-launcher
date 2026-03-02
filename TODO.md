@@ -4,7 +4,6 @@
 
 - [ ] Autoriser GitHub pour supprimer `homepage-app` (code device flow)
 - [ ] Supprimer le repo `Cactusrad/homepage-app` : `gh repo delete Cactusrad/homepage-app --yes`
-- [ ] Rendre le repo `terminal-launcher` privé : `gh repo edit Cactusrad/terminal-launcher --visibility private`
 - [ ] Installer les services systemd :
   ```bash
   sudo cp /home/cactus/claude/terminal-launcher/terminal-server.service /etc/systemd/system/
