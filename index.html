@@ -2082,6 +2082,9 @@
             background: rgba(222, 53, 11, 0.3);
             color: var(--cactus-negative);
         }
+        .terminal-tab.dragging { opacity: 0.4; }
+        .terminal-tab.drag-over-left { border-left: 3px solid var(--cactus-primary) !important; }
+        .terminal-tab.drag-over-right { border-right: 3px solid var(--cactus-primary); }
         .terminal-tab .tab-refresh {
             width: 18px;
             height: 18px;
@@ -3267,6 +3270,11 @@
                 <div class="sidebar-header">
                     Projets
                     <div class="sidebar-actions">
+                        <button class="sidebar-btn" onclick="openBashTerminal()" title="Nouveau Bash">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7.5 17l1.41-1.41L6.33 13l2.58-2.59L7.5 9l-4 4 4 4zM12 15h6v2h-6v-2z"/>
+                            </svg>
+                        </button>
                         <button class="sidebar-btn" onclick="refreshProjectFolders()" title="Rafraîchir">↻</button>
                         <button class="sidebar-btn" onclick="openProjectSettings()" title="Gérer les projets">⚙</button>
                     </div>
@@ -3930,6 +3938,18 @@
         let viewMode = localStorage.getItem('terminalViewMode') || 'tabs';  // 'tabs' or 'grid'
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver, disposed, reconnectTimer }
         const disposedTabs = new Set();  // Track disposed tabs to prevent reconnection
+        const disposedSessions = new Set();  // Track disposed sessions by tmux name to prevent sync re-adding
+
+        const PROJECT_COLORS = [
+            '#E75B12', '#2563eb', '#36B37E', '#9333ea', '#ec4899',
+            '#f59e0b', '#06b6d4', '#ef4444', '#8b5cf6', '#14b8a6'
+        ];
+        function getProjectColor(project) {
+            if (!project) return PROJECT_COLORS[0];
+            let hash = 0;
+            for (let i = 0; i < project.length; i++) hash = ((hash << 5) - hash) + project.charCodeAt(i);
+            return PROJECT_COLORS[Math.abs(hash) % PROJECT_COLORS.length];
+        }
 
         const lastActivity = new Map();  // tabId -> timestamp
         const terminalAlerts = new Map(); // tabId -> { event, timestamp }
@@ -4392,6 +4412,7 @@
                         body: JSON.stringify(mergedState)
                     });
                     terminalStateSynced = true;
+                    disposedSessions.clear();
                 } catch (e) {
                     console.warn('Failed to save terminal state to server:', e);
                 }
@@ -4400,6 +4421,58 @@
 
         function generateTabId() {
             return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function openBashTerminal() {
+            createTerminalTab('bash', 'home');
+        }
+
+        // ============ Tab Drag & Drop ============
+        function handleTabDragStart(e, tabId) {
+            e.dataTransfer.setData('text/plain', tabId);
+            e.target.classList.add('dragging');
+        }
+
+        function handleTabDragOver(e, tabId) {
+            e.preventDefault();
+            document.querySelectorAll('.terminal-tab').forEach(el => {
+                el.classList.remove('drag-over-left', 'drag-over-right');
+            });
+            const rect = e.currentTarget.getBoundingClientRect();
+            const midX = rect.left + rect.width / 2;
+            if (e.clientX < midX) {
+                e.currentTarget.classList.add('drag-over-left');
+            } else {
+                e.currentTarget.classList.add('drag-over-right');
+            }
+        }
+
+        function handleTabDrop(e, targetTabId) {
+            e.preventDefault();
+            const sourceTabId = e.dataTransfer.getData('text/plain');
+            if (sourceTabId === targetTabId) return;
+
+            const sourceIdx = terminalTabs.findIndex(t => t.id === sourceTabId);
+            const targetIdx = terminalTabs.findIndex(t => t.id === targetTabId);
+            if (sourceIdx === -1 || targetIdx === -1) return;
+
+            const rect = e.currentTarget.getBoundingClientRect();
+            const insertAfter = e.clientX >= rect.left + rect.width / 2;
+
+            const [movedTab] = terminalTabs.splice(sourceIdx, 1);
+            const newTargetIdx = terminalTabs.findIndex(t => t.id === targetTabId);
+            terminalTabs.splice(insertAfter ? newTargetIdx + 1 : newTargetIdx, 0, movedTab);
+
+            saveTerminalState();
+            renderTerminalTabs();
+            syncMobileTerminalTabs();
+            handleTabDragEnd();
+        }
+
+        function handleTabDragEnd() {
+            document.querySelectorAll('.terminal-tab').forEach(el => {
+                el.classList.remove('dragging', 'drag-over-left', 'drag-over-right');
+            });
         }
 
         function createTerminalTab(type, project) {
@@ -4570,6 +4643,10 @@
 
             const tabIndex = terminalTabs.findIndex(t => t.id === tabId);
             if (tabIndex === -1) return;
+
+            // Track disposed session to prevent sync from re-adding it
+            const tab = terminalTabs[tabIndex];
+            if (tab.tmuxSession) disposedSessions.add(tab.tmuxSession);
 
             // Clean up terminal instance
             disposeTerminal(tabId);
@@ -4869,6 +4946,12 @@
                     <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''} ${waitingClass}"
                          data-tab-id="${tab.id}"
                          data-session="${tab.tmuxSession}"
+                         style="border-left: 3px solid ${getProjectColor(tab.project)}"
+                         draggable="true"
+                         ondragstart="handleTabDragStart(event, '${tab.id}')"
+                         ondragover="handleTabDragOver(event, '${tab.id}')"
+                         ondrop="handleTabDrop(event, '${tab.id}')"
+                         ondragend="handleTabDragEnd()"
                          onclick="activateTerminalTab('${tab.id}')"
                          ondblclick="renameTerminalTab('${tab.id}', event)">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
@@ -4905,7 +4988,6 @@
                 <div class="project-item">
                     <span class="project-name" title="${safeProject}">${safeProject}</span>
                     <div class="project-actions">
-                        <button class="project-btn bash" onclick="createTerminalTab('bash', '${jsProject}')" title="Bash">B</button>
                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${jsProject}')" title="Claude">C</button>
                     </div>
                 </div>
@@ -5371,7 +5453,7 @@
 
                 // 4a. Add tabs from server that we don't have locally (if dtach session is alive)
                 serverBySession.forEach((remoteTab, sessionName) => {
-                    if (!localBySession.has(sessionName) && activeSessionNames.has(sessionName)) {
+                    if (!localBySession.has(sessionName) && activeSessionNames.has(sessionName) && !disposedSessions.has(sessionName)) {
                         // New tab from another device - add it
                         terminalTabs.push(remoteTab);
                         loadTerminal(remoteTab);
