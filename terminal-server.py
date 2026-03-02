@@ -30,10 +30,10 @@ from typing import Dict, Set
 from aiohttp import web, WSMsgType
 
 # Configuration
-PORT = 7681
-SOCKET_DIR = Path("/tmp/dtach-sessions")
-LOG_DIR = Path("/tmp/terminal-logs")
-PROJECT_BASE = Path("/home/cactus/claude")
+PORT = int(os.environ.get('TERMINAL_WS_PORT', 7681))
+SOCKET_DIR = Path(os.environ.get('SOCKET_DIR', '/tmp/dtach-sessions'))
+LOG_DIR = Path(os.environ.get('LOG_DIR', '/tmp/terminal-logs'))
+PROJECT_BASE = Path(os.environ.get('PROJECTS_DIR', '/home/cactus/claude'))
 BUFFER_MAX_LINES = 1000  # Lines to keep for reconnection
 BUFFER_MAX_BYTES = 512 * 1024  # Max 512KB per session buffer
 

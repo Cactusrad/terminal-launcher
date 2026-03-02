@@ -1,0 +1,16 @@
+services:
+  kasm-chrome:
+    image: kasmweb/chromium:1.15.0
+    container_name: kasm-chrome
+    restart: unless-stopped
+    ports:
+      - "6901:6901"
+    environment:
+      - VNC_PW=secret
+    shm_size: 2g
+    # Optionnel: persistance des données utilisateur
+    # volumes:
+    #   - kasm-chrome-data:/home/kasm-user
+
+# volumes:
+#   kasm-chrome-data:

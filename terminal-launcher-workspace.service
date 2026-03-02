@@ -1,0 +1,14 @@
+[Unit]
+Description=Terminal Launcher Workspace (ttyd + tmux)
+After=network.target
+
+[Service]
+Type=simple
+User=cactus
+WorkingDirectory=/home/cactus/claude/terminal-launcher
+ExecStart=/bin/bash -c 'tmux new-session -d -s terminal-launcher -c /home/cactus/claude/terminal-launcher 2>/dev/null || true; /usr/bin/ttyd -p 7694 -W -t fontSize=14 -t fontFamily=monospace tmux attach -t terminal-launcher'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

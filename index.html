@@ -4395,7 +4395,7 @@
                     // Add remote tabs that don't exist locally
                     const mergedTabs = [...terminalTabs];
                     serverTabs.forEach(remoteTab => {
-                        if (remoteTab.tmuxSession && !localBySession.has(remoteTab.tmuxSession)) {
+                        if (remoteTab.tmuxSession && !localBySession.has(remoteTab.tmuxSession) && !disposedSessions.has(remoteTab.tmuxSession)) {
                             mergedTabs.push(remoteTab);
                         }
                     });
@@ -4412,7 +4412,6 @@
                         body: JSON.stringify(mergedState)
                     });
                     terminalStateSynced = true;
-                    disposedSessions.clear();
                 } catch (e) {
                     console.warn('Failed to save terminal state to server:', e);
                 }
@@ -5477,6 +5476,11 @@
                     // Clean up disposedTabs set (tab was removed by sync, not user)
                     disposedTabs.delete(tabId);
                     changed = true;
+                });
+
+                // Clean up disposedSessions for sessions that are no longer active
+                disposedSessions.forEach(session => {
+                    if (!activeSessionNames.has(session)) disposedSessions.delete(session);
                 });
 
                 if (changed) {

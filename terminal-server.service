@@ -1,12 +1,12 @@
 [Unit]
-Description=WebSocket Terminal Server for Cactus Homepage
+Description=WebSocket Terminal Server for Terminal Launcher
 After=network.target
 
 [Service]
 Type=simple
 User=cactus
-WorkingDirectory=/home/cactus/claude/homepage-app
-ExecStart=/usr/bin/python3 /home/cactus/claude/homepage-app/terminal-server.py
+WorkingDirectory=/home/cactus/claude/terminal-launcher
+ExecStart=/usr/bin/python3 /home/cactus/claude/terminal-launcher/terminal-server.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

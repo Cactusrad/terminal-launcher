@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Workspace Multi-Agents - Homepage App
-SESSION_NAME="homepage"
-PROJECT_DIR="/home/cactus/claude/homepage-app"
+# Workspace Multi-Agents - Terminal Launcher
+SESSION_NAME="terminal-launcher"
+PROJECT_DIR="/home/cactus/claude/terminal-launcher"
 
 tmux has-session -t $SESSION_NAME 2>/dev/null
 if [ $? == 0 ]; then
@@ -12,7 +12,7 @@ fi
 
 # Créer la session
 tmux new-session -d -s $SESSION_NAME -n "Claude" -c $PROJECT_DIR
-tmux send-keys -t $SESSION_NAME:Claude "echo '🎯 HOMEPAGE APP - Claude Principal'" C-m
+tmux send-keys -t $SESSION_NAME:Claude "echo '🎯 TERMINAL LAUNCHER - Claude Principal'" C-m
 tmux send-keys -t $SESSION_NAME:Claude "echo 'Lancer: claude --dangerously-skip-permissions'" C-m
 
 # Fenêtre Structure
@@ -22,11 +22,11 @@ tmux send-keys -t $SESSION_NAME:Structure "cd $PROJECT_DIR && watch -n 5 'tree -
 # Fenêtre Docker
 tmux new-window -t $SESSION_NAME -n "Docker"
 tmux send-keys -t $SESSION_NAME:Docker "cd $PROJECT_DIR && echo '🐳 Docker - Port 80'" C-m
-tmux send-keys -t $SESSION_NAME:Docker "echo 'Logs: docker logs -f homepage'" C-m
+tmux send-keys -t $SESSION_NAME:Docker "echo 'Logs: docker logs -f terminal-launcher'" C-m
 
 # Fenêtre Logs
 tmux new-window -t $SESSION_NAME -n "Logs"
-tmux send-keys -t $SESSION_NAME:Logs "docker logs -f homepage 2>/dev/null || echo 'Container non démarré'" C-m
+tmux send-keys -t $SESSION_NAME:Logs "docker logs -f terminal-launcher 2>/dev/null || echo 'Container non démarré'" C-m
 
 # Fenêtre Git
 tmux new-window -t $SESSION_NAME -n "Git"

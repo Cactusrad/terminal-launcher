@@ -1,1 +1,46 @@
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (generated at runtime)
+/data/
+
+# Logs
+*.log
+logs/
+
+# Docker
+*.tar
+
+# Temporary
+tmp/
+temp/
+
+# Node (testing tools)
+node_modules/
+
+# Test artifacts
+screenshots/
+bugs/

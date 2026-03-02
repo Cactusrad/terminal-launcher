@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromium Remote - Auto Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .icon svg {
+            width: 48px;
+            height: 48px;
+            fill: white;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        .credentials {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .cred-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .cred-row:last-child {
+            border-bottom: none;
+        }
+        .cred-label {
+            color: #64748b;
+        }
+        .cred-value {
+            font-family: monospace;
+            color: #4ade80;
+            cursor: pointer;
+        }
+        .cred-value:hover {
+            text-decoration: underline;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(66, 133, 244, 0.3);
+        }
+        .countdown {
+            margin-top: 15px;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .copied {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4ade80;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="copied" id="copied">Copié!</div>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="2"/>
+                <circle cx="12" cy="12" r="4" fill="white"/>
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="white" stroke-width="2"/>
+            </svg>
+        </div>
+        <h1>Chromium Remote</h1>
+        <p>Navigateur distant accessible via le web</p>
+
+        <div class="credentials">
+            <div class="cred-row">
+                <span class="cred-label">Utilisateur</span>
+                <span class="cred-value" onclick="copyToClipboard('kasm_user')">kasm_user</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Mot de passe</span>
+                <span class="cred-value" onclick="copyToClipboard('secret')">secret</span>
+            </div>
+        </div>
+
+        <a href="" id="kasmLink" class="btn" target="_blank">Ouvrir Chromium</a>
+        <div class="countdown" id="countdown">Redirection automatique dans <span id="timer">3</span>s...</div>
+    </div>
+
+    <script>
+        // Construire l'URL Kasm avec le même host
+        const host = window.location.hostname;
+        const kasmUrl = `https://${host}:6901`;
+        document.getElementById('kasmLink').href = kasmUrl;
+
+        // Copier dans le presse-papier
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const copied = document.getElementById('copied');
+                copied.style.display = 'block';
+                setTimeout(() => { copied.style.display = 'none'; }, 1500);
+            });
+        }
+
+        // Countdown et redirection automatique
+        let seconds = 3;
+        const timerEl = document.getElementById('timer');
+        const countdownEl = document.getElementById('countdown');
+
+        const interval = setInterval(() => {
+            seconds--;
+            timerEl.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                countdownEl.textContent = 'Redirection...';
+                window.open(kasmUrl, '_blank');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,22 +1,22 @@
-# CLAUDE.md - Homepage Cactus
+# CLAUDE.md - Terminal Launcher
 
 ## Résumé
 
 Dashboard homelab "Cactus Home" — lanceur de raccourcis avec persistance globale des préférences.
 
 - **URL** : `http://192.168.1.100` (port 80)
-- **Repo** : `git@github.com:Cactusrad/homepage-app.git`
-- **Conteneur** : `homepage` (Docker Compose)
+- **Repo** : `git@github.com:Cactusrad/terminal-launcher.git`
+- **Conteneur** : `terminal-launcher` (Docker Compose)
 
 ## Architecture
 
 ```
-Navigateur ──► Docker (homepage, port 80)
+Navigateur ──► Docker (terminal-launcher, port 80)
                 ├── Gunicorn (2 workers)
                 │   └── Flask (server.py)
                 │       ├── GET /          → index.html (read from disk, no cache)
                 │       └── /api/*         → JSON preferences
-                └── Volume homepage-data
+                └── Volume launcher-data
                     └── /data/preferences.json
 ```
 
@@ -24,27 +24,27 @@ Navigateur ──► Docker (homepage, port 80)
 
 ## Stack
 
-- **Backend** : Python 3.11, Flask 3.0, Gunicorn, Flask-CORS
+- **Backend** : Python 3.11, Flask 3.0, Gunicorn, Flask-CORS, python-dotenv
 - **Frontend** : HTML/CSS/JS vanilla, SVG inline (82+ icônes Lucide-style)
-- **Infra** : Docker Compose, volume persistant `homepage-data`
+- **Infra** : Docker Compose, volume persistant `launcher-data`
 - **Design** : Dark mode par défaut (#0a0a0f), glassmorphism, police Inter, accent orange #E75B12
 
 ## Commandes Docker
 
 ```bash
-cd /home/cactus/homepage-app
+cd /home/cactus/claude/terminal-launcher
 
 # Rebuild et redéployer
 docker compose build --no-cache && docker compose up -d
 
 # Logs
-docker logs homepage
+docker logs terminal-launcher
 
 # Inspecter les préférences
-docker exec homepage cat /data/preferences.json
+docker exec terminal-launcher cat /data/preferences.json
 
 # Reset préférences (clean install)
-docker exec homepage rm -f /data/preferences.json
+docker exec terminal-launcher rm -f /data/preferences.json
 ```
 
 ## API REST
@@ -111,13 +111,15 @@ Puis ajouter l'icône SVG dans l'objet `icons` et le style CSS `.myapp { backgro
 ## Fichiers du projet
 
 ```
-homepage-app/
+terminal-launcher/
 ├── CLAUDE.md              # Cette documentation
 ├── server.py              # Flask backend + API REST (~700 lignes)
+├── config.py              # Configuration centralisée (dotenv, Path)
 ├── index.html             # Frontend complet (~290KB)
-├── requirements.txt       # flask, flask-cors, gunicorn, requests
-├── Dockerfile             # Python 3.11-slim, gunicorn
-├── docker-compose.yml     # Port 80, volume homepage-data
+├── requirements.txt       # flask, flask-cors, gunicorn, requests, python-dotenv, aiohttp
+├── Dockerfile             # Python 3.11-slim, gunicorn, healthcheck
+├── docker-compose.yml     # Port 80, volume launcher-data
+├── .env.example           # Template de configuration
 ├── terminal-server.py     # Serveur WebSocket pour terminaux
 ├── chromium/              # Config navigateur Chromium distant
 ├── dtach-wrapper.sh       # Wrapper sessions dtach

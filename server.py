@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Serveur Flask pour Homepage Cactus
-Fournit une API pour sauvegarder les préférences globalement
-"""
+"""Terminal Launcher - Flask Server"""
 
 from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
@@ -13,21 +10,34 @@ import glob
 import time
 
 try:
-    from config import *
+    from config import (
+        DATA_DIR, PREFERENCES_FILE, APPS_FILE, ERP_REQUESTS_FILE,
+        PROJECTS_DIR, CLAUDE_CONFIG_DIR, LOG_DIR, SOCKET_DIR,
+        TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_URL,
+        HOST_IP, BUGS_API_URL, BUGS_API_KEY,
+        ensure_data_dir, get_base_url,
+    )
+    TERMINAL_LOG_DIR = str(LOG_DIR)
 except ImportError:
-    DATA_DIR = '/data'
-    PREFERENCES_FILE = '/data/preferences.json'
-    APPS_FILE = '/data/apps.json'
-    ERP_REQUESTS_FILE = '/data/erp_requests.json'
-    PROJECTS_DIR = '/home/cactus/claude'
-    CLAUDE_CONFIG_DIR = '/home/cactus/.claude/projects'
+    from pathlib import Path
+    DATA_DIR = Path('/data')
+    PREFERENCES_FILE = DATA_DIR / 'preferences.json'
+    APPS_FILE = DATA_DIR / 'apps.json'
+    ERP_REQUESTS_FILE = DATA_DIR / 'erp_requests.json'
+    PROJECTS_DIR = Path('/home/cactus/claude')
+    CLAUDE_CONFIG_DIR = Path('/home/cactus/.claude/projects')
     TERMINAL_LOG_DIR = '/tmp/terminal-logs'
-    SOCKET_DIR = '/tmp/dtach-sessions'
+    SOCKET_DIR = Path('/tmp/dtach-sessions')
+    HOST_IP = os.environ.get('HOST_IP', '192.168.1.100')
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
     TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
+    BUGS_API_URL = os.environ.get('BUGS_API_URL', '')
+    BUGS_API_KEY = os.environ.get('BUGS_API_KEY', '')
     def ensure_data_dir():
-        os.makedirs(DATA_DIR, exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+    def get_base_url(port, path=''):
+        return f"http://{HOST_IP}:{port}{path}"
 
 try:
     import requests as http_requests
@@ -102,7 +112,7 @@ def load_json_file(filepath, default_func):
 def save_json_file(filepath, data):
     """Generic JSON file saver"""
     try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        ensure_data_dir()
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         return True
