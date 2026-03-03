@@ -33,6 +33,7 @@ DATA_DIR = Path(os.environ.get('DATA_DIR', '/data'))
 
 # Terminal Server
 TERMINAL_WS_PORT = int(os.environ.get('TERMINAL_WS_PORT', 7681))
+TERMINAL_SERVER_HOST = os.environ.get('TERMINAL_SERVER_HOST', '192.168.1.200')
 SOCKET_DIR = Path(os.environ.get('SOCKET_DIR', '/tmp/dtach-sessions'))
 LOG_DIR = Path(os.environ.get('LOG_DIR', '/tmp/terminal-logs'))
 

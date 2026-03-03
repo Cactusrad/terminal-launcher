@@ -556,6 +556,18 @@ async def health_handler(request: web.Request) -> web.Response:
     return web.json_response({"status": "ok", "service": "terminal-server"})
 
 
+async def folders_handler(request: web.Request) -> web.Response:
+    """List project folders from PROJECT_BASE, excluding hidden and non-dir entries."""
+    folders = []
+    skip = {'.', '..', '__pycache__', 'node_modules'}
+    if PROJECT_BASE.exists():
+        for item in PROJECT_BASE.iterdir():
+            if item.is_dir() and not item.name.startswith('.') and item.name not in skip:
+                folders.append(item.name)
+    folders.sort(key=str.lower)
+    return web.json_response({"folders": folders})
+
+
 async def sessions_handler(request: web.Request) -> web.Response:
     """List active sessions with details."""
     sessions = []
@@ -647,6 +659,7 @@ def create_app() -> web.Application:
     # Routes
     app.router.add_get('/ws', websocket_handler)
     app.router.add_get('/health', health_handler)
+    app.router.add_get('/folders', folders_handler)
     app.router.add_get('/sessions', sessions_handler)
     app.router.add_post('/sessions/{name}/stop', session_stop_handler)
     app.router.add_post('/sessions/{name}/input', send_input_handler)

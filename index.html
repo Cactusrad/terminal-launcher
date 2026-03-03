@@ -1990,6 +1990,49 @@
             font-size: 0.8rem;
             border-bottom: 1px solid var(--cactus-border);
         }
+        .create-project-section {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--cactus-border);
+        }
+        .create-project-row {
+            display: flex;
+            gap: 8px;
+        }
+        .create-project-row input {
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: var(--cactus-text-primary);
+            font-size: 0.85rem;
+            padding: 7px 10px;
+            transition: all var(--transition-fast);
+        }
+        .create-project-row input:focus {
+            outline: none;
+            border-color: var(--cactus-primary);
+            box-shadow: 0 0 0 3px rgba(231, 91, 18, 0.15);
+            background: rgba(255,255,255,0.06);
+        }
+        .create-project-row input::placeholder { color: #555; }
+        .create-project-row .create-btn {
+            background: var(--cactus-primary);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 7px 14px;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+        .create-project-row .create-btn:hover { opacity: 0.85; }
+        .create-project-error {
+            color: #f87171;
+            font-size: 0.78rem;
+            margin: 6px 0 0;
+        }
         .project-settings-list {
             overflow-y: auto;
             padding: 8px 0;
@@ -3317,6 +3360,14 @@
                         <h3>Gérer les projets</h3>
                         <button class="close-btn" onclick="closeProjectSettings()">&times;</button>
                     </div>
+                    <div class="create-project-section">
+                        <div class="create-project-row">
+                            <input id="newProjectInput" type="text" placeholder="nouveau-projet" maxlength="64"
+                                   onkeydown="if(event.key==='Enter')createProjectFolder()">
+                            <button class="create-btn" onclick="createProjectFolder()">Créer</button>
+                        </div>
+                        <p id="newProjectError" class="create-project-error" style="display:none"></p>
+                    </div>
                     <p class="settings-hint">Décochez pour masquer un projet</p>
                     <div class="project-settings-list" id="projectSettingsList"></div>
                 </div>
@@ -3839,6 +3890,41 @@
         function closeProjectSettings() {
             const modal = document.getElementById('projectSettingsModal');
             if (modal) modal.classList.remove('active');
+        }
+
+        async function createProjectFolder() {
+            const input = document.getElementById('newProjectInput');
+            const errEl = document.getElementById('newProjectError');
+            const name = input.value.trim();
+
+            errEl.style.display = 'none';
+
+            if (!name) {
+                errEl.textContent = 'Entrez un nom de dossier.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/projects/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+
+                if (data.status === 'ok') {
+                    input.value = '';
+                    await loadProjectFolders();
+                    openProjectSettings();
+                } else {
+                    errEl.textContent = data.message || 'Erreur';
+                    errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Erreur réseau';
+                errEl.style.display = 'block';
+            }
         }
 
         function toggleProjectVisibility(folder) {
