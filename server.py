@@ -31,7 +31,7 @@ except ImportError:
     SOCKET_DIR = Path('/tmp/dtach-sessions')
     HOST_IP = os.environ.get('HOST_IP', '192.168.1.100')
     TERMINAL_WS_PORT = int(os.environ.get('TERMINAL_WS_PORT', 7681))
-    TERMINAL_SERVER_HOST = os.environ.get('TERMINAL_SERVER_HOST', '192.168.1.200')
+    TERMINAL_SERVER_HOST = os.environ.get('TERMINAL_SERVER_HOST', HOST_IP)
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
     TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
@@ -416,30 +416,16 @@ CLAUDE_PROJECTS_DIR = PROJECTS_DIR
 
 @app.route('/api/projects/folders', methods=['GET'])
 def get_project_folders():
-    """Retourne la liste des dossiers projet depuis le terminal-server (fallback: scan local)"""
+    """Retourne la liste des dossiers projet en scannant le volume monté localement"""
     try:
         folders = []
-
-        # Appel au terminal-server qui a accès au vrai PROJECTS_DIR
-        try:
-            r = http_requests.get(
-                f'http://{TERMINAL_SERVER_HOST}:{TERMINAL_WS_PORT}/folders',
-                timeout=3
-            )
-            if r.status_code == 200:
-                folders = r.json().get('folders', [])
-        except Exception:
-            pass
-
-        # Fallback: scan local si le terminal-server ne répond pas
-        if not folders:
-            skip = {'.', '..', '__pycache__', 'node_modules'}
-            if os.path.exists(CLAUDE_PROJECTS_DIR):
-                for item in os.listdir(CLAUDE_PROJECTS_DIR):
-                    item_path = os.path.join(CLAUDE_PROJECTS_DIR, item)
-                    if os.path.isdir(item_path) and not item.startswith('.') and item not in skip:
-                        folders.append(item)
-            folders.sort(key=str.lower)
+        skip = {'.', '..', '__pycache__', 'node_modules'}
+        if os.path.exists(CLAUDE_PROJECTS_DIR):
+            for item in os.listdir(CLAUDE_PROJECTS_DIR):
+                item_path = os.path.join(CLAUDE_PROJECTS_DIR, item)
+                if os.path.isdir(item_path) and not item.startswith('.') and item not in skip:
+                    folders.append(item)
+        folders.sort(key=str.lower)
 
         # Filtrer les dossiers cachés
         prefs = load_preferences()

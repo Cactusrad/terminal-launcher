@@ -240,8 +240,13 @@ def create_dtach_session(session_name: str, project: str, command: str):
     # Create dtach session in background (-n = no attach)
     dtach_cmd = ["dtach", "-n", str(socket_path), "-z", "bash", "-c", inner_cmd]
 
+    # Pass TERM and COLORTERM so bash/apps know they can use colors
+    env = os.environ.copy()
+    env['TERM'] = 'xterm-256color'
+    env['COLORTERM'] = 'truecolor'
+
     try:
-        subprocess.run(dtach_cmd, check=True, capture_output=True)
+        subprocess.run(dtach_cmd, env=env, check=True, capture_output=True)
         logger.info(f"Created dtach session: {session_name}")
         # Give dtach time to create the socket
         import time
