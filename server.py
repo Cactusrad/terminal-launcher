@@ -29,7 +29,9 @@ except ImportError:
     CLAUDE_CONFIG_DIR = Path('/home/cactus/.claude/projects')
     TERMINAL_LOG_DIR = '/tmp/terminal-logs'
     SOCKET_DIR = Path('/tmp/dtach-sessions')
-    HOST_IP = os.environ.get('HOST_IP', '192.168.1.100')
+    HOST_IP = os.environ.get('HOST_IP')
+    if not HOST_IP:
+        raise RuntimeError("HOST_IP must be set in environment or .env file")
     TERMINAL_WS_PORT = int(os.environ.get('TERMINAL_WS_PORT', 7681))
     TERMINAL_SERVER_HOST = os.environ.get('TERMINAL_SERVER_HOST', HOST_IP)
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')

@@ -14,7 +14,9 @@ except ImportError:
     pass  # python-dotenv not installed, use system env vars
 
 # Server Configuration
-HOST_IP = os.environ.get('HOST_IP', '192.168.1.100')
+HOST_IP = os.environ.get('HOST_IP')
+if not HOST_IP:
+    raise RuntimeError("HOST_IP must be set in environment or .env file")
 DEFAULT_PORT = int(os.environ.get('DEFAULT_PORT', 80))
 
 # Bug Reporting (optional)

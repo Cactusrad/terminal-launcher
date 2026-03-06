@@ -71,7 +71,7 @@ docker exec terminal-launcher rm -f /data/preferences.json
 | `/api/terminal/state` | GET/POST | État des terminaux (onglets, vue) |
 | `/api/terminal/activity` | GET | Détection d'attente terminal |
 | `/api/terminal/sessions` | GET | Sessions dtach actives |
-| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude |
+| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude (scan local du volume monté) |
 | `/api/projects/hidden` | POST | Dossiers cachés |
 | `/api/erp/requests` | GET/POST | Demandes ERP (+notification Telegram) |
 | `/api/erp/requests/<id>` | PATCH/DELETE | Gestion demande ERP |
@@ -84,12 +84,13 @@ docker exec terminal-launcher rm -f /data/preferences.json
   "pages": [{ "id": "main", "name": "Accueil", "apps": [] }],
   "currentPage": "main",
   "customApps": { "custom_123": { "id": "...", "name": "...", "url": "...", "icon": "...", "gradient": "..." } },
-  "appOverrides": {}
+  "appOverrides": {},
+  "hiddenFolders": ["folder1", "folder2"]
 }
 ```
 
 - **Défauts** : aucune app (clean install)
-- **Stockage** : `/data/preferences.json` (volume Docker)
+- **Stockage** : `/data/preferences.json` (volume Docker, persiste aux rebuilds)
 - **Fallback** : localStorage si API indisponible
 
 ## Fonctionnalités principales
@@ -142,6 +143,8 @@ terminal-launcher/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
+- **Déploiement indépendant** : chaque install (.100, .200) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
+- **Persistance** : toutes les préférences (raccourcis, pages, projets masqués, settings) survivent aux rebuilds Docker grâce au volume `launcher-data`
 
 ## Session du 27 février 2026
 

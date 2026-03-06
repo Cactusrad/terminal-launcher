@@ -3710,16 +3710,9 @@
 
     <script>
         // ============ Configuration ============
-        // Mapping des hostnames vers IPs (pour les machines qui ne résolvent pas bien les noms)
-        const hostMapping = {
-            'cactus.rad': '192.168.1.200',
-            'cactus': '192.168.1.200',
-            'cactus.local': '192.168.1.200',
-            'localhost': '192.168.1.200',
-            '127.0.0.1': '192.168.1.200'
-        };
-        const rawHost = window.location.hostname;
-        const host = hostMapping[rawHost] || rawHost;
+        // Host = whatever IP/hostname the browser used to reach this page
+        // No hardcoded mapping — each machine serves its own instance
+        const host = window.location.hostname;
         const baseUrl = (port, path = '') => `http://${host}:${port}${path}`;
         const baseUrlHttps = (port, path = '') => `https://${host}:${port}${path}`;
 
@@ -3841,8 +3834,12 @@
                 const response = await fetch(`${API_BASE}/projects/folders`);
                 if (response.ok) {
                     const data = await response.json();
-                    allProjectFolders = data.folders || [];
+                    const visible = data.folders || [];
                     hiddenFolders = data.hidden || [];
+                    // allProjectFolders = tous les dossiers (visibles + cachés), trié
+                    const all = [...visible, ...hiddenFolders];
+                    all.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+                    allProjectFolders = all;
                     return true;
                 }
             } catch (e) {
@@ -7586,8 +7583,8 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
         }
 
         // ============ Bug Report Functions ============
-        const BUGS_API_URL = 'https://bugs.sharpi.ca/api/v1';
-        const BUGS_API_KEY = 'HOM_3fdff2c497afcb524fff12dc0f6d7e36cde2b6cafbecbe80';
+        const BUGS_API_URL = 'http://192.168.1.200:9010/api/v1';
+        const BUGS_API_KEY = 'HOM_1764be96efe3dd7c95ff51bea51c31b04fc4112eaa64fa47';
         let bugScreenshotFile = null;
 
         function openBugReport() {
