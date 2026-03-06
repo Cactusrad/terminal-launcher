@@ -44,6 +44,11 @@ PREFERENCES_FILE = DATA_DIR / 'preferences.json'
 APPS_FILE = DATA_DIR / 'apps.json'
 ERP_REQUESTS_FILE = DATA_DIR / 'erp_requests.json'
 
+# Auth / Multi-user
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+USERS_FILE = DATA_DIR / 'users.json'
+USERS_DATA_DIR = DATA_DIR / 'users'
+
 # Legacy aliases
 TERMINAL_LOG_DIR = str(LOG_DIR)
 

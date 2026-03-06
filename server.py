@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Terminal Launcher - Flask Server"""
 
-from flask import Flask, jsonify, request, send_from_directory, make_response
+from flask import Flask, jsonify, request, send_from_directory, make_response, session
 from flask_cors import CORS
 import json
 import os
 import re
 import glob
 import time
+import secrets
+import shutil
+from datetime import datetime, timedelta
+from functools import wraps
+import bcrypt
 
 try:
     from config import (
@@ -16,6 +21,7 @@ try:
         TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_URL,
         HOST_IP, BUGS_API_URL, BUGS_API_KEY,
         TERMINAL_WS_PORT, TERMINAL_SERVER_HOST,
+        SECRET_KEY, USERS_FILE, USERS_DATA_DIR,
         ensure_data_dir, get_base_url,
     )
     TERMINAL_LOG_DIR = str(LOG_DIR)
@@ -39,6 +45,9 @@ except ImportError:
     TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
     BUGS_API_URL = os.environ.get('BUGS_API_URL', '')
     BUGS_API_KEY = os.environ.get('BUGS_API_KEY', '')
+    SECRET_KEY = os.environ.get('SECRET_KEY', '')
+    USERS_FILE = DATA_DIR / 'users.json'
+    USERS_DATA_DIR = DATA_DIR / 'users'
     def ensure_data_dir():
         DATA_DIR.mkdir(parents=True, exist_ok=True)
     def get_base_url(port, path=''):
@@ -50,6 +59,129 @@ except ImportError:
     http_requests = None
 
 app = Flask(__name__, static_folder=None)
+
+# ============ Secret Key Setup ============
+def get_or_create_secret_key():
+    """Get secret key from env, or generate and persist one"""
+    if SECRET_KEY:
+        return SECRET_KEY
+    secret_file = os.path.join(DATA_DIR, '.secret_key')
+    if os.path.exists(secret_file):
+        with open(secret_file, 'r') as f:
+            return f.read().strip()
+    key = secrets.token_hex(32)
+    ensure_data_dir()
+    with open(secret_file, 'w') as f:
+        f.write(key)
+    return key
+
+_secret = get_or_create_secret_key()
+app.secret_key = _secret
+app.config['SESSION_COOKIE_NAME'] = 'cactus_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+import sys
+print(f"[AUTH] Worker PID={os.getpid()} secret_key hash: {hash(_secret)}", file=sys.stderr, flush=True)
+
+# ============ User Management ============
+def load_users():
+    """Load users from users.json"""
+    return load_json_file(str(USERS_FILE), lambda: {"users": {}})
+
+def save_users(data):
+    """Save users to users.json"""
+    return save_json_file(str(USERS_FILE), data)
+
+def hash_password(password):
+    """Hash a password with bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def check_password(password, password_hash):
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+def create_initial_users():
+    """Create default users if users.json doesn't exist or is empty"""
+    data = load_users()
+    if data.get('users'):
+        return
+    now = datetime.now().isoformat()
+    data['users'] = {
+        'pierre': {
+            'username': 'pierre',
+            'password_hash': hash_password('12345'),
+            'display_name': 'Pierre',
+            'role': 'admin',
+            'created_at': now
+        },
+        'mohamed': {
+            'username': 'mohamed',
+            'password_hash': hash_password('12345'),
+            'display_name': 'Mohamed',
+            'role': 'user',
+            'created_at': now
+        }
+    }
+    save_users(data)
+    print("Created initial users: pierre (admin), mohamed (user)")
+
+# ============ Auth Helpers ============
+def get_current_user():
+    """Get the currently logged-in username from session"""
+    return session.get('username')
+
+def get_effective_user():
+    """Get the effective user (respects admin 'view as' feature)"""
+    username = get_current_user()
+    if not username:
+        return None
+    if is_admin(username):
+        view_as = session.get('admin_view_as')
+        if view_as:
+            return view_as
+    return username
+
+def is_admin(username=None):
+    """Check if a user has admin role"""
+    if username is None:
+        username = get_current_user()
+    if not username:
+        return False
+    data = load_users()
+    user = data.get('users', {}).get(username)
+    return user and user.get('role') == 'admin'
+
+# ============ User-scoped Data ============
+def get_user_data_dir(username):
+    """Get or create the data directory for a user"""
+    user_dir = os.path.join(str(USERS_DATA_DIR), username)
+    os.makedirs(user_dir, exist_ok=True)
+    return user_dir
+
+def load_user_preferences(username):
+    """Load preferences for a specific user"""
+    user_dir = get_user_data_dir(username)
+    filepath = os.path.join(user_dir, 'preferences.json')
+    return load_json_file(filepath, get_default_preferences)
+
+def save_user_preferences(username, prefs):
+    """Save preferences for a specific user"""
+    user_dir = get_user_data_dir(username)
+    filepath = os.path.join(user_dir, 'preferences.json')
+    return save_json_file(filepath, prefs)
+
+def load_user_apps(username):
+    """Load apps for a specific user"""
+    user_dir = get_user_data_dir(username)
+    filepath = os.path.join(user_dir, 'apps.json')
+    return load_json_file(filepath, lambda: {"apps": {}})
+
+def save_user_apps(username, data):
+    """Save apps for a specific user"""
+    user_dir = get_user_data_dir(username)
+    filepath = os.path.join(user_dir, 'apps.json')
+    return save_json_file(filepath, data)
 
 def send_telegram(message, parse_mode="HTML"):
     """Envoie un message via Telegram"""
@@ -89,7 +221,7 @@ def notify_claude_request(req_data):
 
     send_telegram(message)
 
-CORS(app)
+CORS(app, supports_credentials=True)
 
 def get_default_preferences():
     """Préférences par défaut si le fichier n'existe pas"""
@@ -162,8 +294,201 @@ def migrate_custom_apps():
     save_preferences(prefs)
     print(f"Migrated {len(custom_apps)} custom apps to apps.json")
 
-# Run migration on startup
-migrate_custom_apps()
+# ============ Startup: Migration & User Init ============
+def migrate_to_multi_user():
+    """Migrate global data to per-user directories if needed"""
+    users_dir = str(USERS_DATA_DIR)
+    prefs_file = str(PREFERENCES_FILE)
+    apps_file = str(APPS_FILE)
+
+    if os.path.exists(prefs_file) and not os.path.exists(users_dir):
+        print("Migrating to multi-user data structure...")
+        for username in ['pierre', 'mohamed']:
+            user_dir = get_user_data_dir(username)
+            # Copy preferences
+            if os.path.exists(prefs_file):
+                shutil.copy2(prefs_file, os.path.join(user_dir, 'preferences.json'))
+            # Copy apps
+            if os.path.exists(apps_file):
+                shutil.copy2(apps_file, os.path.join(user_dir, 'apps.json'))
+            # Run custom apps migration for this user
+            user_prefs_file = os.path.join(user_dir, 'preferences.json')
+            user_apps_file = os.path.join(user_dir, 'apps.json')
+            try:
+                with open(user_prefs_file, 'r', encoding='utf-8') as f:
+                    prefs = json.load(f)
+                custom_apps = prefs.get('customApps', {})
+                if custom_apps:
+                    apps_data = {"apps": {}}
+                    if os.path.exists(user_apps_file):
+                        with open(user_apps_file, 'r', encoding='utf-8') as f:
+                            apps_data = json.load(f)
+                    now = datetime.now().isoformat()
+                    for app_id, app_val in custom_apps.items():
+                        if app_id not in apps_data.get('apps', {}):
+                            entry = dict(app_val)
+                            entry.setdefault('created_at', now)
+                            entry.setdefault('updated_at', now)
+                            apps_data.setdefault('apps', {})[app_id] = entry
+                    with open(user_apps_file, 'w', encoding='utf-8') as f:
+                        json.dump(apps_data, f, indent=2, ensure_ascii=False)
+                    del prefs['customApps']
+                    with open(user_prefs_file, 'w', encoding='utf-8') as f:
+                        json.dump(prefs, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                print(f"Error migrating custom apps for {username}: {e}")
+            print(f"  Migrated data for {username}")
+        # Rename old files as backup
+        if os.path.exists(prefs_file):
+            os.rename(prefs_file, prefs_file + '.bak')
+        if os.path.exists(apps_file):
+            os.rename(apps_file, apps_file + '.bak')
+        print("Migration complete. Old files renamed to .bak")
+    else:
+        # Still run customApps migration for existing per-user data
+        migrate_custom_apps()
+
+# Run startup tasks
+create_initial_users()
+migrate_to_multi_user()
+
+# ============ Auth Middleware ============
+PUBLIC_ROUTES = {'/', '/health', '/api/auth/login', '/api/auth/me'}
+PUBLIC_PREFIXES = ('/chromium/',)
+
+@app.before_request
+def require_auth():
+    """Require authentication for all API routes except public ones"""
+    # Always allow CORS preflight (OPTIONS) requests
+    if request.method == 'OPTIONS':
+        return None
+    if request.path in PUBLIC_ROUTES:
+        return None
+    for prefix in PUBLIC_PREFIXES:
+        if request.path.startswith(prefix):
+            return None
+    # Static files / non-API routes
+    if not request.path.startswith('/api/'):
+        return None
+    user = get_current_user()
+    if not user:
+        cookie_val = request.cookies.get('session', 'NONE')
+        print(f"[AUTH 401] {request.method} {request.path} | Cookie present: {cookie_val != 'NONE'} | Cookie[:30]: {cookie_val[:30]} | Session keys: {list(session.keys())} | PID: {os.getpid()} | IP: {request.remote_addr}")
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+
+# ============ Auth Endpoints ============
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    """Login and create session"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '')
+
+        users = load_users()
+        user = users.get('users', {}).get(username)
+        if not user or not check_password(password, user['password_hash']):
+            return jsonify({"status": "error", "message": "Identifiants incorrects"}), 401
+
+        session.permanent = True
+        session['username'] = username
+        session.pop('admin_view_as', None)
+
+        return jsonify({
+            "status": "ok",
+            "user": {
+                "username": username,
+                "display_name": user['display_name'],
+                "role": user['role']
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    """Logout and destroy session"""
+    session.clear()
+    return jsonify({"status": "ok"})
+
+@app.route('/api/auth/me', methods=['GET'])
+def auth_me():
+    """Get current user info"""
+    username = get_current_user()
+    if not username:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+
+    users = load_users()
+    user = users.get('users', {}).get(username)
+    if not user:
+        session.clear()
+        return jsonify({"status": "error", "message": "User not found"}), 401
+
+    result = {
+        "username": username,
+        "display_name": user['display_name'],
+        "role": user['role'],
+        "is_admin": user['role'] == 'admin',
+        "viewing_as": session.get('admin_view_as', username)
+    }
+
+    if user['role'] == 'admin':
+        result['all_users'] = [
+            {"username": u, "display_name": d['display_name'], "role": d['role']}
+            for u, d in users.get('users', {}).items()
+        ]
+
+    return jsonify(result)
+
+@app.route('/api/auth/password', methods=['POST'])
+def auth_change_password():
+    """Change current user's password"""
+    username = get_current_user()
+    if not username:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+
+        if not new_password or len(new_password) < 4:
+            return jsonify({"status": "error", "message": "Le mot de passe doit faire au moins 4 caractères"}), 400
+
+        users = load_users()
+        user = users.get('users', {}).get(username)
+        if not user or not check_password(current_password, user['password_hash']):
+            return jsonify({"status": "error", "message": "Mot de passe actuel incorrect"}), 401
+
+        user['password_hash'] = hash_password(new_password)
+        save_users(users)
+        return jsonify({"status": "ok", "message": "Mot de passe modifié"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/auth/switch-user', methods=['POST'])
+def auth_switch_user():
+    """Admin: switch effective user (view as)"""
+    username = get_current_user()
+    if not username or not is_admin(username):
+        return jsonify({"status": "error", "message": "Admin required"}), 403
+
+    try:
+        data = request.get_json()
+        target = data.get('username', '').strip().lower()
+
+        users = load_users()
+        if target not in users.get('users', {}):
+            return jsonify({"status": "error", "message": "User not found"}), 404
+
+        if target == username:
+            session.pop('admin_view_as', None)
+        else:
+            session['admin_view_as'] = target
+
+        return jsonify({"status": "ok", "viewing_as": target})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/')
 def index():
@@ -183,19 +508,20 @@ def chromium_files(filename='autologin.html'):
 
 @app.route('/api/preferences', methods=['GET'])
 def get_preferences():
-    """Récupère les préférences"""
-    prefs = load_preferences()
-    # Merge apps from apps.json for backward compatibility
-    apps_data = load_apps()
+    """Récupère les préférences (user-scoped)"""
+    username = get_effective_user()
+    prefs = load_user_preferences(username)
+    apps_data = load_user_apps(username)
     prefs['customApps'] = apps_data.get('apps', {})
     return jsonify(prefs)
 
 @app.route('/api/preferences', methods=['POST'])
 def update_preferences():
-    """Met à jour les préférences"""
+    """Met à jour les préférences (user-scoped)"""
     try:
+        username = get_effective_user()
         prefs = request.get_json()
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
@@ -204,12 +530,13 @@ def update_preferences():
 
 @app.route('/api/preferences/pages', methods=['POST'])
 def update_pages():
-    """Met à jour uniquement les pages"""
+    """Met à jour uniquement les pages (user-scoped)"""
     try:
+        username = get_effective_user()
         pages = request.get_json()
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         prefs['pages'] = pages
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
@@ -218,12 +545,13 @@ def update_pages():
 
 @app.route('/api/preferences/current-page', methods=['POST'])
 def update_current_page():
-    """Met à jour la page courante"""
+    """Met à jour la page courante (user-scoped)"""
     try:
+        username = get_effective_user()
         data = request.get_json()
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         prefs['currentPage'] = data.get('currentPage', 'main')
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
@@ -232,29 +560,27 @@ def update_current_page():
 
 @app.route('/api/preferences/custom-apps', methods=['POST'])
 def update_custom_apps():
-    """Legacy endpoint - proxies to apps.json"""
+    """Legacy endpoint - proxies to user apps.json"""
     try:
-        from datetime import datetime
+        username = get_effective_user()
         req_data = request.get_json()
         incoming_apps = req_data.get('customApps', {})
         now = datetime.now().isoformat()
 
-        data = load_apps()
+        data = load_user_apps(username)
 
-        # Sync: add/update incoming apps
-        for app_id, app in incoming_apps.items():
-            app_entry = dict(app)
+        for app_id, app_val in incoming_apps.items():
+            app_entry = dict(app_val)
             app_entry.setdefault('created_at', now)
             app_entry['updated_at'] = now
             data['apps'][app_id] = app_entry
 
-        # Remove apps not in incoming set
         current_ids = set(data['apps'].keys())
         incoming_ids = set(incoming_apps.keys())
         for removed_id in current_ids - incoming_ids:
             del data['apps'][removed_id]
 
-        if save_apps(data):
+        if save_user_apps(username, data):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Save failed"}), 500
@@ -263,12 +589,13 @@ def update_custom_apps():
 
 @app.route('/api/preferences/app-overrides', methods=['POST'])
 def update_app_overrides():
-    """Met à jour les overrides d'applications (URL, nom, description, port personnalisés)"""
+    """Met à jour les overrides d'applications (user-scoped)"""
     try:
+        username = get_effective_user()
         data = request.get_json()
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         prefs['appOverrides'] = data.get('appOverrides', {})
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
@@ -279,15 +606,16 @@ def update_app_overrides():
 
 @app.route('/api/apps', methods=['GET'])
 def get_apps():
-    """List all custom apps"""
-    data = load_apps()
+    """List all custom apps (user-scoped)"""
+    username = get_effective_user()
+    data = load_user_apps(username)
     return jsonify(data)
 
 @app.route('/api/apps', methods=['POST'])
 def create_app():
-    """Create a new custom app"""
+    """Create a new custom app (user-scoped)"""
     try:
-        from datetime import datetime
+        username = get_effective_user()
         req_data = request.get_json()
 
         app_id = req_data.get('id', 'custom_' + str(int(datetime.now().timestamp() * 1000)))
@@ -305,10 +633,10 @@ def create_app():
             'updated_at': now
         }
 
-        data = load_apps()
+        data = load_user_apps(username)
         data['apps'][app_id] = new_app
 
-        if save_apps(data):
+        if save_user_apps(username, data):
             return jsonify({"status": "ok", "app": new_app}), 201
         else:
             return jsonify({"status": "error", "message": "Save failed"}), 500
@@ -317,36 +645,36 @@ def create_app():
 
 @app.route('/api/apps/<app_id>', methods=['GET'])
 def get_app(app_id):
-    """Get a single app by ID"""
-    data = load_apps()
-    app = data['apps'].get(app_id)
-    if not app:
+    """Get a single app by ID (user-scoped)"""
+    username = get_effective_user()
+    data = load_user_apps(username)
+    app_data = data['apps'].get(app_id)
+    if not app_data:
         return jsonify({"status": "error", "message": "App not found"}), 404
-    return jsonify(app)
+    return jsonify(app_data)
 
 @app.route('/api/apps/<app_id>', methods=['PUT'])
 def update_app(app_id):
-    """Update an existing app"""
+    """Update an existing app (user-scoped)"""
     try:
-        from datetime import datetime
+        username = get_effective_user()
         req_data = request.get_json()
 
-        data = load_apps()
+        data = load_user_apps(username)
         if app_id not in data['apps']:
             return jsonify({"status": "error", "message": "App not found"}), 404
 
-        app = data['apps'][app_id]
+        app_data = data['apps'][app_id]
 
-        # Update only provided fields
         for field in ['name', 'url', 'desc', 'port', 'icon', 'gradient']:
             if field in req_data:
-                app[field] = req_data[field]
+                app_data[field] = req_data[field]
 
-        app['updated_at'] = datetime.now().isoformat()
-        data['apps'][app_id] = app
+        app_data['updated_at'] = datetime.now().isoformat()
+        data['apps'][app_id] = app_data
 
-        if save_apps(data):
-            return jsonify({"status": "ok", "app": app})
+        if save_user_apps(username, data):
+            return jsonify({"status": "ok", "app": app_data})
         else:
             return jsonify({"status": "error", "message": "Save failed"}), 500
     except Exception as e:
@@ -354,21 +682,21 @@ def update_app(app_id):
 
 @app.route('/api/apps/<app_id>', methods=['DELETE'])
 def delete_app(app_id):
-    """Delete an app and remove from all pages"""
+    """Delete an app and remove from all pages (user-scoped)"""
     try:
-        data = load_apps()
+        username = get_effective_user()
+        data = load_user_apps(username)
         if app_id not in data['apps']:
             return jsonify({"status": "error", "message": "App not found"}), 404
 
         del data['apps'][app_id]
-        save_apps(data)
+        save_user_apps(username, data)
 
-        # Also remove from all pages in preferences
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         for page in prefs.get('pages', []):
             if app_id in page.get('apps', []):
                 page['apps'] = [a for a in page['apps'] if a != app_id]
-        save_preferences(prefs)
+        save_user_preferences(username, prefs)
 
         return jsonify({"status": "ok"})
     except Exception as e:
@@ -378,9 +706,10 @@ def delete_app(app_id):
 
 @app.route('/api/terminal/state', methods=['GET'])
 def get_terminal_state():
-    """Récupère l'état des terminaux (onglets ouverts, mode de vue)"""
+    """Récupère l'état des terminaux (user-scoped)"""
     try:
-        prefs = load_preferences()
+        username = get_effective_user()
+        prefs = load_user_preferences(username)
         terminal_state = prefs.get('terminalState', {
             'tabs': [],
             'activeTabId': None,
@@ -392,16 +721,17 @@ def get_terminal_state():
 
 @app.route('/api/terminal/state', methods=['POST'])
 def update_terminal_state():
-    """Sauvegarde l'état des terminaux"""
+    """Sauvegarde l'état des terminaux (user-scoped)"""
     try:
+        username = get_effective_user()
         data = request.get_json()
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         prefs['terminalState'] = {
             'tabs': data.get('tabs', []),
             'activeTabId': data.get('activeTabId'),
             'viewMode': data.get('viewMode', 'tabs')
         }
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
@@ -429,8 +759,9 @@ def get_project_folders():
                     folders.append(item)
         folders.sort(key=str.lower)
 
-        # Filtrer les dossiers cachés
-        prefs = load_preferences()
+        # Filtrer les dossiers cachés (user-scoped)
+        username = get_effective_user()
+        prefs = load_user_preferences(username)
         hidden = prefs.get('hiddenFolders', [])
         visible_folders = [f for f in folders if f not in hidden]
 
@@ -443,15 +774,16 @@ def get_project_folders():
 
 @app.route('/api/projects/hidden', methods=['POST'])
 def update_hidden_folders():
-    """Met à jour la liste des dossiers cachés"""
+    """Met à jour la liste des dossiers cachés (user-scoped)"""
     try:
+        username = get_effective_user()
         data = request.get_json()
         hidden = data.get('hidden', [])
 
-        prefs = load_preferences()
+        prefs = load_user_preferences(username)
         prefs['hiddenFolders'] = hidden
 
-        if save_preferences(prefs):
+        if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500

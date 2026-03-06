@@ -373,6 +373,168 @@
             color: #fff;
         }
 
+        /* ============ Login Overlay ============ */
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--cactus-bg-page);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-box {
+            background: var(--cactus-bg-card);
+            border: 1px solid var(--cactus-border);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            width: 90%;
+            max-width: 380px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: var(--cactus-shadow-lg);
+        }
+        .login-box h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        .login-box h1 span {
+            background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .login-box .login-subtitle {
+            text-align: center;
+            color: var(--cactus-text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 28px;
+        }
+        .login-box label {
+            display: block;
+            color: var(--cactus-text-secondary);
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .login-box input[type="text"],
+        .login-box input[type="password"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--cactus-border);
+            border-radius: var(--radius-sm);
+            background: var(--cactus-bg-subtle);
+            color: var(--cactus-text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color var(--transition-fast);
+        }
+        .login-box input:focus {
+            border-color: var(--cactus-primary);
+        }
+        .login-box .btn-login {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--cactus-primary), var(--cactus-primary-dark));
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+        .login-box .btn-login:hover {
+            background: linear-gradient(135deg, var(--cactus-primary-light), var(--cactus-primary));
+            box-shadow: 0 4px 20px rgba(231, 91, 18, 0.35);
+        }
+        .login-error {
+            color: var(--cactus-negative);
+            font-size: 0.8rem;
+            text-align: center;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        /* ============ User Menu (top-bar) ============ */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-left: auto;
+        }
+        .user-name {
+            color: var(--cactus-text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .admin-switcher {
+            background: var(--cactus-bg-subtle);
+            border: 1px solid var(--cactus-border);
+            color: var(--cactus-text-primary);
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .btn-logout {
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--cactus-border);
+            background: var(--cactus-bg-card);
+            color: var(--cactus-text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .btn-logout:hover {
+            background: rgba(222, 53, 11, 0.15);
+            border-color: rgba(222, 53, 11, 0.3);
+            color: var(--cactus-negative);
+        }
+
+        /* ============ Password Change (admin modal) ============ */
+        .password-section input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--cactus-border);
+            border-radius: var(--radius-sm);
+            background: var(--cactus-bg-subtle);
+            color: var(--cactus-text-primary);
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
+        .password-section input:focus {
+            outline: none;
+            border-color: var(--cactus-primary);
+        }
+        .password-section .btn-change-pwd {
+            padding: 8px 16px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--cactus-primary);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+        .password-section .btn-change-pwd:hover {
+            background: var(--cactus-primary-dark);
+        }
+        .pwd-message {
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
         /* ============ Footer ============ */
         footer {
             text-align: center;
@@ -3238,7 +3400,23 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h1><span>Cactus</span> Home</h1>
+            <p class="login-subtitle">Connexion</p>
+            <div class="login-error" id="loginError"></div>
+            <form onsubmit="handleLogin(event)">
+                <label for="loginUsername">Utilisateur</label>
+                <input type="text" id="loginUsername" autocomplete="username" autofocus>
+                <label for="loginPassword">Mot de passe</label>
+                <input type="password" id="loginPassword" autocomplete="current-password">
+                <button type="submit" class="btn-login">Se connecter</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container" id="mainContainer">
         <header>
             <h1><span>Cactus</span> Home</h1>
             <p>Dashboard</p>
@@ -3260,6 +3438,11 @@
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Basculer mode clair/sombre">
                 <span id="themeIcon">☀️</span>
             </button>
+            <div class="user-menu" id="userMenu">
+                <select class="admin-switcher" id="adminSwitcher" onchange="switchUser(this.value)" style="display:none;"></select>
+                <span class="user-name" id="userDisplayName"></span>
+                <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+            </div>
         </div>
 
         <div class="grid" id="appGrid"></div>
@@ -3684,6 +3867,15 @@
             <button class="btn-add-page" onclick="openCreateApp()" style="margin-top:15px;">+ Nouveau raccourci</button>
 
             <button class="btn-reset" onclick="resetAll()">Réinitialiser tout</button>
+
+            <h3>Mot de passe</h3>
+            <div class="password-section">
+                <input type="password" id="currentPassword" placeholder="Mot de passe actuel">
+                <input type="password" id="newPassword" placeholder="Nouveau mot de passe">
+                <input type="password" id="confirmPassword" placeholder="Confirmer le mot de passe">
+                <button class="btn-change-pwd" onclick="changePassword()">Changer le mot de passe</button>
+                <div class="pwd-message" id="pwdMessage"></div>
+            </div>
         </div>
     </div>
 
@@ -7789,18 +7981,225 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
         window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 100));
         // Note: No visibilitychange refresh - causes scroll issues in xterm.js
 
-        // ============ Init ============
-        async function init() {
-            // Try to load from API first
+        // ============ Auth State ============
+        let currentUser = null;
+        let isAdmin = false;
+        let allUsers = [];
+        let viewingAs = null;
+        let _authInProgress = false; // Guard: prevent interceptor during login/init flow
+
+        // ============ Fetch Interceptor (401 handler) ============
+        const originalFetch = window.fetch;
+        let _consecutive401 = 0;
+        window.fetch = async function(...args) {
+            const response = await originalFetch.apply(this, args);
+            const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+            if (url.startsWith('/api/') && !url.includes('/api/auth/')) {
+                if (response.status === 401) {
+                    _consecutive401++;
+                    console.warn('[Auth] 401 on', url, '| count:', _consecutive401);
+                    // Only show login after 3 consecutive 401s (avoids false positives from transient errors)
+                    if (!_authInProgress && _consecutive401 >= 3 && currentUser) {
+                        console.error('[Auth] Session lost - showing login. Last URL:', url);
+                        currentUser = null;
+                        showLoginOverlay();
+                    }
+                } else {
+                    _consecutive401 = 0; // Reset on any successful auth'd request
+                }
+            }
+            return response;
+        };
+
+        function showLoginOverlay() {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+        }
+
+        function hideLoginOverlay() {
+            document.getElementById('loginOverlay').classList.add('hidden');
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await originalFetch('/api/auth/me', { credentials: 'same-origin' });
+                console.log('[Auth] checkAuth /api/auth/me:', res.status);
+                if (!res.ok) return false;
+                const data = await res.json();
+                currentUser = data.username;
+                isAdmin = data.is_admin;
+                allUsers = data.all_users || [];
+                viewingAs = data.viewing_as || data.username;
+                updateUserMenu();
+                return true;
+            } catch (e) {
+                console.error('[Auth] checkAuth error:', e);
+                return false;
+            }
+        }
+
+        function updateUserMenu() {
+            const nameEl = document.getElementById('userDisplayName');
+            const switcher = document.getElementById('adminSwitcher');
+            if (nameEl) {
+                const displayUser = viewingAs !== currentUser ? `${currentUser} → ${viewingAs}` : currentUser;
+                nameEl.textContent = displayUser;
+            }
+            if (switcher) {
+                if (isAdmin && allUsers.length > 1) {
+                    switcher.style.display = '';
+                    switcher.innerHTML = allUsers.map(u =>
+                        `<option value="${u.username}" ${u.username === viewingAs ? 'selected' : ''}>${u.display_name}${u.role === 'admin' ? ' (admin)' : ''}</option>`
+                    ).join('');
+                } else {
+                    switcher.style.display = 'none';
+                }
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+
+            if (!username || !password) {
+                errorEl.textContent = 'Veuillez remplir tous les champs';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                _authInProgress = true;
+                console.log('[Auth] Login attempt for:', username);
+                const res = await originalFetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                console.log('[Auth] Login response:', res.status, data.status);
+                if (!res.ok) {
+                    errorEl.textContent = data.message || 'Erreur de connexion';
+                    errorEl.style.display = 'block';
+                    _authInProgress = false;
+                    return;
+                }
+                errorEl.style.display = 'none';
+                // Clear localStorage if user changed
+                const lastUser = localStorage.getItem('cactusLastUser');
+                if (lastUser && lastUser !== data.user.username) {
+                    ['cactusPages', 'cactusCurrentPage', 'cactusAppOverrides', 'cactusCustomApps', 'cactusTerminalTabs'].forEach(k => localStorage.removeItem(k));
+                }
+                localStorage.setItem('cactusLastUser', data.user.username);
+                const authOk = await checkAuth();
+                console.log('[Auth] checkAuth after login:', authOk);
+                if (authOk) {
+                    hideLoginOverlay();
+                    await initDashboard();
+                } else {
+                    console.error('[Auth] checkAuth failed after successful login!');
+                    errorEl.textContent = 'Session non reconnue. Veuillez recharger la page.';
+                    errorEl.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('[Auth] Login error:', e);
+                errorEl.textContent = 'Erreur réseau';
+                errorEl.style.display = 'block';
+            } finally {
+                _authInProgress = false;
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await originalFetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {}
+            currentUser = null;
+            isAdmin = false;
+            allUsers = [];
+            viewingAs = null;
+            showLoginOverlay();
+            document.getElementById('loginPassword').value = '';
+        }
+
+        async function switchUser(username) {
+            try {
+                const res = await originalFetch('/api/auth/switch-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                if (res.ok) {
+                    viewingAs = username;
+                    updateUserMenu();
+                    // Reload dashboard data for the switched user
+                    cachedPages = null;
+                    await loadPreferencesFromAPI();
+                    if (!cachedPages) {
+                        cachedPages = getPages();
+                        currentPageId = getCurrentPageId();
+                    }
+                    const pages = getPages();
+                    if (!pages.find(p => p.id === currentPageId)) {
+                        currentPageId = pages.length > 0 ? pages[0].id : 'main';
+                    }
+                    renderApps();
+                    renderPageDots();
+                }
+            } catch (e) {
+                console.error('Switch user failed:', e);
+            }
+        }
+
+        async function changePassword() {
+            const current = document.getElementById('currentPassword').value;
+            const newPwd = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const msgEl = document.getElementById('pwdMessage');
+
+            if (!current || !newPwd) {
+                msgEl.textContent = 'Remplissez tous les champs';
+                msgEl.style.color = 'var(--cactus-negative)';
+                return;
+            }
+            if (newPwd !== confirm) {
+                msgEl.textContent = 'Les mots de passe ne correspondent pas';
+                msgEl.style.color = 'var(--cactus-negative)';
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: current, new_password: newPwd })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msgEl.textContent = 'Mot de passe modifié !';
+                    msgEl.style.color = 'var(--cactus-positive)';
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                } else {
+                    msgEl.textContent = data.message || 'Erreur';
+                    msgEl.style.color = 'var(--cactus-negative)';
+                }
+            } catch (e) {
+                msgEl.textContent = 'Erreur réseau';
+                msgEl.style.color = 'var(--cactus-negative)';
+            }
+        }
+
+        // ============ Dashboard Init ============
+        async function initDashboard() {
             await loadPreferencesFromAPI();
 
-            // If API didn't provide pages, get from localStorage
             if (!cachedPages) {
                 cachedPages = getPages();
                 currentPageId = getCurrentPageId();
             }
 
-            // Validate currentPageId
             const pages = getPages();
             if (!pages.find(p => p.id === currentPageId)) {
                 currentPageId = pages.length > 0 ? pages[0].id : 'main';
@@ -7808,6 +8207,24 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
 
             renderApps();
             renderPageDots();
+        }
+
+        // ============ Init ============
+        const _initTimestamp = Date.now();
+        console.log('[Auth] Page loaded at', new Date().toISOString());
+
+        async function init() {
+            _authInProgress = true;
+            try {
+                const authed = await checkAuth();
+                console.log('[Auth] init() - authed:', authed, '| page age:', Date.now() - _initTimestamp, 'ms');
+                if (authed) {
+                    hideLoginOverlay();
+                    await initDashboard();
+                }
+            } finally {
+                _authInProgress = false;
+            }
         }
 
         init();
