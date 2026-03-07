@@ -2,7 +2,7 @@
 
 ## Résumé
 
-Dashboard homelab "Cactus Home" — lanceur de raccourcis avec persistance globale des préférences.
+Dashboard homelab "Cactus Home" — lanceur de raccourcis avec authentification multi-utilisateur et préférences isolées par user.
 
 - **URL** : `http://192.168.1.100` (port 80)
 - **Repo** : `git@github.com:Cactusrad/terminal-launcher.git`
@@ -15,9 +15,14 @@ Navigateur ──► Docker (terminal-launcher, port 80)
                 ├── Gunicorn (2 workers)
                 │   └── Flask (server.py)
                 │       ├── GET /          → index.html (read from disk, no cache)
-                │       └── /api/*         → JSON preferences
+                │       ├── /api/auth/*   → Login/logout/session (bcrypt + signed cookies)
+                │       └── /api/*         → JSON preferences (user-scoped)
                 └── Volume launcher-data
-                    └── /data/preferences.json
+                    ├── /data/users.json          (comptes utilisateurs)
+                    ├── /data/.secret_key         (clé de session Flask)
+                    └── /data/users/{username}/   (préférences per-user)
+                        ├── preferences.json
+                        └── apps.json
 
            ──► terminal-server.py (hôte, port 7681, systemd)
                 └── WebSocket + PTY sessions (aiohttp, venv Python)
@@ -34,7 +39,8 @@ Navigateur ──► Docker (terminal-launcher, port 80)
 
 ## Stack
 
-- **Backend** : Python 3.11, Flask 3.0, Gunicorn, Flask-CORS, python-dotenv
+- **Backend** : Python 3.11, Flask 3.0, Gunicorn, Flask-CORS, python-dotenv, bcrypt
+- **Auth** : Cookies signés Flask (`cactus_session`), bcrypt password hashing, sessions 7 jours
 - **Frontend** : HTML/CSS/JS vanilla, SVG inline (82+ icônes Lucide-style)
 - **Infra** : Docker Compose, volume persistant `launcher-data`
 - **Design** : Dark mode par défaut (#0a0a0f), glassmorphism, police Inter, accent orange #E75B12
@@ -50,11 +56,14 @@ docker compose build --no-cache && docker compose up -d
 # Logs
 docker logs terminal-launcher
 
-# Inspecter les préférences
-docker exec terminal-launcher cat /data/preferences.json
+# Inspecter les préférences d'un user
+docker exec terminal-launcher cat /data/users/pierre/preferences.json
 
-# Reset préférences (clean install)
-docker exec terminal-launcher rm -f /data/preferences.json
+# Inspecter les users
+docker exec terminal-launcher cat /data/users.json
+
+# Reset complet (users + prefs)
+docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_key
 ```
 
 ## API REST
@@ -63,7 +72,12 @@ docker exec terminal-launcher rm -f /data/preferences.json
 |----------|---------|-------------|
 | `/` | GET | Page HTML (lu depuis disque, no-cache) |
 | `/health` | GET | Health check |
-| `/api/preferences` | GET/POST | Préférences complètes |
+| `/api/auth/login` | POST | Login (username/password → cookie session) |
+| `/api/auth/logout` | POST | Logout (détruit session) |
+| `/api/auth/me` | GET | Info user courant + is_admin + liste users |
+| `/api/auth/password` | POST | Changer son mot de passe |
+| `/api/auth/switch-user` | POST | Admin : voir les données d'un autre user |
+| `/api/preferences` | GET/POST | Préférences complètes (user-scoped) |
 | `/api/preferences/pages` | POST | Pages uniquement |
 | `/api/preferences/current-page` | POST | Page courante |
 | `/api/preferences/custom-apps` | POST | Applications personnalisées |
@@ -90,8 +104,19 @@ docker exec terminal-launcher rm -f /data/preferences.json
 ```
 
 - **Défauts** : aucune app (clean install)
-- **Stockage** : `/data/preferences.json` (volume Docker, persiste aux rebuilds)
+- **Stockage** : `/data/users/{username}/preferences.json` (volume Docker, per-user)
 - **Fallback** : localStorage si API indisponible
+
+## Authentification
+
+- **Users** : stockés dans `/data/users.json` avec hash bcrypt
+- **Users par défaut** : `pierre` (admin, mdp `12345`), `mohamed` (user, mdp `12345`)
+- **Cookie** : `cactus_session`, signé avec `/data/.secret_key`, HTTPOnly, SameSite=Lax, 7 jours
+- **Routes publiques** : `/`, `/health`, `/api/auth/login`, `/api/auth/me`
+- **Middleware** : `before_request` retourne 401 sur `/api/*` si pas de session
+- **Admin** : Pierre peut switcher vers un autre user pour voir/modifier ses données (`admin_view_as` en session)
+- **Migration** : au premier démarrage, si `/data/preferences.json` existe et `/data/users/` n'existe pas, les données globales sont copiées vers chaque user puis renommées en `.bak`
+- **Frontend** : login overlay glassmorphism (z-index 2000), fetch interceptor 401 avec compteur de 3 consécutifs, menu user + admin switcher dans la top-bar
 
 ## Fonctionnalités principales
 
@@ -99,7 +124,8 @@ docker exec terminal-launcher rm -f /data/preferences.json
 - **Auto-prefix URL** : ajoute `http://` si protocole manquant
 - **Pages multiples** : organisation par pages, drag & drop
 - **Menu contextuel** : clic droit → modifier, déplacer, supprimer
-- **Sync globale** : préférences partagées entre appareils
+- **Multi-utilisateur** : login, préférences isolées, admin peut voir les données des autres
+- **Sync globale** : préférences partagées entre appareils (per-user)
 - **Thème** : dark (défaut) / light toggle
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
 - **Projets** : scan dynamique de /home/cactus/claude
@@ -124,10 +150,10 @@ Puis ajouter l'icône SVG dans l'objet `icons` et le style CSS `.myapp { backgro
 ```
 terminal-launcher/
 ├── CLAUDE.md              # Cette documentation
-├── server.py              # Flask backend + API REST (~700 lignes)
-├── config.py              # Configuration centralisée (dotenv, Path)
-├── index.html             # Frontend complet (~290KB)
-├── requirements.txt       # flask, flask-cors, gunicorn, requests, python-dotenv, aiohttp
+├── server.py              # Flask backend + API REST + auth (~1100 lignes)
+├── config.py              # Configuration centralisée (dotenv, Path, SECRET_KEY, USERS_*)
+├── index.html             # Frontend complet (~300KB, inclut login overlay + auth JS)
+├── requirements.txt       # flask, flask-cors, gunicorn, requests, python-dotenv, aiohttp, bcrypt
 ├── Dockerfile             # Python 3.11-slim, gunicorn, healthcheck
 ├── docker-compose.yml     # Port 80, volume launcher-data
 ├── .env.example           # Template de configuration
@@ -144,7 +170,9 @@ terminal-launcher/
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
 - **Déploiement indépendant** : chaque install (.100, .200) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
-- **Persistance** : toutes les préférences (raccourcis, pages, projets masqués, settings) survivent aux rebuilds Docker grâce au volume `launcher-data`
+- **Persistance** : toutes les données (users, préférences, apps, secret key) survivent aux rebuilds Docker grâce au volume `launcher-data`
+- **Cookie session** : nommé `cactus_session` (pas `session`) pour éviter les conflits avec d'anciens cookies
+- **SECRET_KEY** : env var optionnelle ; si absente, auto-générée et persistée dans `/data/.secret_key`
 
 ## Session du 27 février 2026
 
