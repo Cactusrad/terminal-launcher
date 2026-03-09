@@ -2,6 +2,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install git and ssh for GitHub integration
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git openssh-client && rm -rf /var/lib/apt/lists/*
+
+# SSH config for GitHub + git safe directory
+RUN mkdir -p /root/.ssh && \
+    printf "Host github.com\n  IdentityFile /root/.ssh/github_key\n  StrictHostKeyChecking accept-new\n" > /root/.ssh/config && \
+    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config && \
+    git config --global --add safe.directory '*'
+
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

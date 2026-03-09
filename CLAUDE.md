@@ -130,7 +130,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
 - **Projets** : scan dynamique de /home/cactus/claude
 - **Demandes ERP** : tickets avec notifications Telegram
-- **Bug Report** : widget connecté à bugs.sharpi.ca
+- **Bug Report** : widget connecté au bugs_service local (http://192.168.1.200:9010), projet "Terminal Launcher" (slug: terminal-launcher, préfixe: TER)
 
 ## Créer un raccourci (code)
 

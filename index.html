@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* ============ Cactus Brand - CSS Variables ============ */
         :root {
@@ -1732,95 +1733,157 @@
             --type-color: #3b82f6;
             --type-bg: rgba(59, 130, 246, 0.15);
         }
-        .bug-screenshot-zone {
-            border: 2px dashed rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
-            margin-bottom: 16px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .bug-screenshot-zone:hover {
-            border-color: rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.05);
-        }
-        .bug-screenshot-zone.has-image {
-            border-color: #22c55e;
-            background: rgba(34, 197, 94, 0.1);
-        }
-        .bug-screenshot-zone.dragover {
-            border-color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-        }
-        .bug-screenshot-zone:focus {
-            outline: none;
-            border-color: #8b5cf6;
-            background: rgba(139, 92, 246, 0.1);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
-        }
-        .bug-screenshot-hint {
-            color: #64748b;
-            font-size: 0.85rem;
+        .bug-capture-row {
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .bug-capture-btn {
+            display: flex;
             align-items: center;
             gap: 8px;
+            padding: 10px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
         }
-        .bug-screenshot-hint svg {
-            width: 32px;
-            height: 32px;
+        .bug-capture-btn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            color: #f1f5f9;
+        }
+        .bug-capture-btn:disabled {
             opacity: 0.5;
+            cursor: not-allowed;
         }
-        .bug-screenshot-hint kbd {
+        .bug-capture-status {
+            color: #22c55e;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .bug-annotation-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            background: rgba(0, 0, 0, 0.92);
+            display: none;
+            flex-direction: column;
+        }
+        .bug-annotation-overlay.open {
+            display: flex;
+        }
+        .bug-annotation-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #1a1a2e;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+        .bug-annotation-toolbar .tool-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
             background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            transition: all 0.2s;
         }
-        .bug-screenshot-preview {
+        .bug-annotation-toolbar .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #f1f5f9;
+        }
+        .bug-annotation-toolbar .tool-btn.active {
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+        }
+        .bug-annotation-toolbar .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 0;
+            transition: border-color 0.2s;
+        }
+        .bug-annotation-toolbar .color-dot.active {
+            border: 3px solid white;
+        }
+        .bug-annotation-toolbar .sep {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 4px;
+        }
+        .bug-annotation-toolbar .spacer {
+            flex: 1;
+        }
+        .bug-annotation-toolbar .save-btn {
+            padding: 6px 18px;
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .bug-annotation-toolbar .save-btn:hover {
+            background: #16a34a;
+        }
+        .bug-annotation-toolbar .cancel-btn {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .bug-annotation-toolbar .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #f1f5f9;
+        }
+        .bug-annotation-area {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+        .bug-annotation-container {
             position: relative;
             display: inline-block;
         }
-        .bug-screenshot-preview img {
+        .bug-annotation-container canvas {
             max-width: 100%;
-            max-height: 200px;
+            max-height: calc(100vh - 100px);
+            display: block;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
-        .bug-screenshot-remove {
+        .bug-text-annotation {
             position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 24px;
-            height: 24px;
-            background: #ef4444;
-            border: none;
-            border-radius: 50%;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        }
-        .bug-screenshot-remove:hover {
-            background: #dc2626;
-        }
-        .bug-attachment-status {
-            font-size: 0.8rem;
-            color: #64748b;
-            margin-top: 8px;
-        }
-        .bug-attachment-status.uploading {
-            color: #3b82f6;
-        }
-        .bug-attachment-status.success {
-            color: #22c55e;
-        }
-        .bug-attachment-status.error {
-            color: #ef4444;
+            font-weight: bold;
+            font-family: sans-serif;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 4px;
+            border-radius: 2px;
+            outline: none;
+            min-width: 20px;
+            cursor: text;
+            white-space: pre;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         }
 
         /* Terminal Mode - Hide unnecessary elements */
@@ -2093,6 +2156,113 @@
         .project-btn.team {
             background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: white;
+        }
+        /* Git branch badge */
+        .project-branch-badge {
+            font-size: 0.7rem;
+            color: var(--cactus-text-muted);
+            background: var(--cactus-bg-subtle, rgba(255,255,255,0.05));
+            border: 1px solid var(--cactus-border);
+            padding: 1px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-left: 4px;
+            transition: all 0.2s;
+        }
+        .project-branch-badge:hover {
+            border-color: var(--cactus-primary);
+            color: var(--cactus-primary);
+        }
+        .project-branch-badge.dirty {
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+        /* Git link button */
+        .project-btn.git-link {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: white;
+            font-size: 0.65rem;
+        }
+        /* Worktree expand/collapse */
+        .project-expand-btn {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--cactus-text-muted);
+            flex-shrink: 0;
+            margin-right: 4px;
+            transition: transform 0.2s;
+            font-size: 0.65rem;
+        }
+        .project-expand-btn.expanded {
+            transform: rotate(90deg);
+        }
+        /* Worktree sub-list */
+        .project-worktrees {
+            padding-left: 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .project-worktrees.expanded {
+            max-height: 500px;
+        }
+        .worktree-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--cactus-text-secondary);
+            cursor: default;
+            margin-bottom: 2px;
+        }
+        .worktree-item:hover {
+            background: var(--cactus-bg-hover);
+        }
+        .worktree-item .worktree-name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+        .worktree-item .worktree-branch {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .worktree-dirty-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            flex-shrink: 0;
+        }
+        .worktree-add-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--cactus-text-muted);
+            cursor: pointer;
+            border: 1px dashed var(--cactus-border);
+            background: none;
+            transition: all 0.2s;
+            margin-top: 2px;
+            width: 100%;
+        }
+        .worktree-add-btn:hover {
+            border-color: var(--cactus-primary);
+            color: var(--cactus-primary);
+            background: rgba(231, 91, 18, 0.05);
         }
         /* Project Settings Modal */
         .project-settings-modal {
@@ -3712,19 +3882,10 @@
                     <textarea id="bugDescription" placeholder="Decrivez le probleme en detail..."></textarea>
 
                     <label>Capture d'ecran</label>
-                    <div class="bug-screenshot-zone" id="bugScreenshotZone" tabindex="0" onclick="focusScreenshotZone()" ondblclick="document.getElementById('bugFileInput').click()">
-                        <div class="bug-screenshot-hint" id="bugScreenshotHint">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                            </svg>
-                            <span>Cliquez puis <kbd>Ctrl+V</kbd> ou double-cliquez pour choisir</span>
-                        </div>
-                        <div class="bug-screenshot-preview" id="bugScreenshotPreview" style="display:none;">
-                            <img id="bugScreenshotImg" src="" alt="Screenshot">
-                            <button type="button" class="bug-screenshot-remove" onclick="event.stopPropagation(); removeScreenshot();">&times;</button>
-                        </div>
+                    <div class="bug-capture-row">
+                        <button type="button" class="bug-capture-btn" id="bugCaptureBtn" onclick="captureBugScreenshot()">📷 Capture ecran</button>
+                        <span class="bug-capture-status" id="bugScreenshotStatus">✓ Capture prete</span>
                     </div>
-                    <input type="file" id="bugFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
 
                     <div class="bug-report-row">
                         <div>
@@ -3763,6 +3924,14 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Bug Report Annotation Overlay -->
+    <div class="bug-annotation-overlay" id="bugAnnotationOverlay">
+        <div class="bug-annotation-toolbar" id="bugAnnotationToolbar"></div>
+        <div class="bug-annotation-area">
+            <div class="bug-annotation-container" id="bugAnnotationContainer"></div>
         </div>
     </div>
 
@@ -3980,6 +4149,9 @@
             'tool': '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
             'zap': '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
             'activity': '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+            'git-branch': '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+            'github': '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>',
+            'git-commit': '<circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/>',
             'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14" fill="none" stroke="white" stroke-width="1.5"/>',
             'calendar': '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
             'users': '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -4020,14 +4192,17 @@
         // ============ Terminal Manager ============
         let allProjectFolders = [];
         let hiddenFolders = [];
+        let projectGitInfo = {};       // { project: { branch, dirty, worktrees: [...] } }
+        let expandedProjects = new Set(); // projects with visible worktrees
 
         async function loadProjectFolders() {
             try {
-                const response = await fetch(`${API_BASE}/projects/folders`);
+                const response = await fetch(`${API_BASE}/projects/folders?git=1`);
                 if (response.ok) {
                     const data = await response.json();
                     const visible = data.folders || [];
                     hiddenFolders = data.hidden || [];
+                    projectGitInfo = data.git || {};
                     // allProjectFolders = tous les dossiers (visibles + cachés), trié
                     const all = [...visible, ...hiddenFolders];
                     all.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
@@ -4038,6 +4213,89 @@
                 console.error('Erreur chargement dossiers:', e);
             }
             return false;
+        }
+
+        function toggleWorktrees(project) {
+            if (expandedProjects.has(project)) {
+                expandedProjects.delete(project);
+            } else {
+                expandedProjects.add(project);
+            }
+            const searchInput = document.getElementById('projectSearch');
+            renderProjectList(searchInput ? searchInput.value : '');
+        }
+
+        async function createWorktree(project) {
+            const branch = prompt('Nom de la branche (ex: feat/login, fix/bug-123) :');
+            if (!branch) return;
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/worktrees`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch, new: true })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert(data.message || 'Erreur création worktree');
+                    return;
+                }
+                expandedProjects.add(project);
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        async function deleteWorktree(project, dirname, branch) {
+            if (!confirm(`Supprimer le worktree "${branch}" ?\nDossier: ${dirname}`)) return;
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/worktrees/${encodeURIComponent(dirname)}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    if (data.message && data.message.includes('non commités')) {
+                        if (confirm('Ce worktree contient des modifications non commités. Forcer la suppression ?')) {
+                            const resp2 = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/worktrees/${encodeURIComponent(dirname)}?force=1`, {
+                                method: 'DELETE'
+                            });
+                            if (!resp2.ok) {
+                                const d2 = await resp2.json();
+                                alert(d2.message || 'Erreur suppression');
+                                return;
+                            }
+                        } else {
+                            return;
+                        }
+                    } else {
+                        alert(data.message || 'Erreur suppression worktree');
+                        return;
+                    }
+                }
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        async function linkGitRepo(project) {
+            const url = prompt(`URL du dépôt Git pour "${project}" :\n(laisser vide pour auto-détection GitHub)`, '');
+            if (url === null) return; // cancelled
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url || '' })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert(data.message || 'Erreur liaison git');
+                    return;
+                }
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
         }
 
         async function saveHiddenFolders() {
@@ -5349,14 +5607,64 @@
                 const jsProject = project.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 const activeCount = terminalTabs.filter(t => t.project === project).length;
                 const badge = activeCount > 0 ? `<span class="project-active-badge">${activeCount}</span>` : '';
+                const gitInfo = projectGitInfo[project];
+                const isExpanded = expandedProjects.has(project);
+                const hasGit = !!gitInfo;
+                const hasWorktrees = hasGit && gitInfo.worktrees && gitInfo.worktrees.length > 0;
+
+                // Expand/collapse arrow (only for git repos)
+                const expandBtn = hasGit ? `<span class="project-expand-btn ${isExpanded ? 'expanded' : ''}" onclick="toggleWorktrees('${jsProject}')">▶</span>` : '<span style="width:20px;display:inline-block"></span>';
+
+                // Branch badge
+                let branchBadge = '';
+                if (hasGit) {
+                    const dirtyClass = gitInfo.dirty ? ' dirty' : '';
+                    branchBadge = `<span class="project-branch-badge${dirtyClass}" onclick="toggleWorktrees('${jsProject}')" title="${gitInfo.branch}${gitInfo.dirty ? ' (modifié)' : ''}">${escapeHtml(gitInfo.branch)}</span>`;
+                }
+
+                // Git link button for non-git projects
+                const gitLinkBtn = !hasGit ? `<button class="project-btn git-link" onclick="linkGitRepo('${jsProject}')" title="Lier un dépôt Git">G</button>` : '';
+
+                // Worktrees sub-list
+                let worktreeHtml = '';
+                if (hasGit && isExpanded) {
+                    const wtItems = (gitInfo.worktrees || []).map(wt => {
+                        const wtJsDir = wt.dirname.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        const wtJsBranch = wt.branch.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        const wtActiveCount = terminalTabs.filter(t => t.project === wt.dirname).length;
+                        const wtBadge = wtActiveCount > 0 ? `<span class="project-active-badge">${wtActiveCount}</span>` : '';
+                        const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
+                        return `
+                            <div class="worktree-item">
+                                <div class="worktree-name">
+                                    <span class="worktree-branch" title="${escapeHtml(wt.branch)}">${escapeHtml(wt.branch)}</span>
+                                    ${dirtyDot}${wtBadge}
+                                </div>
+                                <div class="project-actions">
+                                    <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${wtJsDir}')" title="Claude">C</button>
+                                    <button class="project-btn team" onclick="createTeamTerminal('${wtJsDir}')" title="Team Agent">T</button>
+                                    <button class="project-btn" onclick="deleteWorktree('${jsProject}', '${wtJsDir}', '${wtJsBranch}')" title="Supprimer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem">✕</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    const addBtn = `<button class="worktree-add-btn" onclick="createWorktree('${jsProject}')">+ Nouvelle branche</button>`;
+
+                    worktreeHtml = `<div class="project-worktrees expanded">${wtItems}${addBtn}</div>`;
+                }
+
                 return `
                 <div class="project-item">
-                    <span class="project-name" title="${safeProject}">${safeProject}${badge}</span>
+                    ${expandBtn}
+                    <span class="project-name" title="${safeProject}">${safeProject}${branchBadge}${badge}</span>
                     <div class="project-actions">
+                        ${gitLinkBtn}
                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${jsProject}')" title="Claude">C</button>
                         <button class="project-btn team" onclick="createTeamTerminal('${jsProject}')" title="Team Agent">T</button>
                     </div>
                 </div>
+                ${worktreeHtml}
             `;
             }).join('');
         }
@@ -7776,8 +8084,16 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
 
         // ============ Bug Report Functions ============
         const BUGS_API_URL = 'http://192.168.1.200:9010/api/v1';
-        const BUGS_API_KEY = 'HOM_1764be96efe3dd7c95ff51bea51c31b04fc4112eaa64fa47';
+        const BUGS_API_KEY = 'TER_7cd1faed7236bf146a8f13d24958e572883b6a286350894d';
         let bugScreenshotFile = null;
+        let bugAnnotationImg = null;
+        let bugAnnotationStrokes = [];
+        let bugAnnotationTexts = [];
+        let bugAnnotationTool = 'pen';
+        const BUG_ANNOTATION_COLORS = ['#FF3B30', '#007AFF', '#34C759', '#FFCC00', '#FFFFFF'];
+        let bugAnnotationColor = BUG_ANNOTATION_COLORS[0];
+        let bugCurrentStroke = null;
+        let bugIsDrawing = false;
 
         function openBugReport() {
             document.getElementById('bugReportModal').classList.add('active');
@@ -7791,101 +8107,270 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             document.getElementById('bugType').value = type;
             document.querySelectorAll('.bug-type-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.dataset.type === type) {
-                    btn.classList.add('active');
+                if (btn.dataset.type === type) btn.classList.add('active');
+            });
+        }
+
+        // ---- Annotation Editor ----
+        function buildAnnotationToolbar() {
+            const tb = document.getElementById('bugAnnotationToolbar');
+            tb.innerHTML = '';
+            ['pen', 'text', 'eraser'].forEach(t => {
+                const labels = { pen: 'Crayon', text: 'Texte', eraser: 'Gomme' };
+                const btn = document.createElement('button');
+                btn.className = 'tool-btn' + (bugAnnotationTool === t ? ' active' : '');
+                btn.textContent = labels[t];
+                btn.onclick = () => { bugAnnotationTool = t; buildAnnotationToolbar(); updateAnnotationCursor(); };
+                tb.appendChild(btn);
+            });
+            const sep = document.createElement('span');
+            sep.className = 'sep';
+            tb.appendChild(sep);
+            BUG_ANNOTATION_COLORS.forEach(c => {
+                const dot = document.createElement('button');
+                dot.className = 'color-dot' + (bugAnnotationColor === c ? ' active' : '');
+                dot.style.background = c;
+                dot.onclick = () => { bugAnnotationColor = c; buildAnnotationToolbar(); };
+                tb.appendChild(dot);
+            });
+            const spacer = document.createElement('span');
+            spacer.className = 'spacer';
+            tb.appendChild(spacer);
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'save-btn';
+            saveBtn.textContent = 'Enregistrer';
+            saveBtn.onclick = saveAnnotation;
+            tb.appendChild(saveBtn);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-btn';
+            cancelBtn.textContent = '✕';
+            cancelBtn.onclick = cancelAnnotation;
+            tb.appendChild(cancelBtn);
+        }
+
+        function updateAnnotationCursor() {
+            const canvas = document.getElementById('bugAnnotationCanvas');
+            if (!canvas) return;
+            canvas.style.cursor = bugAnnotationTool === 'pen' ? 'crosshair' : bugAnnotationTool === 'eraser' ? 'pointer' : 'text';
+        }
+
+        function redrawAnnotation() {
+            const canvas = document.getElementById('bugAnnotationCanvas');
+            if (!canvas || !bugAnnotationImg) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bugAnnotationImg, 0, 0);
+            bugAnnotationStrokes.forEach(s => {
+                if (s.isErased || s.points.length < 2) return;
+                ctx.beginPath();
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = s.width;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.moveTo(s.points[0].x, s.points[0].y);
+                s.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+            });
+        }
+
+        function getAnnotationCoords(e) {
+            const canvas = document.getElementById('bugAnnotationCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height),
+            };
+        }
+
+        function onAnnotationDown(e) {
+            if (e.touches) e.preventDefault();
+            const pos = getAnnotationCoords(e);
+            if (bugAnnotationTool === 'pen') {
+                bugCurrentStroke = { points: [pos], color: bugAnnotationColor, width: 3, isErased: false };
+                bugIsDrawing = true;
+            } else if (bugAnnotationTool === 'eraser') {
+                for (let i = bugAnnotationStrokes.length - 1; i >= 0; i--) {
+                    if (bugAnnotationStrokes[i].isErased) continue;
+                    if (bugAnnotationStrokes[i].points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 12)) {
+                        bugAnnotationStrokes[i].isErased = true;
+                        redrawAnnotation();
+                        break;
+                    }
+                }
+            } else if (bugAnnotationTool === 'text') {
+                const canvas = document.getElementById('bugAnnotationCanvas');
+                const rect = canvas.getBoundingClientRect();
+                const cssX = pos.x * (rect.width / canvas.width);
+                const cssY = pos.y * (rect.height / canvas.height);
+                const id = 'txt-' + Date.now();
+                const t = { id, x: cssX, y: cssY, text: '', color: bugAnnotationColor, fontSize: 16 };
+                bugAnnotationTexts.push(t);
+                createAnnotationTextDiv(t);
+            }
+        }
+
+        function onAnnotationMove(e) {
+            if (e.touches) e.preventDefault();
+            if (!bugIsDrawing || bugAnnotationTool !== 'pen' || !bugCurrentStroke) return;
+            const pos = getAnnotationCoords(e);
+            bugCurrentStroke.points.push(pos);
+            const canvas = document.getElementById('bugAnnotationCanvas');
+            const ctx = canvas.getContext('2d');
+            const pts = bugCurrentStroke.points;
+            if (pts.length >= 2) {
+                ctx.beginPath();
+                ctx.strokeStyle = bugCurrentStroke.color;
+                ctx.lineWidth = bugCurrentStroke.width;
+                ctx.lineCap = 'round';
+                ctx.moveTo(pts[pts.length - 2].x, pts[pts.length - 2].y);
+                ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+                ctx.stroke();
+            }
+        }
+
+        function onAnnotationUp() {
+            if (bugIsDrawing && bugCurrentStroke && bugCurrentStroke.points.length >= 2) {
+                bugAnnotationStrokes.push(bugCurrentStroke);
+            }
+            bugCurrentStroke = null;
+            bugIsDrawing = false;
+        }
+
+        function createAnnotationTextDiv(t) {
+            const container = document.getElementById('bugAnnotationContainer');
+            const div = document.createElement('div');
+            div.className = 'bug-text-annotation';
+            div.contentEditable = 'true';
+            div.style.left = t.x + 'px';
+            div.style.top = t.y + 'px';
+            div.style.color = t.color;
+            div.style.fontSize = t.fontSize + 'px';
+            div.dataset.id = t.id;
+            div.textContent = t.text;
+            div.addEventListener('blur', function() {
+                const text = this.innerText;
+                const idx = bugAnnotationTexts.findIndex(at => at.id === t.id);
+                if (!text.trim()) {
+                    if (idx !== -1) bugAnnotationTexts.splice(idx, 1);
+                    this.remove();
+                } else if (idx !== -1) {
+                    bugAnnotationTexts[idx].text = text;
+                }
+            });
+            div.addEventListener('dblclick', function() { this.focus(); });
+            container.appendChild(div);
+            div.focus();
+        }
+
+        function saveAnnotation() {
+            if (!bugAnnotationImg) return;
+            const offscreen = document.createElement('canvas');
+            offscreen.width = bugAnnotationImg.width;
+            offscreen.height = bugAnnotationImg.height;
+            const ctx = offscreen.getContext('2d');
+            ctx.drawImage(bugAnnotationImg, 0, 0);
+            bugAnnotationStrokes.forEach(s => {
+                if (s.isErased || s.points.length < 2) return;
+                ctx.beginPath();
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = s.width;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.moveTo(s.points[0].x, s.points[0].y);
+                s.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+            });
+            const displayCanvas = document.getElementById('bugAnnotationCanvas');
+            const rect = displayCanvas.getBoundingClientRect();
+            const scaleX = bugAnnotationImg.width / rect.width;
+            const scaleY = bugAnnotationImg.height / rect.height;
+            bugAnnotationTexts.forEach(t => {
+                if (!t.text.trim()) return;
+                ctx.font = `bold ${t.fontSize * scaleY}px sans-serif`;
+                ctx.fillStyle = t.color;
+                ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+                ctx.lineWidth = 3;
+                ctx.strokeText(t.text, t.x * scaleX, t.y * scaleY + t.fontSize * scaleY);
+                ctx.fillText(t.text, t.x * scaleX, t.y * scaleY + t.fontSize * scaleY);
+            });
+            offscreen.toBlob(function(blob) {
+                if (blob) {
+                    bugScreenshotFile = new File([blob], 'screenshot.png', { type: 'image/png' });
+                    const status = document.getElementById('bugScreenshotStatus');
+                    status.textContent = '✓ Capture annotee';
+                    status.style.display = 'inline';
+                    cancelAnnotation();
                 }
             });
         }
 
-        // Screenshot handling
-        function focusScreenshotZone() {
-            document.getElementById('bugScreenshotZone').focus();
+        function cancelAnnotation() {
+            document.getElementById('bugAnnotationOverlay').classList.remove('open');
+            bugAnnotationStrokes = [];
+            bugAnnotationTexts = [];
+            bugAnnotationImg = null;
         }
 
-        function handleScreenshotFile(file) {
-            if (!file || !file.type.startsWith('image/')) return;
+        async function captureBugScreenshot() {
+            const captureBtn = document.getElementById('bugCaptureBtn');
+            captureBtn.disabled = true;
+            captureBtn.textContent = 'Capture en cours...';
 
-            bugScreenshotFile = file;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('bugScreenshotImg').src = e.target.result;
-                document.getElementById('bugScreenshotHint').style.display = 'none';
-                document.getElementById('bugScreenshotPreview').style.display = 'inline-block';
-                document.getElementById('bugScreenshotZone').classList.add('has-image');
-            };
-            reader.readAsDataURL(file);
-        }
+            // Hide modal and FAB temporarily for clean capture
+            const modal = document.getElementById('bugReportModal');
+            const fab = document.querySelector('.bug-report-fab');
+            modal.style.display = 'none';
+            if (fab) fab.style.display = 'none';
 
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) handleScreenshotFile(file);
+            try {
+                const canvas = await html2canvas(document.body);
+                modal.style.display = '';
+                if (fab) fab.style.display = '';
+
+                const dataUrl = canvas.toDataURL('image/png');
+                // Open annotation editor
+                bugAnnotationStrokes = [];
+                bugAnnotationTexts = [];
+                bugAnnotationTool = 'pen';
+                bugAnnotationColor = BUG_ANNOTATION_COLORS[0];
+
+                const img = new Image();
+                img.onload = function() {
+                    bugAnnotationImg = img;
+                    const container = document.getElementById('bugAnnotationContainer');
+                    container.innerHTML = '<canvas id="bugAnnotationCanvas"></canvas>';
+                    const c = document.getElementById('bugAnnotationCanvas');
+                    c.width = img.width;
+                    c.height = img.height;
+                    updateAnnotationCursor();
+                    c.addEventListener('mousedown', onAnnotationDown);
+                    c.addEventListener('mousemove', onAnnotationMove);
+                    c.addEventListener('mouseup', onAnnotationUp);
+                    c.addEventListener('mouseleave', onAnnotationUp);
+                    c.addEventListener('touchstart', onAnnotationDown, { passive: false });
+                    c.addEventListener('touchmove', onAnnotationMove, { passive: false });
+                    c.addEventListener('touchend', onAnnotationUp);
+                    redrawAnnotation();
+                    buildAnnotationToolbar();
+                    document.getElementById('bugAnnotationOverlay').classList.add('open');
+                };
+                img.src = dataUrl;
+            } catch (e) {
+                modal.style.display = '';
+                if (fab) fab.style.display = '';
+                console.error('Screenshot capture failed:', e);
+                alert('Erreur lors de la capture d\'ecran.');
+            } finally {
+                captureBtn.disabled = false;
+                captureBtn.textContent = '📷 Capture ecran';
+            }
         }
 
         function removeScreenshot() {
             bugScreenshotFile = null;
-            document.getElementById('bugScreenshotImg').src = '';
-            document.getElementById('bugScreenshotHint').style.display = 'flex';
-            document.getElementById('bugScreenshotPreview').style.display = 'none';
-            document.getElementById('bugScreenshotZone').classList.remove('has-image');
-            document.getElementById('bugFileInput').value = '';
-        }
-
-        // Paste event listener
-        document.addEventListener('paste', function(e) {
-            const modal = document.getElementById('bugReportModal');
-            if (!modal.classList.contains('active')) return;
-
-            const items = e.clipboardData?.items;
-            if (!items) return;
-
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    e.preventDefault();
-                    const file = item.getAsFile();
-                    handleScreenshotFile(file);
-                    break;
-                }
-            }
-        });
-
-        // Drag and drop
-        const screenshotZone = document.getElementById('bugScreenshotZone');
-        if (screenshotZone) {
-            screenshotZone.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                this.classList.add('dragover');
-            });
-            screenshotZone.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                this.classList.remove('dragover');
-            });
-            screenshotZone.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.classList.remove('dragover');
-                const file = e.dataTransfer.files[0];
-                if (file) handleScreenshotFile(file);
-            });
-        }
-
-        async function uploadScreenshot(reference) {
-            if (!bugScreenshotFile) return true;
-
-            const formData = new FormData();
-            formData.append('file', bugScreenshotFile, bugScreenshotFile.name || 'screenshot.png');
-
-            try {
-                const response = await fetch(`${BUGS_API_URL}/issues/${reference}/attachments`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${BUGS_API_KEY}`
-                    },
-                    body: formData
-                });
-                return response.ok;
-            } catch (error) {
-                console.error('Screenshot upload error:', error);
-                return false;
-            }
+            document.getElementById('bugScreenshotStatus').style.display = 'none';
         }
 
         async function submitBugReport() {
@@ -7934,7 +8419,13 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                     // Upload screenshot if present
                     if (bugScreenshotFile) {
                         submitBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="spin"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Upload image...';
-                        await uploadScreenshot(data.reference);
+                        const formData = new FormData();
+                        formData.append('file', bugScreenshotFile, 'screenshot.png');
+                        await fetch(`${BUGS_API_URL}/issues/${data.reference}/attachments`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${BUGS_API_KEY}` },
+                            body: formData
+                        });
                     }
 
                     document.getElementById('bugRefCode').textContent = data.reference;
@@ -7966,9 +8457,7 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
 
         // Close modal on background click
         document.getElementById('bugReportModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeBugReport();
-            }
+            if (e.target === this) closeBugReport();
         });
 
         // ============ iOS Safari viewport height fix ============

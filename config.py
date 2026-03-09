@@ -49,6 +49,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '')
 USERS_FILE = DATA_DIR / 'users.json'
 USERS_DATA_DIR = DATA_DIR / 'users'
 
+# GitHub
+GITHUB_USER = os.environ.get('GITHUB_USER', 'Cactusrad')
+
 # Legacy aliases
 TERMINAL_LOG_DIR = str(LOG_DIR)
 
