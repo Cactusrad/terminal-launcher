@@ -114,6 +114,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Cookie** : `cactus_session`, signé avec `/data/.secret_key`, HTTPOnly, SameSite=Lax, 7 jours
 - **Routes publiques** : `/`, `/health`, `/api/auth/login`, `/api/auth/me`
 - **Middleware** : `before_request` retourne 401 sur `/api/*` si pas de session
+- **Réseau local** : les requêtes depuis `192.168.1.0/24` sont auto-connectées en tant que `pierre` (pas de login requis). Configuré via `LOCAL_SUBNET` et `LOCAL_DEFAULT_USER` dans `server.py`
 - **Admin** : Pierre peut switcher vers un autre user pour voir/modifier ses données (`admin_view_as` en session)
 - **Migration** : au premier démarrage, si `/data/preferences.json` existe et `/data/users/` n'existe pas, les données globales sont copiées vers chaque user puis renommées en `.bak`
 - **Frontend** : login overlay glassmorphism (z-index 2000), fetch interceptor 401 avec compteur de 3 consécutifs, menu user + admin switcher dans la top-bar

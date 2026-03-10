@@ -3837,7 +3837,7 @@
                 <path d="M7 9l4 3-4 3v-6z"/>
             </svg>
         </button>
-        <button class="terminal-nav-btn nav-bug" onclick="openBugReport()" data-tooltip="Bug Report">
+        <button class="terminal-nav-btn nav-bug" onclick="openBugReport()" oncontextmenu="event.preventDefault(); window.open('http://192.168.1.200:9010', '_blank');" data-tooltip="Bug Report">
             <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14 12h-4v-2h4m0 6h-4v-2h4m2-8h-2V4h-4v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/>
             </svg>
@@ -3845,7 +3845,7 @@
     </div>
 
     <!-- Bug Report FAB Button -->
-    <button class="bug-report-fab" onclick="openBugReport()">
+    <button class="bug-report-fab" onclick="openBugReport()" oncontextmenu="event.preventDefault(); window.open('http://192.168.1.200:9010', '_blank');">
         <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M14 12h-4v-2h4m0 6h-4v-2h4m2-8h-2V4h-4v2H8c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/>
         </svg>
@@ -8249,19 +8249,28 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             div.style.fontSize = t.fontSize + 'px';
             div.dataset.id = t.id;
             div.textContent = t.text;
+            let userTyped = false;
+            div.addEventListener('input', function() { userTyped = true; });
             div.addEventListener('blur', function() {
-                const text = this.innerText;
-                const idx = bugAnnotationTexts.findIndex(at => at.id === t.id);
-                if (!text.trim()) {
-                    if (idx !== -1) bugAnnotationTexts.splice(idx, 1);
-                    this.remove();
-                } else if (idx !== -1) {
-                    bugAnnotationTexts[idx].text = text;
-                }
+                const self = this;
+                setTimeout(() => {
+                    if (document.activeElement === self) return;
+                    const text = self.innerText;
+                    const idx = bugAnnotationTexts.findIndex(at => at.id === t.id);
+                    if (!text.trim() && userTyped) {
+                        if (idx !== -1) bugAnnotationTexts.splice(idx, 1);
+                        self.remove();
+                    } else if (!text.trim() && !userTyped) {
+                        // Re-focus if user never typed (blur caused by click sequence)
+                        self.focus();
+                    } else if (idx !== -1) {
+                        bugAnnotationTexts[idx].text = text;
+                    }
+                }, 150);
             });
             div.addEventListener('dblclick', function() { this.focus(); });
             container.appendChild(div);
-            div.focus();
+            setTimeout(() => div.focus(), 50);
         }
 
         function saveAnnotation() {

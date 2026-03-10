@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 import bcrypt
 import subprocess
+import ipaddress
 
 try:
     from config import (
@@ -356,8 +357,20 @@ create_initial_users()
 migrate_to_multi_user()
 
 # ============ Auth Middleware ============
+LOCAL_SUBNET = ipaddress.ip_network('192.168.1.0/24')
+LOCAL_DEFAULT_USER = 'pierre'
 PUBLIC_ROUTES = {'/', '/health', '/api/auth/login', '/api/auth/me'}
 PUBLIC_PREFIXES = ('/chromium/',)
+
+def is_local_network():
+    """Check if request comes from the local subnet"""
+    ip_str = request.headers.get('X-Forwarded-For', request.remote_addr)
+    # X-Forwarded-For may contain multiple IPs, take the first
+    ip_str = ip_str.split(',')[0].strip()
+    try:
+        return ipaddress.ip_address(ip_str) in LOCAL_SUBNET
+    except ValueError:
+        return False
 
 @app.before_request
 def require_auth():
@@ -374,6 +387,11 @@ def require_auth():
     if not request.path.startswith('/api/'):
         return None
     user = get_current_user()
+    if not user and is_local_network():
+        # Auto-login for local network requests
+        session.permanent = True
+        session['username'] = LOCAL_DEFAULT_USER
+        return None
     if not user:
         cookie_val = request.cookies.get('session', 'NONE')
         print(f"[AUTH 401] {request.method} {request.path} | Cookie present: {cookie_val != 'NONE'} | Cookie[:30]: {cookie_val[:30]} | Session keys: {list(session.keys())} | PID: {os.getpid()} | IP: {request.remote_addr}")
@@ -418,6 +436,10 @@ def auth_logout():
 def auth_me():
     """Get current user info"""
     username = get_current_user()
+    if not username and is_local_network():
+        session.permanent = True
+        session['username'] = LOCAL_DEFAULT_USER
+        username = LOCAL_DEFAULT_USER
     if not username:
         return jsonify({"status": "error", "message": "Not authenticated"}), 401
 
