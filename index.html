@@ -4662,7 +4662,7 @@
             if (instance) {
                 requestAnimationFrame(() => {
                     try {
-                        instance.fitAddon.fit();
+                        fitPreservingScroll(instance.terminal, instance.fitAddon);
                         instance.terminal.focus();
                         // Send resize to server
                         const dims = instance.fitAddon.proposeDimensions();
@@ -4685,7 +4685,7 @@
                     // Refit all terminals
                     requestAnimationFrame(() => {
                         terminalInstances.forEach((inst) => {
-                            try { inst.fitAddon.fit(); } catch(e) {}
+                            try { fitPreservingScroll(inst.terminal, inst.fitAddon); } catch(e) {}
                         });
                     });
                 }
@@ -4731,7 +4731,7 @@
                 // Fit all terminals
                 requestAnimationFrame(() => {
                     terminalInstances.forEach((inst) => {
-                        try { inst.fitAddon.fit(); } catch(e) {}
+                        try { fitPreservingScroll(inst.terminal, inst.fitAddon); } catch(e) {}
                     });
                 });
             } else {
@@ -4748,7 +4748,7 @@
                 const activeInstance = terminalInstances.get(activeTerminalTabId);
                 if (activeInstance) {
                     requestAnimationFrame(() => {
-                        try { activeInstance.fitAddon.fit(); } catch(e) {}
+                        try { fitPreservingScroll(activeInstance.terminal, activeInstance.fitAddon); } catch(e) {}
                     });
                 }
             }
@@ -5168,11 +5168,10 @@
                 // Use requestAnimationFrame to ensure DOM is updated
                 requestAnimationFrame(() => {
                     try {
-                        instance.fitAddon.fit();
+                        fitPreservingScroll(instance.terminal, instance.fitAddon);
                         // Focus terminal so cursor blinks
                         if (instance.terminal) {
                             instance.terminal.focus();
-                            instance.terminal.scrollToBottom();
                         }
                     } catch (e) {
                         console.warn('Failed to fit terminal:', e);
@@ -5218,6 +5217,23 @@
         function scrollActiveTerminalToBottom() {
             if (activeTerminalTabId) {
                 scrollTerminalToBottom(activeTerminalTabId);
+            }
+        }
+
+        // Check if a terminal is scrolled to (or near) the bottom
+        function isTerminalAtBottom(terminal) {
+            const buffer = terminal.buffer.active;
+            // viewportY is the top visible row in the scrollback
+            // baseY is the max scroll position (total scrollback rows - viewport rows)
+            return buffer.viewportY >= buffer.baseY - 1;
+        }
+
+        // fit() can reset scroll position — this wrapper preserves it
+        function fitPreservingScroll(terminal, fitAddon) {
+            const wasAtBottom = isTerminalAtBottom(terminal);
+            fitAddon.fit();
+            if (wasAtBottom) {
+                terminal.scrollToBottom();
             }
         }
 
@@ -5525,7 +5541,7 @@
                 clearTimeout(gridResizeTimeout);
                 gridResizeTimeout = setTimeout(() => {
                     try {
-                        fitAddon.fit();
+                        fitPreservingScroll(terminal, fitAddon);
                         const dims = fitAddon.proposeDimensions();
                         const currentWs = getWs();
                         if (dims && currentWs && currentWs.readyState === WebSocket.OPEN) {
