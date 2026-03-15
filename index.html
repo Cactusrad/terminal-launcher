@@ -3031,7 +3031,7 @@
             height: 100%;
         }
         .terminal-div .xterm-viewport {
-            overflow-y: auto !important;
+            overflow-y: auto;
         }
         .terminal-wrapper {
             flex: 1;
@@ -5168,7 +5168,11 @@
                 // Use requestAnimationFrame to ensure DOM is updated
                 requestAnimationFrame(() => {
                     try {
+                        // Terminal was hidden — viewport may be stale (viewportY=0, baseY>0)
+                        // Force follow mode + scroll to bottom before and after fit
+                        instance.terminal._followMode = true;
                         fitPreservingScroll(instance.terminal, instance.fitAddon);
+                        instance.terminal.scrollToBottom();
                         // Focus terminal so cursor blinks
                         if (instance.terminal) {
                             instance.terminal.focus();
@@ -5220,19 +5224,14 @@
             }
         }
 
-        // Check if a terminal is scrolled to (or near) the bottom
-        function isTerminalAtBottom(terminal) {
-            const buffer = terminal.buffer.active;
-            // viewportY is the top visible row in the scrollback
-            // baseY is the max scroll position (total scrollback rows - viewport rows)
-            return buffer.viewportY >= buffer.baseY - 1;
-        }
-
-        // fit() can reset scroll position — this wrapper preserves it
+        // fit() wrapper — locks follow mode during fit to prevent false onScroll triggers
         function fitPreservingScroll(terminal, fitAddon) {
-            const wasAtBottom = isTerminalAtBottom(terminal);
+            const wasFollowing = terminal._followMode !== false;
+            terminal._fitInProgress = true;
             fitAddon.fit();
-            if (wasAtBottom) {
+            terminal._fitInProgress = false;
+            if (wasFollowing) {
+                terminal._followMode = true;
                 terminal.scrollToBottom();
             }
         }
@@ -5381,6 +5380,15 @@
             terminal.loadAddon(fitAddon);
             terminal.open(termWrapper);
 
+            // Track follow mode: true = auto-scroll with output, false = user reading scrollback
+            terminal._followMode = true;
+            terminal._fitInProgress = false;
+            terminal.onScroll(() => {
+                if (terminal._fitInProgress) return; // Ignore scroll events triggered by fit()
+                const buffer = terminal.buffer.active;
+                terminal._followMode = buffer.viewportY >= buffer.baseY;
+            });
+
             // Initial fit (double rAF to ensure layout is resolved)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -5416,12 +5424,13 @@
                     }
                     // Focus terminal so cursor blinks
                     terminal.focus();
+                    terminal._followMode = true;
                     terminal.scrollToBottom();
                     // After buffer replay + resize, force a screen redraw (Ctrl+L)
                     setTimeout(() => {
                         if (ws.readyState === WebSocket.OPEN) {
                             try {
-                                fitAddon.fit();
+                                fitPreservingScroll(terminal, fitAddon);
                                 const newDims = fitAddon.proposeDimensions();
                                 if (newDims) {
                                     ws.send(JSON.stringify({ type: 'resize', cols: newDims.cols, rows: newDims.rows }));
@@ -5438,6 +5447,9 @@
                     if (event.data instanceof ArrayBuffer) {
                         const text = new TextDecoder().decode(event.data);
                         terminal.write(text);
+                        if (terminal._followMode !== false) {
+                            terminal.scrollToBottom();
+                        }
                         lastActivity.set(tab.id, Date.now());
                         if (terminalAlerts.get(tab.id)?.event === 'idle') {
                             clearTerminalAlert(tab.id);
