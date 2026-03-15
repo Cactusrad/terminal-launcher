@@ -241,9 +241,13 @@ def create_dtach_session(session_name: str, project: str, command: str):
     dtach_cmd = ["dtach", "-n", str(socket_path), "-z", "bash", "-c", inner_cmd]
 
     # Pass TERM and COLORTERM so bash/apps know they can use colors
+    # Ensure PATH includes user-local bin (for claude, npm, etc.)
     env = os.environ.copy()
     env['TERM'] = 'xterm-256color'
     env['COLORTERM'] = 'truecolor'
+    user_local_bin = str(Path.home() / '.local' / 'bin')
+    if user_local_bin not in env.get('PATH', ''):
+        env['PATH'] = user_local_bin + ':' + env.get('PATH', '/usr/bin:/bin')
 
     try:
         subprocess.run(dtach_cmd, env=env, check=True, capture_output=True)

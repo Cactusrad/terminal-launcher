@@ -5172,6 +5172,7 @@
                         // Focus terminal so cursor blinks
                         if (instance.terminal) {
                             instance.terminal.focus();
+                            instance.terminal.scrollToBottom();
                         }
                     } catch (e) {
                         console.warn('Failed to fit terminal:', e);
@@ -5399,6 +5400,7 @@
                     }
                     // Focus terminal so cursor blinks
                     terminal.focus();
+                    terminal.scrollToBottom();
                     // After buffer replay + resize, force a screen redraw (Ctrl+L)
                     setTimeout(() => {
                         if (ws.readyState === WebSocket.OPEN) {
@@ -5411,6 +5413,7 @@
                             } catch (e) {}
                             const encoder = new TextEncoder();
                             ws.send(encoder.encode('\x0c'));
+                            terminal.scrollToBottom();
                         }
                     }, 500);
                 };
@@ -5576,7 +5579,7 @@
                          onclick="activateTerminalTab('${tab.id}')"
                          ondblclick="renameTerminalTab('${tab.id}', event)">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
-                        <span class="tab-name">${safeName}</span>
+                        <span class="tab-name" title="${safeName}">${safeName}</span>
                         <span class="activity-indicator ${indicatorClass}"></span>
                         <div class="quick-actions">
                             <button class="quick-action-btn yes" onclick="sendQuickInput('${tab.id}', 'y', event)" title="Yes">Y</button>

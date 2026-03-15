@@ -170,6 +170,7 @@ terminal-launcher/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
+- **Déploiement** : toujours déployer sur les DEUX machines (.200 d'abord, puis .100 via SCP + SSH). Le dev/git se fait sur .200 (`~/claude/terminal-launcher/`), la prod est sur .100 (`~/terminal-launcher/`).
 - **Déploiement indépendant** : chaque install (.100, .200) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
 - **Persistance** : toutes les données (users, préférences, apps, secret key) survivent aux rebuilds Docker grâce au volume `launcher-data`
 - **Cookie session** : nommé `cactus_session` (pas `session`) pour éviter les conflits avec d'anciens cookies
