@@ -6,11 +6,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git openssh-client && rm -rf /var/lib/apt/lists/*
 
-# SSH config for GitHub + git safe directory
-RUN mkdir -p /root/.ssh && \
-    printf "Host github.com\n  IdentityFile /root/.ssh/github_key\n  StrictHostKeyChecking accept-new\n" > /root/.ssh/config && \
-    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config && \
-    git config --global --add safe.directory '*'
+# Create cactus user with same UID/GID as host (files created will belong to cactus)
+RUN groupadd -g 1000 cactus && useradd -u 1000 -g 1000 -m cactus
+
+# SSH config for GitHub + git safe directory (for cactus user)
+RUN mkdir -p /home/cactus/.ssh && \
+    printf "Host github.com\n  IdentityFile /home/cactus/.ssh/github_key\n  StrictHostKeyChecking accept-new\n" > /home/cactus/.ssh/config && \
+    chmod 700 /home/cactus/.ssh && chmod 600 /home/cactus/.ssh/config && \
+    chown -R cactus:cactus /home/cactus/.ssh && \
+    su -c "git config --global --add safe.directory '*'" cactus
 
 # Install dependencies
 COPY requirements.txt .
@@ -22,8 +26,8 @@ COPY config.py .
 COPY index.html .
 COPY chromium/ ./chromium/
 
-# Create data directory for preferences
-RUN mkdir -p /data
+# Create data directory for preferences (owned by cactus)
+RUN mkdir -p /data && chown cactus:cactus /data
 
 # Expose port
 EXPOSE 80
@@ -31,6 +35,9 @@ EXPOSE 80
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost/health', timeout=5)" || exit 1
+
+# Run as cactus user (UID 1000 — matches host)
+USER cactus
 
 # Run with gunicorn for production
 CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "server:app"]
