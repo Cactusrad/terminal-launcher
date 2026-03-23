@@ -85,7 +85,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 | `/api/terminal/state` | GET/POST | État des terminaux (onglets, vue) |
 | `/api/terminal/activity` | GET | Détection d'attente terminal |
 | `/api/terminal/sessions` | GET | Sessions dtach actives |
-| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude (scan local du volume monté) |
+| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude (scan local du volume monté). `?git=1` enrichit avec branches + worktrees |
 | `/api/projects/hidden` | POST | Dossiers cachés |
 | `/api/erp/requests` | GET/POST | Demandes ERP (+notification Telegram) |
 | `/api/erp/requests/<id>` | PATCH/DELETE | Gestion demande ERP |
@@ -129,7 +129,12 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Sync globale** : préférences partagées entre appareils (per-user)
 - **Thème** : dark (défaut) / light toggle
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
-- **Projets** : scan dynamique de /home/cactus/claude
+- **Projets** : scan dynamique de /home/cactus/claude, gestion git intégrée
+- **Git branches vs worktrees** : dans la liste des projets, l'expand affiche deux sections distinctes :
+  - **Worktrees** (icône **W** verte) : branches checkout dans un dossier séparé (`projet--branche`), avec boutons Claude/Team/Supprimer
+  - **Branches** (icône **B** violette) : branches locales non-worktree, avec bouton "↗ Worktree" pour les convertir
+  - Les labels "WORKTREES" / "BRANCHES" n'apparaissent que si les deux types sont présents
+  - `get_git_info()` retourne `worktrees[]` et `branches[]` (branches locales excluant celles déjà en worktree ou branche courante)
 - **Demandes ERP** : tickets avec notifications Telegram
 - **Bug Report** : widget connecté au bugs_service local (http://192.168.1.200:9010), projet "Terminal Launcher" (slug: terminal-launcher, préfixe: TER)
 

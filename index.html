@@ -2159,7 +2159,7 @@
         }
         /* Git branch badge */
         .project-branch-badge {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: var(--cactus-text-muted);
             background: var(--cactus-bg-subtle, rgba(255,255,255,0.05));
             border: 1px solid var(--cactus-border);
@@ -2217,8 +2217,8 @@
             justify-content: space-between;
             padding: 5px 8px;
             border-radius: 6px;
-            font-size: 0.8rem;
-            color: var(--cactus-text-secondary);
+            font-size: 0.85rem;
+            color: var(--cactus-text-primary);
             cursor: default;
             margin-bottom: 2px;
         }
@@ -2263,6 +2263,88 @@
             border-color: var(--cactus-primary);
             color: var(--cactus-primary);
             background: rgba(231, 91, 18, 0.05);
+        }
+        /* Branch/Worktree type indicators */
+        .git-type-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .git-type-icon.worktree {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .git-type-icon.branch {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .git-section-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--cactus-text-muted);
+            padding: 6px 8px 2px;
+            opacity: 0.85;
+        }
+        .branch-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--cactus-text-primary);
+            cursor: default;
+            margin-bottom: 2px;
+        }
+        .branch-item:hover {
+            background: var(--cactus-bg-hover);
+        }
+        .branch-item .branch-name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+        .branch-item .branch-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .behind-badge {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(255, 171, 0, 0.15);
+            color: #FFAB00;
+            border: 1px solid rgba(255, 171, 0, 0.3);
+            flex-shrink: 0;
+        }
+        .branch-checkout-btn {
+            background: none;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #818cf8;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .branch-checkout-btn:hover {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: #818cf8;
         }
         /* Project Settings Modal */
         .project-settings-modal {
@@ -2417,18 +2499,19 @@
         .terminal-tab {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
+            gap: 6px;
+            padding: 6px 10px;
             background: var(--cactus-bg-hover);
             border: 1px solid var(--cactus-border);
             border-bottom: none;
             border-radius: 8px 8px 0 0;
-            color: var(--cactus-text-secondary);
+            color: var(--cactus-text-primary);
             cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-            white-space: nowrap;
+            font-size: 0.875rem;
+            transition: all 0.15s ease;
+            min-width: 100px;
             max-width: 200px;
+            flex-shrink: 0;
             position: relative;
         }
         .terminal-tab:hover {
@@ -2455,9 +2538,41 @@
         .terminal-tab .tab-type.claude-btn { background: var(--cactus-primary); }
         .terminal-tab .tab-type.team { background: #2563eb; }
         .terminal-tab .tab-type.sudo { background: var(--cactus-negative); }
+        .terminal-tab .tab-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
         .terminal-tab .tab-name {
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.3;
+            font-weight: 500;
+        }
+        .terminal-tab .tab-branch {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 4px;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: fit-content;
+            max-width: 100%;
+        }
+        .terminal-tab .tab-branch.main {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .terminal-tab .tab-branch.feature {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.3);
         }
         .terminal-tab .tab-close {
             width: 18px;
@@ -4194,6 +4309,11 @@
         let hiddenFolders = [];
         let projectGitInfo = {};       // { project: { branch, dirty, worktrees: [...] } }
         let expandedProjects = new Set(); // projects with visible worktrees
+        // Restore expanded projects from localStorage
+        try {
+            const savedExpanded = localStorage.getItem('expandedProjects');
+            if (savedExpanded) expandedProjects = new Set(JSON.parse(savedExpanded));
+        } catch(e) {}
 
         async function loadProjectFolders() {
             try {
@@ -4221,6 +4341,7 @@
             } else {
                 expandedProjects.add(project);
             }
+            localStorage.setItem('expandedProjects', JSON.stringify([...expandedProjects]));
             const searchInput = document.getElementById('projectSearch');
             renderProjectList(searchInput ? searchInput.value : '');
         }
@@ -4240,6 +4361,27 @@
                     return;
                 }
                 expandedProjects.add(project);
+                localStorage.setItem('expandedProjects', JSON.stringify([...expandedProjects]));
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        async function createWorktreeFromBranch(project, branch) {
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/worktrees`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch, new: false })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert(data.message || 'Erreur création worktree');
+                    return;
+                }
+                expandedProjects.add(project);
+                localStorage.setItem('expandedProjects', JSON.stringify([...expandedProjects]));
                 await refreshProjectFolders();
             } catch (e) {
                 alert('Erreur: ' + e.message);
@@ -4269,6 +4411,38 @@
                         }
                     } else {
                         alert(data.message || 'Erreur suppression worktree');
+                        return;
+                    }
+                }
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        async function deleteBranch(project, branch) {
+            if (!confirm(`Supprimer la branche "${branch}" ?`)) return;
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/branches/${encodeURIComponent(branch)}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    if (data.message && data.message.includes('pas entièrement mergée')) {
+                        if (confirm(`La branche "${branch}" n'est pas entièrement mergée.\nForcer la suppression ?`)) {
+                            const resp2 = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/branches/${encodeURIComponent(branch)}?force=1`, {
+                                method: 'DELETE'
+                            });
+                            if (!resp2.ok) {
+                                const d2 = await resp2.json();
+                                alert(d2.message || 'Erreur suppression');
+                                return;
+                            }
+                        } else {
+                            return;
+                        }
+                    } else {
+                        alert(data.message || 'Erreur suppression branche');
                         return;
                     }
                 }
@@ -4882,9 +5056,6 @@
         async function syncTabsWithActiveSessions(existingTabs) {
             // Don't filter by dtach status - terminal-server creates sessions on demand
             const validTabs = existingTabs.filter(tab => tab.tmuxSession);
-
-            // Sort by creation time (oldest first)
-            validTabs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
             return validTabs;
         }
@@ -5579,6 +5750,29 @@
             });
         }
 
+        function getTabBranchBadge(tab) {
+            if (!tab.project) return '';
+
+            // For worktrees (project--branch), extract branch from folder name
+            if (tab.project.includes('--')) {
+                const parts = tab.project.split('--');
+                const branch = parts.slice(1).join('--');
+                if (!branch) return '';
+                const isMain = (branch === 'main' || branch === 'master');
+                const cssClass = isMain ? 'main' : 'feature';
+                return `<span class="tab-branch ${cssClass}">${escapeHtml(branch)}</span>`;
+            }
+
+            // For regular projects, use gitInfo
+            const gitInfo = projectGitInfo[tab.project];
+            if (!gitInfo || !gitInfo.branch) return '';
+
+            const branch = gitInfo.branch;
+            const isMain = (branch === 'main' || branch === 'master');
+            const cssClass = isMain ? 'main' : 'feature';
+            return `<span class="tab-branch ${cssClass}">${escapeHtml(branch)}</span>`;
+        }
+
         function renderTerminalTabs() {
             const tabsContainer = document.getElementById('terminalTabs');
             if (!tabsContainer) return;
@@ -5607,7 +5801,10 @@
                          onclick="activateTerminalTab('${tab.id}')"
                          ondblclick="renameTerminalTab('${tab.id}', event)">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
-                        <span class="tab-name" title="${safeName}">${safeName}</span>
+                        <div class="tab-info">
+                            <span class="tab-name" title="${safeName}">${safeName}</span>
+                            ${getTabBranchBadge(tab)}
+                        </div>
                         <span class="activity-indicator ${indicatorClass}"></span>
                         <div class="quick-actions">
                             <button class="quick-action-btn yes" onclick="sendQuickInput('${tab.id}', 'y', event)" title="Yes">Y</button>
@@ -5656,33 +5853,70 @@
                 // Git link button for non-git projects
                 const gitLinkBtn = !hasGit ? `<button class="project-btn git-link" onclick="linkGitRepo('${jsProject}')" title="Lier un dépôt Git">G</button>` : '';
 
-                // Worktrees sub-list
+                // Worktrees + Branches sub-list
                 let worktreeHtml = '';
                 if (hasGit && isExpanded) {
-                    const wtItems = (gitInfo.worktrees || []).map(wt => {
-                        const wtJsDir = wt.dirname.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        const wtJsBranch = wt.branch.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                        const wtActiveCount = terminalTabs.filter(t => t.project === wt.dirname).length;
-                        const wtBadge = wtActiveCount > 0 ? `<span class="project-active-badge">${wtActiveCount}</span>` : '';
-                        const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
-                        return `
-                            <div class="worktree-item">
-                                <div class="worktree-name">
-                                    <span class="worktree-branch" title="${escapeHtml(wt.branch)}">${escapeHtml(wt.branch)}</span>
-                                    ${dirtyDot}${wtBadge}
-                                </div>
-                                <div class="project-actions">
-                                    <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${wtJsDir}')" title="Claude">C</button>
-                                    <button class="project-btn team" onclick="createTeamTerminal('${wtJsDir}')" title="Team Agent">T</button>
-                                    <button class="project-btn" onclick="deleteWorktree('${jsProject}', '${wtJsDir}', '${wtJsBranch}')" title="Supprimer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem">✕</button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+                    const worktrees = gitInfo.worktrees || [];
+                    const branches = gitInfo.branches || [];
+                    const hasWorktreeItems = worktrees.length > 0;
+                    const hasBranchItems = branches.length > 0;
 
-                    const addBtn = `<button class="worktree-add-btn" onclick="createWorktree('${jsProject}')">+ Nouvelle branche</button>`;
+                    // Worktree items
+                    let wtSection = '';
+                    if (hasWorktreeItems) {
+                        const wtItems = worktrees.map(wt => {
+                            const wtJsDir = wt.dirname.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            const wtJsBranch = wt.branch.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            const wtActiveCount = terminalTabs.filter(t => t.project === wt.dirname).length;
+                            const wtBadge = wtActiveCount > 0 ? `<span class="project-active-badge">${wtActiveCount}</span>` : '';
+                            const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
+                            const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(gitInfo.branch)}">↓${wt.behind_main}</span>` : '';
+                            return `
+                                <div class="worktree-item">
+                                    <div class="worktree-name">
+                                        <span class="git-type-icon worktree" title="Worktree (dossier séparé)">W</span>
+                                        <span class="worktree-branch" title="${escapeHtml(wt.branch)}">${escapeHtml(wt.branch)}</span>
+                                        ${dirtyDot}${behindBadge}${wtBadge}
+                                    </div>
+                                    <div class="project-actions">
+                                        <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${wtJsDir}')" title="Claude">C</button>
+                                        <button class="project-btn team" onclick="createTeamTerminal('${wtJsDir}')" title="Team Agent">T</button>
+                                        <button class="project-btn" onclick="deleteWorktree('${jsProject}', '${wtJsDir}', '${wtJsBranch}')" title="Supprimer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem">✕</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        wtSection = (hasBranchItems ? '<div class="git-section-label">Worktrees</div>' : '') + wtItems;
+                    }
 
-                    worktreeHtml = `<div class="project-worktrees expanded">${wtItems}${addBtn}</div>`;
+                    // Branch items (not checked out as worktree)
+                    let brSection = '';
+                    if (hasBranchItems) {
+                        const brItems = branches.map(brObj => {
+                            const brName = typeof brObj === 'string' ? brObj : brObj.name;
+                            const brBehind = typeof brObj === 'object' ? (brObj.behind_main || 0) : 0;
+                            const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            const brBehindBadge = brBehind > 0 ? `<span class="behind-badge" title="${brBehind} commit(s) derrière ${escapeHtml(gitInfo.branch)}">↓${brBehind}</span>` : '';
+                            return `
+                                <div class="branch-item">
+                                    <div class="branch-name">
+                                        <span class="git-type-icon branch" title="Branche locale">B</span>
+                                        <span class="branch-label" title="${escapeHtml(brName)}">${escapeHtml(brName)}</span>
+                                        ${brBehindBadge}
+                                    </div>
+                                    <div class="project-actions">
+                                        <button class="branch-checkout-btn" onclick="createWorktreeFromBranch('${jsProject}', '${brJs}')" title="Ouvrir comme worktree">↗ Worktree</button>
+                                        <button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer la branche" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem;margin-left:4px">✕</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        brSection = (hasWorktreeItems ? '<div class="git-section-label">Branches</div>' : '') + brItems;
+                    }
+
+                    const addBtn = `<button class="worktree-add-btn" onclick="createWorktree('${jsProject}')">+ Nouveau worktree</button>`;
+
+                    worktreeHtml = `<div class="project-worktrees expanded">${wtSection}${brSection}${addBtn}</div>`;
                 }
 
                 return `

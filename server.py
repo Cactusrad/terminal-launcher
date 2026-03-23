@@ -814,7 +814,7 @@ def get_git_info(project_path):
     if not is_git_repo(project_path):
         return None
 
-    info = {'is_repo': True, 'branch': '', 'dirty': False, 'worktrees': []}
+    info = {'is_repo': True, 'branch': '', 'dirty': False, 'worktrees': [], 'branches': []}
 
     # Current branch
     ok, branch, _ = run_git(project_path, ['rev-parse', '--abbrev-ref', 'HEAD'])
@@ -827,6 +827,10 @@ def get_git_info(project_path):
         info['dirty'] = len(status) > 0
 
     # Worktrees
+    worktree_branches = set()
+    if branch:
+        worktree_branches.add(branch)  # current branch is in main worktree
+
     ok, output, _ = run_git(project_path, ['worktree', 'list', '--porcelain'])
     if ok and output:
         worktrees = []
@@ -844,9 +848,14 @@ def get_git_info(project_path):
         if current_wt and current_wt.get('path') != project_path:
             worktrees.append(current_wt)
 
+        # Determine the main branch for behind-main detection
+        main_branch = info['branch']  # current branch of the main worktree
+
         for wt in worktrees:
             dirname = os.path.basename(wt.get('path', ''))
-            branch = wt.get('branch', '')
+            wt_branch = wt.get('branch', '')
+            if wt_branch:
+                worktree_branches.add(wt_branch)
             # Check if worktree is dirty
             wt_dirty = False
             wt_path = wt.get('path', '')
@@ -854,11 +863,31 @@ def get_git_info(project_path):
                 ok2, wt_status, _ = run_git(wt_path, ['status', '--porcelain'])
                 if ok2:
                     wt_dirty = len(wt_status) > 0
+            # Check how many commits behind main
+            behind_main = 0
+            if wt_branch and main_branch and wt_branch != main_branch:
+                ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{wt_branch}..{main_branch}'])
+                if ok3 and count.strip().isdigit():
+                    behind_main = int(count.strip())
             info['worktrees'].append({
-                'branch': branch,
+                'branch': wt_branch,
                 'dirname': dirname,
-                'dirty': wt_dirty
+                'dirty': wt_dirty,
+                'behind_main': behind_main
             })
+
+    # Local branches (excluding those already checked out in worktrees)
+    main_branch = info.get('branch', '')
+    ok, br_output, _ = run_git(project_path, ['branch', '--format=%(refname:short)'])
+    if ok and br_output:
+        for b in br_output.split('\n'):
+            if b and b not in worktree_branches:
+                behind_main = 0
+                if main_branch and b != main_branch:
+                    ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{b}..{main_branch}'])
+                    if ok3 and count.strip().isdigit():
+                        behind_main = int(count.strip())
+                info['branches'].append({'name': b, 'behind_main': behind_main})
 
     return info
 
@@ -1014,6 +1043,36 @@ def get_git_branches(project):
         branches['remote'] = [b for b in output.split('\n') if b and 'HEAD' not in b]
 
     return jsonify(branches)
+
+@app.route('/api/projects/<project>/git/branches/<path:branch>', methods=['DELETE'])
+def delete_git_branch(project, branch):
+    """Delete a local git branch"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    # Validate branch name (no path traversal, no spaces)
+    if not branch or '..' in branch or branch.startswith('-'):
+        return jsonify({"status": "error", "message": "Nom de branche invalide"}), 400
+
+    # Cannot delete current branch
+    ok, current, _ = run_git(path, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if ok and current == branch:
+        return jsonify({"status": "error", "message": "Impossible de supprimer la branche courante"}), 400
+
+    # Try safe delete first (-d), force with ?force=1 (-D)
+    force = request.args.get('force') == '1'
+    flag = '-D' if force else '-d'
+    ok, out, err = run_git(path, ['branch', flag, branch])
+
+    if not ok:
+        if 'not fully merged' in err:
+            return jsonify({"status": "error", "message": f"La branche '{branch}' n'est pas entièrement mergée. Utilisez ?force=1 pour forcer."}), 409
+        return jsonify({"status": "error", "message": err}), 500
+
+    return jsonify({"status": "ok"})
 
 @app.route('/api/projects/<project>/git/worktrees', methods=['GET'])
 def get_git_worktrees(project):
