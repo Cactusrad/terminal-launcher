@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install git and ssh for GitHub integration
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git openssh-client && rm -rf /var/lib/apt/lists/*
+    git openssh-client gosu && rm -rf /var/lib/apt/lists/*
 
 # Create cactus user with same UID/GID as host (files created will belong to cactus)
 RUN groupadd -g 1000 cactus && useradd -u 1000 -g 1000 -m cactus
@@ -25,6 +25,8 @@ COPY server.py .
 COPY config.py .
 COPY index.html .
 COPY chromium/ ./chromium/
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 # Create data directory for preferences (owned by cactus)
 RUN mkdir -p /data && chown cactus:cactus /data
@@ -36,8 +38,8 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost/health', timeout=5)" || exit 1
 
-# Run as cactus user (UID 1000 — matches host)
-USER cactus
+# Entrypoint fixes /data ownership then drops to cactus via gosu
+ENTRYPOINT ["./entrypoint.sh"]
 
 # Run with gunicorn for production
 CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "server:app"]

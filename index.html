@@ -6400,6 +6400,29 @@
                     }
                 });
 
+                // 4c. Auto-discover active dtach sessions not tracked anywhere
+                activeSessions.forEach(session => {
+                    const sessionName = session.name || session;
+                    // Skip agent sessions and already-tracked sessions
+                    if (sessionName.includes('_agent_')) return;
+                    if (localBySession.has(sessionName) || serverBySession.has(sessionName) || disposedSessions.has(sessionName)) return;
+
+                    const project = session.project || sessionName;
+                    const type = sessionName.startsWith('team_') ? 'team' : 'claude';
+                    const newTab = {
+                        id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        name: project,
+                        type: type,
+                        project: project,
+                        tmuxSession: sessionName,
+                        command: session.command || 'claude',
+                        createdAt: (session.created_at ? session.created_at * 1000 : Date.now())
+                    };
+                    terminalTabs.push(newTab);
+                    loadTerminal(newTab);
+                    changed = true;
+                });
+
                 // 4b. Remove local tabs whose dtach session is dead AND not on server
                 const toRemove = [];
                 terminalTabs.forEach(tab => {

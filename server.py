@@ -258,7 +258,7 @@ def save_json_file(filepath, data):
             json.dump(data, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
-        print(f"Error writing {filepath}: {e}")
+        print(f"Error writing {filepath}: {type(e).__name__}: {e}", file=sys.stderr)
         return False
 
 def load_preferences():
@@ -848,14 +848,20 @@ def get_git_info(project_path):
         if current_wt and current_wt.get('path') != project_path:
             worktrees.append(current_wt)
 
+        # Track ALL worktree branches (including agent ones) to hide from branch list
+        for wt in worktrees:
+            wt_branch = wt.get('branch', '')
+            if wt_branch:
+                worktree_branches.add(wt_branch)
+        # Filter out Claude Code agent worktrees from display
+        worktrees = [wt for wt in worktrees if '/.claude/worktrees/' not in wt.get('path', '')]
+
         # Determine the main branch for behind-main detection
         main_branch = info['branch']  # current branch of the main worktree
 
         for wt in worktrees:
             dirname = os.path.basename(wt.get('path', ''))
             wt_branch = wt.get('branch', '')
-            if wt_branch:
-                worktree_branches.add(wt_branch)
             # Check if worktree is dirty
             wt_dirty = False
             wt_path = wt.get('path', '')
