@@ -105,7 +105,9 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 
 - **Défauts** : aucune app (clean install)
 - **Stockage** : `/data/users/{username}/preferences.json` (volume Docker, per-user)
-- **Fallback** : localStorage si API indisponible
+- **Source de vérité** : le serveur uniquement. **JAMAIS** de localStorage pour les données applicatives (préférences, tabs terminaux, issues, tasks). Plusieurs clients travaillent en simultané sur les mêmes sessions → localStorage = données stales/conflits.
+- **localStorage autorisé** uniquement pour l'UI state pur navigateur : `cactusTheme`, `expandedProjects`, `terminalViewMode`, `alertsMuted`
+- **TODO** : supprimer les fallbacks localStorage restants (cactusPages, cactusCurrentPage, cactusAppOverrides, cactusCustomApps, cactusTerminalTabs) et migrer projectIssues/agentTasks vers des API serveur
 
 ## Authentification
 

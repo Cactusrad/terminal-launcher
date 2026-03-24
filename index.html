@@ -2321,6 +2321,59 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        /* Merged branches */
+        .git-type-icon.branch.merged {
+            opacity: 0.5;
+        }
+        .branch-item.merged .branch-label {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .merged-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            color: var(--cactus-text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            margin-top: 2px;
+            transition: color 0.2s;
+        }
+        .merged-toggle:hover {
+            color: var(--cactus-text-primary);
+            background: var(--cactus-bg-hover);
+        }
+        .merged-arrow {
+            font-size: 0.6rem;
+            transition: transform 0.2s;
+        }
+        .merged-toggle.open .merged-arrow {
+            transform: rotate(90deg);
+        }
+        .merged-list {
+            display: none;
+        }
+        .merged-list.show {
+            display: block;
+        }
+        .delete-merged-btn {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .delete-merged-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+        }
         .behind-badge {
             font-size: 0.6875rem;
             font-weight: 600;
@@ -4452,6 +4505,22 @@
             }
         }
 
+        async function deleteMergedBranches(project, branchNames) {
+            if (!confirm(`Supprimer ${branchNames.length} branche${branchNames.length > 1 ? 's' : ''} merged ?\n\n${branchNames.join('\n')}`)) return;
+            let errors = [];
+            for (const branch of branchNames) {
+                try {
+                    const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/branches/${encodeURIComponent(branch)}`, { method: 'DELETE' });
+                    if (!resp.ok) {
+                        const d = await resp.json();
+                        errors.push(`${branch}: ${d.message || 'erreur'}`);
+                    }
+                } catch (e) { errors.push(`${branch}: ${e.message}`); }
+            }
+            if (errors.length > 0) alert('Erreurs:\n' + errors.join('\n'));
+            await refreshProjectFolders();
+        }
+
         async function linkGitRepo(project) {
             const url = prompt(`URL du dépôt Git pour "${project}" :\n(laisser vide pour auto-détection GitHub)`, '');
             if (url === null) return; // cancelled
@@ -4684,10 +4753,11 @@
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
-        let viewMode = localStorage.getItem('terminalViewMode') || 'tabs';  // 'tabs' or 'grid'
+        let viewMode = 'tabs';  // 'tabs' or 'grid' — loaded from server in loadTerminalStateFromServer()
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver, disposed, reconnectTimer }
         const disposedTabs = new Set();  // Track disposed tabs to prevent reconnection
         const disposedSessions = new Set();  // Track disposed sessions by tmux name to prevent sync re-adding
+        let dismissedSessions = new Set();  // Persisted on server — sessions user explicitly closed (survives refresh)
 
         const PROJECT_COLORS = [
             '#E75B12', '#2563eb', '#36B37E', '#9333ea', '#ec4899',
@@ -4870,7 +4940,7 @@
         function toggleViewMode() {
             viewMode = viewMode === 'tabs' ? 'grid' : 'tabs';
             applyViewMode();
-            // Save to server and localStorage
+            // Save to server
             saveTerminalState();
         }
 
@@ -5020,7 +5090,7 @@
             if (instance?.terminal) instance.terminal.focus();
         }
 
-        // Terminal state sync - server first, localStorage fallback
+        // Terminal state sync - server is the single source of truth
         let terminalStateSynced = false;
 
         // Parse session name to extract type and project
@@ -5072,14 +5142,13 @@
                     if (state.viewMode) {
                         viewMode = state.viewMode;
                     }
+                    // Restore dismissed sessions from server
+                    if (state.dismissedSessions) {
+                        dismissedSessions = new Set(state.dismissedSessions);
+                    }
                 }
             } catch (e) {
                 console.warn('Failed to load terminal state from server:', e);
-                // Fallback to localStorage
-                const saved = localStorage.getItem('cactusTerminalTabs');
-                if (saved) {
-                    try { state = JSON.parse(saved); } catch (e) { }
-                }
             }
 
             // Sync tabs with actual active dtach sessions
@@ -5099,26 +5168,16 @@
         }
 
         function getTerminalState() {
-            // Sync version - returns from cache/localStorage
-            const saved = localStorage.getItem('cactusTerminalTabs');
-            if (saved) {
-                try { return JSON.parse(saved); } catch (e) { }
-            }
-            return { tabs: [], activeTabId: null, viewMode: 'tabs' };
+            // Returns current in-memory state
+            return {
+                tabs: terminalTabs || [],
+                activeTabId: activeTerminalTabId || null,
+                viewMode: viewMode || 'tabs'
+            };
         }
 
         let saveDebounceTimeout = null;
         function saveTerminalState() {
-            const state = {
-                tabs: terminalTabs,
-                activeTabId: activeTerminalTabId,
-                viewMode: viewMode
-            };
-
-            // Always save to localStorage for instant access
-            localStorage.setItem('cactusTerminalTabs', JSON.stringify(state));
-            localStorage.setItem('terminalViewMode', viewMode);
-
             // Debounced save to server with smart merge
             clearTimeout(saveDebounceTimeout);
             saveDebounceTimeout = setTimeout(async () => {
@@ -5126,11 +5185,13 @@
                 try {
                     // Fetch current server state to merge (avoid overwriting other device's tabs)
                     let serverTabs = [];
+                    let serverDismissed = [];
                     try {
                         const resp = await fetch('/api/terminal/state');
                         if (resp.ok) {
                             const serverState = await resp.json();
                             serverTabs = serverState.tabs || [];
+                            serverDismissed = serverState.dismissedSessions || [];
                         }
                     } catch (e) { /* server unreachable, just save local */ }
 
@@ -5146,10 +5207,14 @@
                         }
                     });
 
+                    // Merge dismissed sessions (union of local + server)
+                    const mergedDismissed = new Set([...dismissedSessions, ...serverDismissed]);
+
                     const mergedState = {
                         tabs: mergedTabs,
                         activeTabId: activeTerminalTabId,
-                        viewMode: viewMode
+                        viewMode: viewMode,
+                        dismissedSessions: [...mergedDismissed]
                     };
 
                     await fetch('/api/terminal/state', {
@@ -5445,7 +5510,10 @@
 
             // Track disposed session to prevent sync from re-adding it
             const tab = terminalTabs[tabIndex];
-            if (tab.tmuxSession) disposedSessions.add(tab.tmuxSession);
+            if (tab.tmuxSession) {
+                disposedSessions.add(tab.tmuxSession);
+                dismissedSessions.add(tab.tmuxSession);  // Persisted on server
+            }
 
             // Clean up terminal instance
             disposeTerminal(tabId);
@@ -5892,7 +5960,10 @@
                     // Branch items (not checked out as worktree)
                     let brSection = '';
                     if (hasBranchItems) {
-                        const brItems = branches.map(brObj => {
+                        const activeBranches = branches.filter(b => !b.merged);
+                        const mergedBranches = branches.filter(b => b.merged);
+
+                        const brItems = activeBranches.map(brObj => {
                             const brName = typeof brObj === 'string' ? brObj : brObj.name;
                             const brBehind = typeof brObj === 'object' ? (brObj.behind_main || 0) : 0;
                             const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -5911,7 +5982,35 @@
                                 </div>
                             `;
                         }).join('');
-                        brSection = (hasWorktreeItems ? '<div class="git-section-label">Branches</div>' : '') + brItems;
+
+                        let mergedHtml = '';
+                        if (mergedBranches.length > 0) {
+                            const mergedNames = mergedBranches.map(b => (typeof b === 'string' ? b : b.name).replace(/'/g, "\\'"));
+                            const mergedItems = mergedBranches.map(brObj => {
+                                const brName = typeof brObj === 'string' ? brObj : brObj.name;
+                                const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                                return `
+                                    <div class="branch-item merged">
+                                        <div class="branch-name">
+                                            <span class="git-type-icon branch merged" title="Branche merged">B</span>
+                                            <span class="branch-label" title="${escapeHtml(brName)}">${escapeHtml(brName)}</span>
+                                        </div>
+                                        <div class="project-actions">
+                                            <button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem">✕</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                            mergedHtml = `
+                                <div class="merged-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('show')">
+                                    <span class="merged-arrow">▶</span> ${mergedBranches.length} merged
+                                    <button class="delete-merged-btn" onclick="event.stopPropagation();deleteMergedBranches('${jsProject}', [${mergedNames.map(n => "'" + n + "'").join(',')}])">Supprimer tout</button>
+                                </div>
+                                <div class="merged-list">${mergedItems}</div>
+                            `;
+                        }
+
+                        brSection = (hasWorktreeItems ? '<div class="git-section-label">Branches</div>' : '') + brItems + mergedHtml;
                     }
 
                     const addBtn = `<button class="worktree-add-btn" onclick="createWorktree('${jsProject}')">+ Nouveau worktree</button>`;
@@ -6405,7 +6504,7 @@
                     const sessionName = session.name || session;
                     // Skip agent sessions and already-tracked sessions
                     if (sessionName.includes('_agent_')) return;
-                    if (localBySession.has(sessionName) || serverBySession.has(sessionName) || disposedSessions.has(sessionName)) return;
+                    if (localBySession.has(sessionName) || serverBySession.has(sessionName) || disposedSessions.has(sessionName) || dismissedSessions.has(sessionName)) return;
 
                     const project = session.project || sessionName;
                     const type = sessionName.startsWith('team_') ? 'team' : 'claude';
@@ -6441,10 +6540,18 @@
                     changed = true;
                 });
 
-                // Clean up disposedSessions for sessions that are no longer active
+                // Clean up disposed/dismissed sessions for sessions that are no longer active
+                let dismissedChanged = false;
                 disposedSessions.forEach(session => {
                     if (!activeSessionNames.has(session)) disposedSessions.delete(session);
                 });
+                dismissedSessions.forEach(session => {
+                    if (!activeSessionNames.has(session)) {
+                        dismissedSessions.delete(session);
+                        dismissedChanged = true;
+                    }
+                });
+                if (dismissedChanged) changed = true;
 
                 if (changed) {
                     renderTerminalTabs(); syncMobileTerminalTabs();
@@ -6479,7 +6586,7 @@
         }
 
         async function initTerminalManager() {
-            // Load state from server (with localStorage fallback)
+            // Load state from server
             const state = await loadTerminalStateFromServer();
             terminalTabs = state.tabs || [];
             activeTerminalTabId = state.activeTabId;
@@ -6689,37 +6796,14 @@
                         // Fallback to preferences data
                         customApps = data.customApps || {};
                     }
-                    // Also save to localStorage as backup
-                    localStorage.setItem('cactusPages', JSON.stringify(cachedPages));
-                    localStorage.setItem('cactusCurrentPage', currentPageId);
-                    localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
-                    localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
                     updateSyncStatus('', 'Sync serveur');
                     return true;
                 }
             } catch (e) {
-                console.log('API non disponible, utilisation du localStorage');
+                console.log('API non disponible');
             }
             apiEnabled = false;
-            // Load overrides from localStorage fallback
-            try {
-                const savedOverrides = localStorage.getItem('cactusAppOverrides');
-                if (savedOverrides) {
-                    appOverrides = JSON.parse(savedOverrides);
-                }
-            } catch (e) {
-                appOverrides = {};
-            }
-            // Load custom apps from localStorage fallback
-            try {
-                const savedCustomApps = localStorage.getItem('cactusCustomApps');
-                if (savedCustomApps) {
-                    customApps = JSON.parse(savedCustomApps);
-                }
-            } catch (e) {
-                customApps = {};
-            }
-            updateSyncStatus('local', 'Local uniquement');
+            updateSyncStatus('error', 'Serveur indisponible');
             return false;
         }
 
@@ -6763,23 +6847,12 @@
             if (cachedPages) {
                 return cachedPages;
             }
-            const saved = localStorage.getItem('cactusPages');
-            if (saved) {
-                cachedPages = JSON.parse(saved);
-                return cachedPages;
-            }
-            // Check for old format and migrate
-            if (localStorage.getItem('cactusApps') || localStorage.getItem('cactusOrder')) {
-                cachedPages = migrateOldFormat();
-                return cachedPages;
-            }
             cachedPages = JSON.parse(JSON.stringify(defaultPages));
             return cachedPages;
         }
 
         function savePages(pages) {
             cachedPages = pages;
-            localStorage.setItem('cactusPages', JSON.stringify(pages));
 
             // Debounce API calls to avoid too many requests
             if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
@@ -6789,51 +6862,18 @@
         }
 
         function getCurrentPageId() {
-            const saved = localStorage.getItem('cactusCurrentPage');
             const pages = getPages();
-            if (saved && pages.find(p => p.id === saved)) {
-                return saved;
+            if (currentPageId && pages.find(p => p.id === currentPageId)) {
+                return currentPageId;
             }
             return pages.length > 0 ? pages[0].id : 'main';
         }
 
         function setCurrentPageId(pageId) {
             currentPageId = pageId;
-            localStorage.setItem('cactusCurrentPage', pageId);
             saveCurrentPageToAPI(pageId);
             renderApps();
             renderPageDots();
-        }
-
-        function migrateOldFormat() {
-            const oldApps = localStorage.getItem('cactusApps');
-            const oldOrder = localStorage.getItem('cactusOrder');
-
-            let visibleApps = defaultApps.filter(a => a.visible !== false).map(a => a.id);
-            let hiddenApps = defaultApps.filter(a => a.visible === false).map(a => a.id);
-
-            if (oldApps) {
-                const parsed = JSON.parse(oldApps);
-                visibleApps = parsed.filter(a => a.visible).map(a => a.id);
-                hiddenApps = parsed.filter(a => !a.visible).map(a => a.id);
-            }
-
-            if (oldOrder) {
-                const order = JSON.parse(oldOrder);
-                visibleApps = order.filter(id => visibleApps.includes(id));
-            }
-
-            const pages = [
-                { id: 'main', name: 'Accueil', apps: visibleApps },
-                { id: 'autres', name: 'Autres', apps: hiddenApps }
-            ];
-
-            // Clean up old format
-            localStorage.removeItem('cactusApps');
-            localStorage.removeItem('cactusOrder');
-
-            savePages(pages);
-            return pages;
         }
 
         function addPage(name = null) {
@@ -7189,7 +7229,6 @@
                 if (newName) { customApps[appId].name = newName; updates.name = newName; }
                 if (newUrl) { customApps[appId].url = newUrl; updates.url = newUrl; }
                 customApps[appId].desc = newDesc; updates.desc = newDesc;
-                localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
                 // Use individual REST update
                 updateAppAPI(appId, updates);
                 renderApps();
@@ -7213,9 +7252,6 @@
                 delete appOverrides[appId];
             }
 
-            // Save to localStorage as backup
-            localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
-
             // Sync to server
             saveAppOverridesToAPI();
 
@@ -7231,9 +7267,6 @@
             if (!confirm('Réinitialiser cette application aux valeurs par défaut ?')) return;
 
             delete appOverrides[appId];
-
-            // Save to localStorage as backup
-            localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
 
             // Sync to server
             saveAppOverridesToAPI();
@@ -7454,7 +7487,6 @@
 
             // Save to customApps locally
             customApps[id] = newApp;
-            localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
             // Use individual REST create
             createAppAPI(newApp);
 
@@ -7484,14 +7516,12 @@
 
             // Remove from customApps locally
             delete customApps[appId];
-            localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
             // Use individual REST delete (also cleans pages server-side)
             deleteAppAPI(appId);
 
             // Remove from overrides if any
             if (appOverrides[appId]) {
                 delete appOverrides[appId];
-                localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
                 saveAppOverridesToAPI();
             }
 
@@ -7516,7 +7546,6 @@
             // If custom app, remove from customApps
             if (customApps[appId]) {
                 delete customApps[appId];
-                localStorage.setItem('cactusCustomApps', JSON.stringify(customApps));
                 // Use individual REST delete
                 deleteAppAPI(appId);
             }
@@ -7524,7 +7553,6 @@
             // Remove from overrides if any
             if (appOverrides[appId]) {
                 delete appOverrides[appId];
-                localStorage.setItem('cactusAppOverrides', JSON.stringify(appOverrides));
                 saveAppOverridesToAPI();
             }
 
@@ -7548,10 +7576,6 @@
 
         async function resetAll() {
             if (!confirm('Réinitialiser toutes les pages et positions ?')) return;
-            localStorage.removeItem('cactusPages');
-            localStorage.removeItem('cactusCurrentPage');
-            localStorage.removeItem('cactusAppOverrides');
-            localStorage.removeItem('cactusCustomApps');
             cachedPages = JSON.parse(JSON.stringify(defaultPages));
             currentPageId = 'main';
             appOverrides = {};
@@ -7782,10 +7806,7 @@
         }
 
         function loadProjectIssues(projectId) {
-            const saved = localStorage.getItem(getProjectIssuesKey(projectId));
-            if (saved) {
-                projectIssues[projectId] = JSON.parse(saved);
-            } else {
+            if (!projectIssues[projectId]) {
                 // Use default issues for this project if defined
                 projectIssues[projectId] = defaultIssues[projectId] ?
                     JSON.parse(JSON.stringify(defaultIssues[projectId])) : [];
@@ -7794,7 +7815,7 @@
         }
 
         function saveProjectIssues(projectId) {
-            localStorage.setItem(getProjectIssuesKey(projectId), JSON.stringify(projectIssues[projectId] || []));
+            // In-memory only — no localStorage
         }
 
         function renderIssues() {
@@ -7950,10 +7971,7 @@
         }
 
         function loadAgentTasks(projectId) {
-            const saved = localStorage.getItem(getAgentTasksKey(projectId));
-            if (saved) {
-                agentTasks[projectId] = JSON.parse(saved);
-            } else {
+            if (!agentTasks[projectId]) {
                 // Use default agent tasks for this project if defined
                 agentTasks[projectId] = defaultAgentTasks[projectId] ?
                     JSON.parse(JSON.stringify(defaultAgentTasks[projectId])) : [];
@@ -7962,7 +7980,7 @@
         }
 
         function saveAgentTasks(projectId) {
-            localStorage.setItem(getAgentTasksKey(projectId), JSON.stringify(agentTasks[projectId] || []));
+            // In-memory only — no localStorage
         }
 
         function renderAgentTasks() {
@@ -8038,8 +8056,7 @@
 
         // API to get issues (for Claude to read)
         window.getProjectIssues = function(projectId) {
-            const saved = localStorage.getItem(getProjectIssuesKey(projectId));
-            return saved ? JSON.parse(saved) : [];
+            return projectIssues[projectId] || [];
         };
 
         // ============ ERP API Functions ============
@@ -8872,12 +8889,6 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                     return;
                 }
                 errorEl.style.display = 'none';
-                // Clear localStorage if user changed
-                const lastUser = localStorage.getItem('cactusLastUser');
-                if (lastUser && lastUser !== data.user.username) {
-                    ['cactusPages', 'cactusCurrentPage', 'cactusAppOverrides', 'cactusCustomApps', 'cactusTerminalTabs'].forEach(k => localStorage.removeItem(k));
-                }
-                localStorage.setItem('cactusLastUser', data.user.username);
                 const authOk = await checkAuth();
                 console.log('[Auth] checkAuth after login:', authOk);
                 if (authOk) {

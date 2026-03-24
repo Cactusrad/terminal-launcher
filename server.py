@@ -882,18 +882,31 @@ def get_git_info(project_path):
                 'behind_main': behind_main
             })
 
-    # Local branches (excluding those already checked out in worktrees)
+    # Detect merged branches (merged into current branch)
+    merged_branches = set()
     main_branch = info.get('branch', '')
+    if main_branch:
+        ok, merged_output, _ = run_git(project_path, ['branch', '--merged', main_branch, '--format=%(refname:short)'])
+        if ok and merged_output:
+            merged_branches = set(merged_output.split('\n'))
+
+    # Local branches (excluding worktree branches and agent branches)
     ok, br_output, _ = run_git(project_path, ['branch', '--format=%(refname:short)'])
     if ok and br_output:
         for b in br_output.split('\n'):
-            if b and b not in worktree_branches:
-                behind_main = 0
-                if main_branch and b != main_branch:
-                    ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{b}..{main_branch}'])
-                    if ok3 and count.strip().isdigit():
-                        behind_main = int(count.strip())
-                info['branches'].append({'name': b, 'behind_main': behind_main})
+            if not b or b in worktree_branches:
+                continue
+            # Skip agent branches (created by Claude Code worktree isolation)
+            if b.startswith('worktree-agent-'):
+                continue
+            is_merged = b in merged_branches and b != main_branch
+            behind_main = 0
+            # Skip behind_main calc for merged branches (they're cleanup candidates)
+            if not is_merged and main_branch and b != main_branch:
+                ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{b}..{main_branch}'])
+                if ok3 and count.strip().isdigit():
+                    behind_main = int(count.strip())
+            info['branches'].append({'name': b, 'behind_main': behind_main, 'merged': is_merged})
 
     return info
 
