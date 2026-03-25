@@ -3,8 +3,8 @@ services:
     build: .
     container_name: terminal-launcher
     restart: unless-stopped
-    ports:
-      - "${PORT:-80}:80"
+    expose:
+      - "80"
     environment:
       - HOST_IP=${HOST_IP:?HOST_IP must be set in .env}
       - TERMINAL_SERVER_HOST=${TERMINAL_SERVER_HOST:-${HOST_IP}}
@@ -21,6 +21,21 @@ services:
       - /tmp/dtach-sessions:/tmp/dtach-sessions:ro
       - /home/cactus/.ssh/github_key:/home/cactus/.ssh/github_key:ro
       - /home/cactus/.ssh/known_hosts:/home/cactus/.ssh/known_hosts:ro
+
+  nginx:
+    image: nginx:alpine
+    container_name: terminal-launcher-nginx
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+      - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - terminal-launcher
 
 volumes:
   launcher-data:

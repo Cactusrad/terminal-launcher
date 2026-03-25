@@ -4715,8 +4715,11 @@
             }
         }
 
-        // Terminal server WebSocket port
-        const TERMINAL_WS_PORT = 7681;
+        // Terminal server — proxied through nginx for HTTPS support
+        const TERMINAL_WS_PORT = 7681;  // Direct port (fallback for HTTP)
+        const useSSL = location.protocol === 'https:';
+        const wsProtocol = useSSL ? 'wss:' : 'ws:';
+        const httpProtocol = location.protocol;
 
         // xterm.js options for direct terminal integration
         const XTERM_OPTIONS = {
@@ -5649,7 +5652,9 @@
             function connectWs() {
                 if (disposedTabs.has(tab.id)) return;
 
-                const wsUrl = `ws://${host}:${TERMINAL_WS_PORT}/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`;
+                const wsUrl = useSSL
+                    ? `${wsProtocol}//${host}/terminal-ws/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`
+                    : `ws://${host}:${TERMINAL_WS_PORT}/ws?session=${encodeURIComponent(tab.tmuxSession)}&project=${encodeURIComponent(tab.project)}&command=${encodeURIComponent(tab.command)}`;
                 const ws = new WebSocket(wsUrl);
                 ws.binaryType = 'arraybuffer';
 
@@ -6472,7 +6477,10 @@
                 // 2. Fetch active dtach sessions
                 let activeSessions = [];
                 try {
-                    const resp2 = await fetch(`http://${host}:${TERMINAL_WS_PORT}/sessions`);
+                    const sessionsUrl = useSSL
+                        ? `${httpProtocol}//${host}/terminal-api/sessions`
+                        : `http://${host}:${TERMINAL_WS_PORT}/sessions`;
+                    const resp2 = await fetch(sessionsUrl);
                     if (resp2.ok) {
                         const data = await resp2.json();
                         activeSessions = data.sessions || data || [];
