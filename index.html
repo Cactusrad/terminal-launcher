@@ -2627,6 +2627,11 @@
             color: #818cf8;
             border: 1px solid rgba(99, 102, 241, 0.3);
         }
+        .terminal-tab .tab-branch.orphan {
+            background: rgba(234, 88, 12, 0.15);
+            color: #ea580c;
+            border: 1px solid rgba(234, 88, 12, 0.3);
+        }
         .terminal-tab .tab-close {
             width: 18px;
             height: 18px;
@@ -5846,6 +5851,17 @@
             return `<span class="tab-branch ${cssClass}">${escapeHtml(branch)}</span>`;
         }
 
+        function getOrphanBadge(tab) {
+            if (!tab.project) return '';
+            if (allProjectFolders.includes(tab.project)) return '';
+            // For worktrees (project--branch), check if parent project exists
+            if (tab.project.includes('--')) {
+                const parent = tab.project.split('--')[0];
+                if (allProjectFolders.includes(parent)) return '';
+            }
+            return '<span class="tab-branch orphan" title="Dossier projet introuvable">⚠ orphelin</span>';
+        }
+
         function renderTerminalTabs() {
             const tabsContainer = document.getElementById('terminalTabs');
             if (!tabsContainer) return;
@@ -5876,7 +5892,7 @@
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
                         <div class="tab-info">
                             <span class="tab-name" title="${safeName}">${safeName}</span>
-                            ${getTabBranchBadge(tab)}
+                            ${getTabBranchBadge(tab)}${getOrphanBadge(tab)}
                         </div>
                         <span class="activity-indicator ${indicatorClass}"></span>
                         <div class="quick-actions">
