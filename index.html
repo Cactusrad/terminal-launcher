@@ -2085,13 +2085,14 @@
         }
         .project-item {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
-            padding: 10px 12px;
+            padding: 8px 12px 6px;
             border-radius: 8px;
             margin-bottom: 4px;
             cursor: default;
             transition: background 0.2s;
+            row-gap: 4px;
         }
         .project-item:hover {
             background: var(--cactus-bg-hover);
@@ -2100,16 +2101,18 @@
             font-size: 0.9rem;
             color: var(--cactus-text-primary);
             flex: 1;
+            min-width: 120px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-right: 8px;
+            margin-right: 6px;
         }
         .project-actions {
             display: flex;
             gap: 4px;
             opacity: 0.6;
             transition: opacity 0.2s;
+            margin-left: auto;
         }
         .project-item:hover .project-actions {
             opacity: 1;
@@ -2213,14 +2216,15 @@
         }
         .worktree-item {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
-            padding: 5px 8px;
+            padding: 5px 8px 4px;
             border-radius: 6px;
             font-size: 0.85rem;
             color: var(--cactus-text-primary);
             cursor: default;
             margin-bottom: 2px;
+            row-gap: 3px;
         }
         .worktree-item:hover {
             background: var(--cactus-bg-hover);
@@ -2229,7 +2233,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            flex: 1;
+            flex: 1 1 100%;
             min-width: 0;
         }
         .worktree-item .worktree-branch {
@@ -2297,14 +2301,15 @@
         }
         .branch-item {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
-            padding: 5px 8px;
+            padding: 5px 8px 4px;
             border-radius: 6px;
             font-size: 0.85rem;
             color: var(--cactus-text-primary);
             cursor: default;
             margin-bottom: 2px;
+            row-gap: 3px;
         }
         .branch-item:hover {
             background: var(--cactus-bg-hover);
@@ -2313,7 +2318,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            flex: 1;
+            flex: 1 1 100%;
             min-width: 0;
         }
         .branch-item .branch-label {
@@ -6042,7 +6047,7 @@
                 return `
                 <div class="project-item">
                     ${expandBtn}
-                    <span class="project-name" title="${safeProject}">${safeProject}${branchBadge}${badge}</span>
+                    <span class="project-name" title="${safeProject}">${safeProject}</span>${branchBadge}${badge}
                     <div class="project-actions">
                         ${gitLinkBtn}
                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${jsProject}')" title="Claude">C</button>
