@@ -105,9 +105,35 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 
 - **Défauts** : aucune app (clean install)
 - **Stockage** : `/data/users/{username}/preferences.json` (volume Docker, per-user)
+- **Apps custom** : `/data/users/{username}/apps.json` (séparé des pages depuis le commit `408cb16`). Les `customApps` sont des **objets indépendants** ; les `pages[].apps` ne contiennent que des **IDs** d'apps. Si une page est réinitialisée, les apps existent encore mais deviennent **orphelines** (non assignées à aucune page).
 - **Source de vérité** : le serveur uniquement. **JAMAIS** de localStorage pour les données applicatives (préférences, tabs terminaux, issues, tasks). Plusieurs clients travaillent en simultané sur les mêmes sessions → localStorage = données stales/conflits.
 - **localStorage autorisé** uniquement pour l'UI state pur navigateur : `cactusTheme`, `expandedProjects`, `terminalViewMode`, `alertsMuted`
 - **TODO** : supprimer les fallbacks localStorage restants (cactusPages, cactusCurrentPage, cactusAppOverrides, cactusCustomApps, cactusTerminalTabs) et migrer projectIssues/agentTasks vers des API serveur
+
+### ⚠️ Bug connu : écrasement des pages avec un état vide
+
+**Symptôme** : la page Accueil devient vide ("Ajoutez votre premier raccourci") alors que les apps custom existent encore dans `apps.json`.
+
+**Cause probable** : `savePages([{id:main, apps:[]}])` est appelé à un moment où `cachedPages` a été reset à `null` puis remis à `defaultPages` (clone vide), souvent autour de :
+- `switchUser()` (line ~8969 index.html) qui fait `cachedPages = null` puis `await loadPreferencesFromAPI()` — si une action utilisateur tombe entre les deux, ou si le load échoue partiellement, `getPages()` retourne `defaultPages` et un save subséquent écrase
+- Logout/login transitoire pendant qu'un debounce `savePages` est en attente
+- Init avec `apiEnabled = false` initial (ne devrait pas sauver, mais à vérifier)
+
+**Diagnostic** : comparer `pages[].apps` vs `customApps` keys dans le JSON. Si `customApps` est plein mais `pages[main].apps = []` → écrasement.
+
+**Récupération** :
+1. Backup global : `/data/preferences.json.bak` (depuis migration 6 mars 2026)
+2. Pour chaque user, récupérer depuis un autre user dont les prefs sont intactes (mohamed n'est jamais utilisé en prod, ses pages reflètent l'état post-migration) :
+   ```python
+   import json
+   with open('/data/users/mohamed/preferences.json') as f: src = json.load(f)
+   with open('/data/users/{user}/preferences.json') as f: dst = json.load(f)
+   dst['pages'] = src['pages']  # garde terminalState, hiddenFolders, etc.
+   with open('/data/users/{user}/preferences.json', 'w') as f: json.dump(dst, f, indent=2, ensure_ascii=False)
+   ```
+3. Recharger le launcher dans le navigateur
+
+**Protection à implémenter** (TODO) : dans `update_pages()` côté serveur (`server.py` ligne ~556), refuser le payload si c'est `[{id:main, apps:[]}]` ET que l'utilisateur a des `customApps` non vides — c'est forcément un reset accidentel.
 
 ## Authentification
 
