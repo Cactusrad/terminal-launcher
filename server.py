@@ -809,17 +809,32 @@ def sanitize_branch_for_dirname(branch):
     """Convert branch name to safe dirname: feat/login -> feat-login"""
     return re.sub(r'[^a-zA-Z0-9._-]', '-', branch)
 
+def detect_default_branch(project_path):
+    """Detect the repo's default branch (main/master), not the currently checked-out one."""
+    ok, out, _ = run_git(project_path, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
+    if ok and out:
+        # e.g. "origin/main" -> "main"
+        return out.split('/', 1)[1] if '/' in out else out
+    for candidate in ('main', 'master'):
+        ok, _, _ = run_git(project_path, ['show-ref', '--verify', '--quiet', f'refs/heads/{candidate}'])
+        if ok:
+            return candidate
+    return ''
+
 def get_git_info(project_path):
     """Get git status info for a project."""
     if not is_git_repo(project_path):
         return None
 
-    info = {'is_repo': True, 'branch': '', 'dirty': False, 'worktrees': [], 'branches': []}
+    info = {'is_repo': True, 'branch': '', 'default_branch': '', 'dirty': False, 'worktrees': [], 'branches': []}
 
     # Current branch
     ok, branch, _ = run_git(project_path, ['rev-parse', '--abbrev-ref', 'HEAD'])
     if ok:
         info['branch'] = branch
+
+    # Default branch (main/master) — reference for behind/merged calculations
+    info['default_branch'] = detect_default_branch(project_path)
 
     # Dirty check
     ok, status, _ = run_git(project_path, ['status', '--porcelain'])
@@ -856,8 +871,8 @@ def get_git_info(project_path):
         # Filter out Claude Code agent worktrees from display
         worktrees = [wt for wt in worktrees if '/.claude/worktrees/' not in wt.get('path', '')]
 
-        # Determine the main branch for behind-main detection
-        main_branch = info['branch']  # current branch of the main worktree
+        # Use the repo's default branch (main/master) for behind-main detection
+        main_branch = info['default_branch'] or info['branch']
 
         for wt in worktrees:
             dirname = os.path.basename(wt.get('path', ''))
@@ -882,9 +897,9 @@ def get_git_info(project_path):
                 'behind_main': behind_main
             })
 
-    # Detect merged branches (merged into current branch)
+    # Detect merged branches (merged into default branch — main/master)
     merged_branches = set()
-    main_branch = info.get('branch', '')
+    main_branch = info.get('default_branch', '') or info.get('branch', '')
     if main_branch:
         ok, merged_output, _ = run_git(project_path, ['branch', '--merged', main_branch, '--format=%(refname:short)'])
         if ok and merged_output:

@@ -2389,6 +2389,18 @@
             border: 1px solid rgba(255, 171, 0, 0.3);
             flex-shrink: 0;
         }
+        .default-branch-tag {
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            flex-shrink: 0;
+        }
         .branch-checkout-btn {
             background: none;
             border: 1px solid rgba(99, 102, 241, 0.3);
@@ -5964,7 +5976,8 @@
                             const wtActiveCount = terminalTabs.filter(t => t.project === wt.dirname).length;
                             const wtBadge = wtActiveCount > 0 ? `<span class="project-active-badge">${wtActiveCount}</span>` : '';
                             const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
-                            const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(gitInfo.branch)}">↓${wt.behind_main}</span>` : '';
+                            const behindRef = gitInfo.default_branch || gitInfo.branch;
+                            const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(behindRef)}">↓${wt.behind_main}</span>` : '';
                             return `
                                 <div class="worktree-item">
                                     <div class="worktree-name">
@@ -5993,17 +6006,21 @@
                             const brName = typeof brObj === 'string' ? brObj : brObj.name;
                             const brBehind = typeof brObj === 'object' ? (brObj.behind_main || 0) : 0;
                             const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                            const brBehindBadge = brBehind > 0 ? `<span class="behind-badge" title="${brBehind} commit(s) derrière ${escapeHtml(gitInfo.branch)}">↓${brBehind}</span>` : '';
+                            const brBehindRef = gitInfo.default_branch || gitInfo.branch;
+                            const brBehindBadge = brBehind > 0 ? `<span class="behind-badge" title="${brBehind} commit(s) derrière ${escapeHtml(brBehindRef)}">↓${brBehind}</span>` : '';
+                            const isDefault = brName === gitInfo.default_branch;
+                            const defaultTag = isDefault ? '<span class="default-branch-tag" title="Branche par défaut du repo">défaut</span>' : '';
+                            const deleteBtn = isDefault ? '' : `<button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer la branche" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem;margin-left:4px">✕</button>`;
                             return `
                                 <div class="branch-item">
                                     <div class="branch-name">
                                         <span class="git-type-icon branch" title="Branche locale">B</span>
                                         <span class="branch-label" title="${escapeHtml(brName)}">${escapeHtml(brName)}</span>
-                                        ${brBehindBadge}
+                                        ${defaultTag}${brBehindBadge}
                                     </div>
                                     <div class="project-actions">
                                         <button class="branch-checkout-btn" onclick="createWorktreeFromBranch('${jsProject}', '${brJs}')" title="Ouvrir comme worktree">↗ Worktree</button>
-                                        <button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer la branche" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem;margin-left:4px">✕</button>
+                                        ${deleteBtn}
                                     </div>
                                 </div>
                             `;
