@@ -11,6 +11,10 @@
 - [ ] Commiter les changements et push
 - [x] ~~BUG : service systemd `terminal-server` pointe vers l'ancien chemin `homepage-app`~~ (corrigé sur .200)
 
+## Bugs à investiguer
+
+- [ ] Bug report widget ne fonctionne plus (investiguer la connexion avec bugs_service sur http://192.168.1.200:9010)
+
 ## Améliorations prévues
 
 - [ ] Ajouter logging structuré (remplacer les `print()` par `logging`)

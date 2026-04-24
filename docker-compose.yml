@@ -6,8 +6,8 @@ services:
     ports:
       - "${PORT:-80}:80"
     environment:
-      - HOST_IP=${HOST_IP:-192.168.1.100}
-      - TERMINAL_SERVER_HOST=${TERMINAL_SERVER_HOST:-${HOST_IP:-192.168.1.100}}
+      - HOST_IP=${HOST_IP:?HOST_IP must be set in .env}
+      - TERMINAL_SERVER_HOST=${TERMINAL_SERVER_HOST:-${HOST_IP}}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
       - BUGS_API_URL=${BUGS_API_URL:-}
