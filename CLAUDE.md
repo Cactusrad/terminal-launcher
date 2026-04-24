@@ -308,6 +308,24 @@ Vérification après le travail ci-dessus :
 
 2. **🟠 Certs HTTPS auto-signés committés** (`certs/cert.pem`, `certs/key.pem`) : clé privée RSA 4096 visible dans l'historique. Risque limité (cert self-signed "Cactus Home" pour usage LAN uniquement, valide 2026→2036). **Résolu** : régénéré via openssl (nouveau fingerprint SHA1 `89:9A:16:DA:...`, valide jusqu'en 2036), ajouté `certs/*.pem` à `.gitignore`, `git rm --cached`, nginx redémarré. L'ancienne clé dans l'historique est désormais inutile car `.200` sert le nouveau cert.
 
-3. **🟠 `BUGS_API_KEY` hardcodée dans `index.html:8446`** (`TER_7cd1...`) : **risque connu accepté**. La clé est de toute façon visible dans le DevTools de tout utilisateur légitime du launcher. Le repo public n'ajoute pas significativement à l'exposition. L'attaque nécessite en plus un accès au LAN (`192.168.1.200:9010`) → exposition effective très limitée. Pour éliminer complètement : soit rendre le repo privé, soit migrer vers un proxy serveur dans `terminal-launcher` (frontend appelle `/api/bugs/*` du launcher, qui relay vers le bugs service avec la clé côté backend).
+3. **🟢 `BUGS_API_KEY` retirée de `index.html` — résolu par proxy serveur + cactus-secrets** (voir section suivante).
 
 4. **🟡 Mots de passe par défaut `12345`** pour `pierre` (admin) et `mohamed` dans `server.py:117,124` (seed au premier démarrage) : impact uniquement si quelqu'un déploie tel quel avec auth activée sans changer les mdp. Acceptable pour un homelab, à documenter dans le README si on en crée un.
+
+**Migration vers cactus-secrets (coffre-fort centralisé)**
+
+Ajout d'un client `cactus_secrets_client.py` (88 lignes, copié depuis `/home/cactus/claude/cactus-secrets/clients/python/`) et refactor de la gestion des secrets runtime :
+
+- Nouveau namespace `launcher` dans cactus-secrets (sur `.100:9020`) avec trois clés : `bugs_api_key`, `telegram_bot_token`, `telegram_chat_id`
+- Deux tokens scopés `read:launcher/*` : `launcher-200` et `launcher-100`, un par machine (rotation indépendante)
+- `server.py` : bloc `# ============ Cactus Secrets client ============`, helper `secret_or_env(namespace, key, env_fallback)` qui lit depuis cactus-secrets avec cache 5 min, fallback sur la variable d'env si client non initialisé ou read en échec
+- `send_telegram()` : fetch `launcher/telegram_bot_token` + `launcher/telegram_chat_id` au lieu des env vars
+- Deux nouveaux endpoints `/api/bugs/issues` (POST) et `/api/bugs/issues/<ref>/attachments` (POST) qui proxy vers `BUGS_API_URL` avec la clé `launcher/bugs_api_key` côté backend
+- `index.html` : `BUGS_API_KEY` constante supprimée, `BUGS_API_URL` pointe sur `/api/bugs` (relatif), plus aucune clé envoyée au navigateur. Auth: `/api/bugs/*` suit le middleware standard (auto-login LAN sur `.200`, libre sur `.100`).
+- `docker-compose.yml` : nouvelles env vars `SECRETS_URL` et `SECRETS_TOKEN` passées au container
+- `Dockerfile` : `COPY cactus_secrets_client.py .` dans le build
+- `.env` : ne contient plus aucun secret applicatif — seul `SECRETS_TOKEN` reste, scopé read-only, révocable indépendamment depuis cactus-secrets sans toucher au code ni aux apps
+
+**Rotation des secrets** : `PUT /secrets/launcher/<key>` côté cactus-secrets avec le bootstrap admin token, cache invalidé en ~5 min sur les backends, zero redéploiement.
+
+Commits : `3283eb9` (master), cherry-pick `daab27f` (main), `a6d154f` (docs `.env.example`).
