@@ -12,6 +12,8 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
       - BUGS_API_URL=${BUGS_API_URL:-}
       - BUGS_API_KEY=${BUGS_API_KEY:-}
+      - SECRETS_URL=${SECRETS_URL:-}
+      - SECRETS_TOKEN=${SECRETS_TOKEN:-}
     volumes:
       - launcher-data:/data
       - /home/cactus/claude:/home/cactus/claude:rw
