@@ -5864,11 +5864,13 @@
                 return `<span class="tab-branch ${cssClass}">${escapeHtml(branch)}</span>`;
             }
 
-            // For regular projects, use gitInfo
+            // For regular project tabs, show the repo's default branch (stable label
+            // identifying the "main" tab) rather than the current checkout, which can
+            // drift when the user checks out a feature branch in the main folder.
             const gitInfo = projectGitInfo[tab.project];
-            if (!gitInfo || !gitInfo.branch) return '';
-
-            const branch = gitInfo.branch;
+            if (!gitInfo) return '';
+            const branch = gitInfo.default_branch || gitInfo.branch;
+            if (!branch) return '';
             const isMain = (branch === 'main' || branch === 'master');
             const cssClass = isMain ? 'main' : 'feature';
             return `<span class="tab-branch ${cssClass}">${escapeHtml(branch)}</span>`;
