@@ -203,8 +203,10 @@ terminal-launcher/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
-- **Déploiement** : toujours déployer sur les DEUX machines (.200 d'abord, puis .100 via SCP + SSH). Le dev/git se fait sur .200 (`~/claude/terminal-launcher/`), la prod est sur .100 (`~/terminal-launcher/`).
-- **Déploiement indépendant** : chaque install (.100, .200) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
+- **Déploiement** : dev sur `.200` (`~/claude/terminal-launcher/`, branche `master`), prod sur `.100` (`~/terminal-launcher/`, branche `main`). **Règle** : toute modif part de `.200` → commit → push → `git pull` sur `.100` → `docker compose build && docker compose up -d --force-recreate`. **Jamais d'edit direct sur `.100`** (ni `ssh ... sed`, ni `docker cp`, ni SCP d'un fichier isolé) — ça crée une divergence entre prod et Git.
+- **Topologie divergente entre `main` et `master`** : `main` (prod `.100`) expose le port 180 en direct (`PORT=180` dans `.env`), pas d'HTTPS, pas de multi-user auth. `master` (dev `.200`) ajoute nginx reverse-proxy + HTTPS (certs dans `./certs/`), multi-user auth avec `SECRET_KEY`, détection default_branch. Un merge `master` → `main` nécessiterait de provisionner nginx + certs + `SECRET_KEY` sur `.100` avant rebuild — pas fait, réconciliation à planifier séparément.
+- **Déploiement indépendant** : chaque install (`.100`, `.200`) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
+- **Remote git sur `.100`** : `git@github.com:Cactusrad/terminal-launcher.git` (SSH via `~/.ssh/github_key`). `.100` utilisait HTTPS au départ, basculé en SSH le 24 avril 2026 pour permettre les `git push` sans prompt credentials.
 - **Persistance** : toutes les données (users, préférences, apps, secret key) survivent aux rebuilds Docker grâce au volume `launcher-data`
 - **Cookie session** : nommé `cactus_session` (pas `session`) pour éviter les conflits avec d'anciens cookies
 - **SECRET_KEY** : env var optionnelle ; si absente, auto-générée et persistée dans `/data/.secret_key`
@@ -241,3 +243,38 @@ Permet à plusieurs appareils de voir les mêmes onglets terminaux en temps rée
 - `terminalInstances` Map : tabId → `{ terminal, fitAddon, ws, resizeObserver, reconnectTimer }`
 - `disposedTabs` Set : tabIds fermés volontairement (empêche la reconnexion)
 - `syncInterval` : ID du setInterval de polling
+
+## Session du 24 avril 2026
+
+**BUG-152 : nom des worktrees dans la sidebar ≠ nom des onglets**
+
+Cause : la sidebar affichait `wt.branch` (ex. `fix/demande-par-dropdown-clipping`) alors que l'onglet terminal affichait `tab.name = wt.dirname` (ex. `cactus_erp--quote`). Deux conventions de nommage pour la même ressource.
+
+Fix : `index.html:5985` — la sidebar affiche `wt.dirname` dans le texte principal, le nom de branche git reste disponible dans le tooltip `title="dirname — branche: <branch>"`. Sidebar = onglet, au caractère près. Commit `c5b7565` sur `master`, reporté dans `955338e` sur `main`.
+
+**feat: detect default branch (main/master)**
+
+Nouveau champ `default_branch` dans `get_git_info()` (`server.py`), détecté via `symbolic-ref refs/remotes/origin/HEAD` puis fallback `main` / `master`. Utilisé pour :
+- calcul `behind_main` des worktrees et branches (au lieu de la branche courante)
+- détection `merged` des branches
+- badge "défaut" et masquage du bouton supprimer sur la branche par défaut dans la sidebar
+
+Commit `7e229a6` sur `master` uniquement (pas sur `main` — .100 reste sans cette feature tant que `main` n'est pas mergé).
+
+**Nettoyage du working tree sur `.100`**
+
+`.100` avait 6 fichiers non commités (HOST_IP required, TODO.md, index.html avec la BUG-152 appliquée en in-place edit) — capturés dans le commit `955338e` sur `main`. Le remote est passé de HTTPS à SSH pour permettre le push. Working tree de `.100` maintenant propre et aligné avec `origin/main`.
+
+**BUG-153 : préfixe du projet parent redondant dans les noms de worktree**
+
+Suite de BUG-152. Comme la sidebar affichait maintenant le dirname complet (`cactus_erp--command`, `cactus_erp--chatwoot`, etc.), le préfixe `cactus_erp--` devenait redondant visuellement — les worktrees sont déjà groupés sous leur projet parent dans l'arborescence.
+
+Fix : nouveau helper `worktreeDisplayName(dirname)` dans `index.html` qui split sur le premier `--` et renvoie le suffixe. Appliqué à 4 endroits :
+- `index.html:5985` (sidebar worktree item — tooltip conserve le dirname complet + branche)
+- `index.html:5339` (`createTerminalTab` → `tab.name`)
+- `index.html:5375` (`createTeamTerminal` → `tab.name`)
+- `index.html:6564` (auto-discovery dtach → `tab.name`)
+
+Parité sidebar ↔ onglet terminal (contrainte de BUG-152) préservée : les deux affichent le nom court. `tab.project` reste le dirname complet (identifiant fonctionnel utilisé par le backend pour `cd`). Les onglets déjà ouverts gardent leur ancien nom long — le sync `syncTerminalTabs()` merge par `tmuxSession` sans écraser `tab.name` existant, il faut close/reopen pour appliquer.
+
+Commit `4e3f75e` sur `master` uniquement (pas sur `main`).
