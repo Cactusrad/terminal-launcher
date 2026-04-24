@@ -44,6 +44,9 @@ PREFERENCES_FILE = DATA_DIR / 'preferences.json'
 APPS_FILE = DATA_DIR / 'apps.json'
 ERP_REQUESTS_FILE = DATA_DIR / 'erp_requests.json'
 
+# GitHub
+GITHUB_USER = os.environ.get('GITHUB_USER', 'Cactusrad')
+
 # Legacy aliases
 TERMINAL_LOG_DIR = str(LOG_DIR)
 

@@ -8,6 +8,7 @@ import os
 import re
 import glob
 import time
+import subprocess
 
 try:
     from config import (
@@ -16,6 +17,7 @@ try:
         TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_API_URL,
         HOST_IP, BUGS_API_URL, BUGS_API_KEY,
         TERMINAL_WS_PORT, TERMINAL_SERVER_HOST,
+        GITHUB_USER,
         ensure_data_dir, get_base_url,
     )
     TERMINAL_LOG_DIR = str(LOG_DIR)
@@ -39,6 +41,7 @@ except ImportError:
     TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}" if TELEGRAM_BOT_TOKEN else ''
     BUGS_API_URL = os.environ.get('BUGS_API_URL', '')
     BUGS_API_KEY = os.environ.get('BUGS_API_KEY', '')
+    GITHUB_USER = os.environ.get('GITHUB_USER', 'Cactusrad')
     def ensure_data_dir():
         DATA_DIR.mkdir(parents=True, exist_ok=True)
     def get_base_url(port, path=''):
@@ -416,6 +419,147 @@ def health():
 # ============ Projects/Folders Management ============
 CLAUDE_PROJECTS_DIR = PROJECTS_DIR
 
+# --- Git helpers ---
+
+def get_project_path(name):
+    """Validate project name and return absolute path. Blocks path traversal."""
+    if not name or '..' in name or '/' in name or '\\' in name:
+        return None
+    return os.path.join(str(CLAUDE_PROJECTS_DIR), name)
+
+def is_git_repo(path):
+    """Check if path is a git repo (regular or worktree)."""
+    git_path = os.path.join(path, '.git')
+    return os.path.isdir(git_path) or os.path.isfile(git_path)
+
+def run_git(path, args, timeout=10):
+    """Run a git command safely. Returns (success, stdout, stderr)."""
+    try:
+        env = os.environ.copy()
+        env['GIT_SSH_COMMAND'] = 'ssh -i /root/.ssh/github_key -o StrictHostKeyChecking=accept-new'
+        result = subprocess.run(
+            ['git', '-C', path] + args,
+            capture_output=True, text=True, timeout=timeout, env=env
+        )
+        return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return False, '', 'Command timed out'
+    except Exception as e:
+        return False, '', str(e)
+
+def get_main_project(name):
+    """If name contains '--', return the parent project name."""
+    if '--' in name:
+        return name.split('--')[0]
+    return None
+
+def sanitize_branch_for_dirname(branch):
+    """Convert branch name to safe dirname: feat/login -> feat-login"""
+    return re.sub(r'[^a-zA-Z0-9._-]', '-', branch)
+
+def detect_default_branch(project_path):
+    """Detect the repo's default branch (main/master), not the currently checked-out one."""
+    ok, out, _ = run_git(project_path, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
+    if ok and out:
+        return out.split('/', 1)[1] if '/' in out else out
+    for candidate in ('main', 'master'):
+        ok, _, _ = run_git(project_path, ['show-ref', '--verify', '--quiet', f'refs/heads/{candidate}'])
+        if ok:
+            return candidate
+    return ''
+
+def get_git_info(project_path):
+    """Get git status info for a project."""
+    if not is_git_repo(project_path):
+        return None
+
+    info = {'is_repo': True, 'branch': '', 'default_branch': '', 'dirty': False, 'worktrees': [], 'branches': []}
+
+    ok, branch, _ = run_git(project_path, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if ok:
+        info['branch'] = branch
+
+    info['default_branch'] = detect_default_branch(project_path)
+
+    ok, status, _ = run_git(project_path, ['status', '--porcelain'])
+    if ok:
+        info['dirty'] = len(status) > 0
+
+    worktree_branches = set()
+    if branch:
+        worktree_branches.add(branch)
+
+    ok, output, _ = run_git(project_path, ['worktree', 'list', '--porcelain'])
+    if ok and output:
+        worktrees = []
+        current_wt = {}
+        for line in output.split('\n'):
+            if line.startswith('worktree '):
+                if current_wt and current_wt.get('path') != project_path:
+                    worktrees.append(current_wt)
+                current_wt = {'path': line[9:]}
+            elif line.startswith('branch '):
+                ref = line[7:]
+                current_wt['branch'] = ref.replace('refs/heads/', '')
+            elif line.startswith('HEAD '):
+                current_wt['head'] = line[5:]
+        if current_wt and current_wt.get('path') != project_path:
+            worktrees.append(current_wt)
+
+        for wt in worktrees:
+            wt_branch = wt.get('branch', '')
+            if wt_branch:
+                worktree_branches.add(wt_branch)
+        worktrees = [wt for wt in worktrees if '/.claude/worktrees/' not in wt.get('path', '')]
+
+        main_branch = info['default_branch'] or info['branch']
+
+        for wt in worktrees:
+            dirname = os.path.basename(wt.get('path', ''))
+            wt_branch = wt.get('branch', '')
+            wt_dirty = False
+            wt_path = wt.get('path', '')
+            if os.path.isdir(wt_path):
+                ok2, wt_status, _ = run_git(wt_path, ['status', '--porcelain'])
+                if ok2:
+                    wt_dirty = len(wt_status) > 0
+            behind_main = 0
+            if wt_branch and main_branch and wt_branch != main_branch:
+                ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{wt_branch}..{main_branch}'])
+                if ok3 and count.strip().isdigit():
+                    behind_main = int(count.strip())
+            info['worktrees'].append({
+                'branch': wt_branch,
+                'dirname': dirname,
+                'dirty': wt_dirty,
+                'behind_main': behind_main
+            })
+
+    merged_branches = set()
+    main_branch = info.get('default_branch', '') or info.get('branch', '')
+    if main_branch:
+        ok, merged_output, _ = run_git(project_path, ['branch', '--merged', main_branch, '--format=%(refname:short)'])
+        if ok and merged_output:
+            merged_branches = set(merged_output.split('\n'))
+
+    ok, br_output, _ = run_git(project_path, ['branch', '--format=%(refname:short)'])
+    if ok and br_output:
+        for b in br_output.split('\n'):
+            if not b or b in worktree_branches:
+                continue
+            if b.startswith('worktree-agent-'):
+                continue
+            is_merged = b in merged_branches and b != main_branch
+            behind_main = 0
+            if not is_merged and main_branch and b != main_branch:
+                ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{b}..{main_branch}'])
+                if ok3 and count.strip().isdigit():
+                    behind_main = int(count.strip())
+            info['branches'].append({'name': b, 'behind_main': behind_main, 'merged': is_merged})
+
+    return info
+
+
 @app.route('/api/projects/folders', methods=['GET'])
 def get_project_folders():
     """Retourne la liste des dossiers projet en scannant le volume monté localement"""
@@ -429,15 +573,33 @@ def get_project_folders():
                     folders.append(item)
         folders.sort(key=str.lower)
 
-        # Filtrer les dossiers cachés
+        worktree_dirs = set()
+        for f in folders:
+            parent = get_main_project(f)
+            if parent and parent in folders:
+                worktree_dirs.add(f)
+
+        main_folders = [f for f in folders if f not in worktree_dirs]
+
         prefs = load_preferences()
         hidden = prefs.get('hiddenFolders', [])
-        visible_folders = [f for f in folders if f not in hidden]
+        visible_folders = [f for f in main_folders if f not in hidden]
 
-        return jsonify({
+        result = {
             "folders": visible_folders,
             "hidden": hidden
-        })
+        }
+
+        if request.args.get('git') == '1':
+            git_info = {}
+            for folder in visible_folders:
+                folder_path = os.path.join(str(CLAUDE_PROJECTS_DIR), folder)
+                info = get_git_info(folder_path)
+                if info:
+                    git_info[folder] = info
+            result['git'] = git_info
+
+        return jsonify(result)
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -478,6 +640,221 @@ def create_project_folder():
         return jsonify({"status": "ok", "folder": name})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============ Git Integration ============
+
+BRANCH_NAME_RE = re.compile(r'^[a-zA-Z0-9._/\-]+$')
+
+@app.route('/api/projects/<project>/git/status', methods=['GET'])
+def get_git_status(project):
+    """Get git status: branch, dirty, ahead/behind, last commit"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    info = {'branch': '', 'dirty': False, 'ahead': 0, 'behind': 0, 'last_commit': ''}
+
+    ok, branch, _ = run_git(path, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if ok:
+        info['branch'] = branch
+
+    ok, status, _ = run_git(path, ['status', '--porcelain'])
+    if ok:
+        info['dirty'] = len(status) > 0
+
+    ok, ab, _ = run_git(path, ['rev-list', '--left-right', '--count', f'{branch}...@{{u}}'])
+    if ok and '\t' in ab:
+        parts = ab.split('\t')
+        info['ahead'] = int(parts[0])
+        info['behind'] = int(parts[1])
+
+    ok, log, _ = run_git(path, ['log', '-1', '--format=%h %s'])
+    if ok:
+        info['last_commit'] = log
+
+    return jsonify(info)
+
+@app.route('/api/projects/<project>/git/branches', methods=['GET'])
+def get_git_branches(project):
+    """List local and remote branches"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    run_git(path, ['fetch', '--prune'], timeout=15)
+
+    branches = {'local': [], 'remote': [], 'current': ''}
+
+    ok, current, _ = run_git(path, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if ok:
+        branches['current'] = current
+
+    ok, output, _ = run_git(path, ['branch', '--format=%(refname:short)'])
+    if ok:
+        branches['local'] = [b for b in output.split('\n') if b]
+
+    ok, output, _ = run_git(path, ['branch', '-r', '--format=%(refname:short)'])
+    if ok:
+        branches['remote'] = [b for b in output.split('\n') if b and 'HEAD' not in b]
+
+    return jsonify(branches)
+
+@app.route('/api/projects/<project>/git/branches/<path:branch>', methods=['DELETE'])
+def delete_git_branch(project, branch):
+    """Delete a local git branch"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    if not branch or '..' in branch or branch.startswith('-'):
+        return jsonify({"status": "error", "message": "Nom de branche invalide"}), 400
+
+    ok, current, _ = run_git(path, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if ok and current == branch:
+        return jsonify({"status": "error", "message": "Impossible de supprimer la branche courante"}), 400
+
+    force = request.args.get('force') == '1'
+    flag = '-D' if force else '-d'
+    ok, out, err = run_git(path, ['branch', flag, branch])
+
+    if not ok:
+        if 'not fully merged' in err:
+            return jsonify({"status": "error", "message": f"La branche '{branch}' n'est pas entièrement mergée. Utilisez ?force=1 pour forcer."}), 409
+        return jsonify({"status": "error", "message": err}), 500
+
+    return jsonify({"status": "ok"})
+
+@app.route('/api/projects/<project>/git/worktrees', methods=['GET'])
+def get_git_worktrees(project):
+    """List active worktrees"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    info = get_git_info(path)
+    return jsonify({"worktrees": info.get('worktrees', []) if info else []})
+
+@app.route('/api/projects/<project>/git/worktrees', methods=['POST'])
+def create_git_worktree(project):
+    """Create a new worktree with a branch"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    data = request.get_json()
+    branch = data.get('branch', '').strip()
+    new_branch = data.get('new', True)
+
+    if not branch or not BRANCH_NAME_RE.match(branch):
+        return jsonify({"status": "error", "message": "Nom de branche invalide"}), 400
+
+    dirname = f"{project}--{sanitize_branch_for_dirname(branch)}"
+    wt_path = os.path.join(str(CLAUDE_PROJECTS_DIR), dirname)
+
+    if os.path.exists(wt_path):
+        return jsonify({"status": "error", "message": f"Le dossier {dirname} existe déjà"}), 409
+
+    if new_branch:
+        ok, out, err = run_git(path, ['worktree', 'add', '-b', branch, wt_path])
+    else:
+        ok, out, err = run_git(path, ['worktree', 'add', wt_path, branch])
+
+    if not ok:
+        return jsonify({"status": "error", "message": err}), 500
+
+    return jsonify({"status": "ok", "dirname": dirname, "branch": branch})
+
+@app.route('/api/projects/<project>/git/worktrees/<dirname>', methods=['DELETE'])
+def delete_git_worktree(project, dirname):
+    """Remove a worktree"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+
+    if '..' in dirname or '/' in dirname or '\\' in dirname:
+        return jsonify({"status": "error", "message": "Nom invalide"}), 400
+
+    wt_path = os.path.join(str(CLAUDE_PROJECTS_DIR), dirname)
+    if not os.path.isdir(wt_path):
+        return jsonify({"status": "error", "message": "Worktree introuvable"}), 404
+
+    force = request.args.get('force') == '1'
+    if not force:
+        ok, status, _ = run_git(wt_path, ['status', '--porcelain'])
+        if ok and len(status) > 0:
+            return jsonify({"status": "error", "message": "Worktree contient des modifications non commités. Utilisez ?force=1 pour forcer."}), 409
+
+    args = ['worktree', 'remove', wt_path]
+    if force:
+        args.append('--force')
+    ok, out, err = run_git(path, args)
+
+    if not ok:
+        return jsonify({"status": "error", "message": err}), 500
+
+    return jsonify({"status": "ok"})
+
+@app.route('/api/projects/<project>/git/remotes', methods=['GET'])
+def get_git_remotes(project):
+    """Get remotes and auto-detect GitHub"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+    if not is_git_repo(path):
+        return jsonify({"status": "error", "message": "Pas un dépôt git"}), 400
+
+    ok, output, _ = run_git(path, ['remote', '-v'])
+    remotes = []
+    if ok:
+        seen = set()
+        for line in output.split('\n'):
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[0]
+                url = parts[1]
+                if name not in seen:
+                    seen.add(name)
+                    remotes.append({'name': name, 'url': url})
+
+    return jsonify({"remotes": remotes})
+
+@app.route('/api/projects/<project>/git/link', methods=['POST'])
+def link_git_repo(project):
+    """Init git and/or add remote origin"""
+    path = get_project_path(project)
+    if not path or not os.path.isdir(path):
+        return jsonify({"status": "error", "message": "Projet introuvable"}), 404
+
+    data = request.get_json()
+    url = data.get('url', '').strip()
+
+    if not url:
+        url = f"git@github.com:{GITHUB_USER}/{project}.git"
+
+    if not is_git_repo(path):
+        ok, _, err = run_git(path, ['init'])
+        if not ok:
+            return jsonify({"status": "error", "message": f"git init failed: {err}"}), 500
+
+    ok, existing, _ = run_git(path, ['remote', 'get-url', 'origin'])
+    if ok:
+        run_git(path, ['remote', 'set-url', 'origin', url])
+    else:
+        ok, _, err = run_git(path, ['remote', 'add', 'origin', url])
+        if not ok:
+            return jsonify({"status": "error", "message": f"remote add failed: {err}"}), 500
+
+    return jsonify({"status": "ok", "url": url})
 
 # ============ ERP Requests Management ============
 
