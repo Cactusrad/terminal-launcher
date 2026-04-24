@@ -5299,6 +5299,12 @@
             });
         }
 
+        // Worktree dirs follow `{parent}--{branch}` — strip the parent prefix for display.
+        function worktreeDisplayName(dirname) {
+            const idx = dirname.indexOf('--');
+            return idx === -1 ? dirname : dirname.slice(idx + 2);
+        }
+
         function createTerminalTab(type, project) {
             const typeInfo = terminalTypes[type];
             if (!typeInfo) return;
@@ -5317,7 +5323,7 @@
             const tabId = generateTabId();
             const tab = {
                 id: tabId,
-                name: project,
+                name: worktreeDisplayName(project),
                 type: type,
                 project: project,
                 tmuxSession: sessionName,
@@ -5353,7 +5359,7 @@
             const tabId = generateTabId();
             const tab = {
                 id: tabId,
-                name: `${project} → ${name}`,
+                name: `${worktreeDisplayName(project)} → ${name}`,
                 type: 'team',
                 project: project,
                 tmuxSession: sessionName,
@@ -5967,7 +5973,7 @@
                                 <div class="worktree-item">
                                     <div class="worktree-name">
                                         <span class="git-type-icon worktree" title="Worktree (dossier séparé)">W</span>
-                                        <span class="worktree-branch" title="${escapeHtml(wt.dirname)} — branche: ${escapeHtml(wt.branch)}">${escapeHtml(wt.dirname)}</span>
+                                        <span class="worktree-branch" title="${escapeHtml(wt.dirname)} — branche: ${escapeHtml(wt.branch)}">${escapeHtml(worktreeDisplayName(wt.dirname))}</span>
                                         ${dirtyDot}${behindBadge}${wtBadge}
                                     </div>
                                     <div class="project-actions">
@@ -6537,7 +6543,7 @@
                     const type = sessionName.startsWith('team_') ? 'team' : 'claude';
                     const newTab = {
                         id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                        name: project,
+                        name: worktreeDisplayName(project),
                         type: type,
                         project: project,
                         tmuxSession: sessionName,
