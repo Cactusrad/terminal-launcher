@@ -13,6 +13,8 @@ services:
       - BUGS_API_URL=${BUGS_API_URL:-}
       - BUGS_API_KEY=${BUGS_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-}
+      - SECRETS_URL=${SECRETS_URL:-}
+      - SECRETS_TOKEN=${SECRETS_TOKEN:-}
     volumes:
       - launcher-data:/data
       - /home/cactus/claude:/home/cactus/claude:rw

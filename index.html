@@ -8442,8 +8442,9 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
         }
 
         // ============ Bug Report Functions ============
-        const BUGS_API_URL = 'http://192.168.1.200:9010/api/v1';
-        const BUGS_API_KEY = 'TER_7cd1faed7236bf146a8f13d24958e572883b6a286350894d';
+        // Bugs service calls go through the backend proxy (/api/bugs/*), which
+        // fetches the bearer key from cactus-secrets. No API key in the browser.
+        const BUGS_API_URL = '/api/bugs';
         let bugScreenshotFile = null;
         let bugAnnotationImg = null;
         let bugAnnotationStrokes = [];
@@ -8761,8 +8762,7 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 const response = await fetch(`${BUGS_API_URL}/issues`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${BUGS_API_KEY}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         type: type,
@@ -8791,7 +8791,6 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                         formData.append('file', bugScreenshotFile, 'screenshot.png');
                         await fetch(`${BUGS_API_URL}/issues/${data.reference}/attachments`, {
                             method: 'POST',
-                            headers: { 'Authorization': `Bearer ${BUGS_API_KEY}` },
                             body: formData
                         });
                     }

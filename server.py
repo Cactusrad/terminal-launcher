@@ -62,6 +62,26 @@ try:
 except ImportError:
     http_requests = None
 
+# ============ Cactus Secrets client ============
+SECRETS_URL = os.environ.get('SECRETS_URL', '')
+SECRETS_TOKEN = os.environ.get('SECRETS_TOKEN', '')
+_secrets_client = None
+if SECRETS_URL and SECRETS_TOKEN:
+    try:
+        from cactus_secrets_client import SecretsClient
+        _secrets_client = SecretsClient(url=SECRETS_URL, token=SECRETS_TOKEN)
+    except Exception as e:
+        print(f"[SECRETS] init failed: {e} — falling back to env vars")
+
+def secret_or_env(namespace, key, env_fallback):
+    """Fetch secret from cactus-secrets, or fall back to env var value."""
+    if _secrets_client:
+        try:
+            return _secrets_client.get(namespace, key, default=env_fallback)
+        except Exception as e:
+            print(f"[SECRETS] read {namespace}/{key} failed: {e} — using env fallback")
+    return env_fallback
+
 app = Flask(__name__, static_folder=None)
 
 # ============ Secret Key Setup ============
@@ -192,12 +212,14 @@ def send_telegram(message, parse_mode="HTML"):
     if http_requests is None:
         print("Module requests non disponible")
         return False
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram non configuré (variables d'environnement manquantes)")
+    bot_token = secret_or_env('launcher', 'telegram_bot_token', TELEGRAM_BOT_TOKEN)
+    chat_id = secret_or_env('launcher', 'telegram_chat_id', TELEGRAM_CHAT_ID)
+    if not bot_token or not chat_id:
+        print("Telegram non configuré (ni cactus-secrets ni variables d'environnement)")
         return False
     try:
-        http_requests.post(f"{TELEGRAM_API_URL}/sendMessage", data={
-            "chat_id": TELEGRAM_CHAT_ID,
+        http_requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", data={
+            "chat_id": chat_id,
             "text": message,
             "parse_mode": parse_mode
         }, timeout=10)
@@ -1239,6 +1261,44 @@ def link_git_repo(project):
             return jsonify({"status": "error", "message": f"remote add failed: {err}"}), 500
 
     return jsonify({"status": "ok", "url": url})
+
+# ============ Bugs Service Proxy ============
+# The frontend calls these instead of hitting bugs_service directly, so the
+# bearer key stays on the backend (fetched from cactus-secrets).
+
+def _bugs_headers():
+    key = secret_or_env('launcher', 'bugs_api_key', BUGS_API_KEY)
+    return {'Authorization': f'Bearer {key}'} if key else {}
+
+@app.route('/api/bugs/issues', methods=['POST'])
+def bugs_create_issue():
+    if http_requests is None or not BUGS_API_URL:
+        return jsonify({"error": "bugs service non configuré"}), 503
+    headers = _bugs_headers()
+    if not headers:
+        return jsonify({"error": "clé API bugs manquante"}), 503
+    headers['Content-Type'] = 'application/json'
+    try:
+        r = http_requests.post(f"{BUGS_API_URL}/issues", json=request.get_json(), headers=headers, timeout=10)
+        return (r.content, r.status_code, {'Content-Type': r.headers.get('Content-Type', 'application/json')})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+@app.route('/api/bugs/issues/<ref>/attachments', methods=['POST'])
+def bugs_upload_attachment(ref):
+    if http_requests is None or not BUGS_API_URL:
+        return jsonify({"error": "bugs service non configuré"}), 503
+    headers = _bugs_headers()
+    if not headers:
+        return jsonify({"error": "clé API bugs manquante"}), 503
+    try:
+        files = {}
+        for name, storage in request.files.items():
+            files[name] = (storage.filename, storage.stream, storage.mimetype)
+        r = http_requests.post(f"{BUGS_API_URL}/issues/{ref}/attachments", files=files, headers=headers, timeout=30)
+        return (r.content, r.status_code, {'Content-Type': r.headers.get('Content-Type', 'application/json')})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
 
 # ============ ERP Requests Management ============
 
