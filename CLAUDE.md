@@ -277,4 +277,37 @@ Fix : nouveau helper `worktreeDisplayName(dirname)` dans `index.html` qui split 
 
 Parité sidebar ↔ onglet terminal (contrainte de BUG-152) préservée : les deux affichent le nom court. `tab.project` reste le dirname complet (identifiant fonctionnel utilisé par le backend pour `cd`). Les onglets déjà ouverts gardent leur ancien nom long — le sync `syncTerminalTabs()` merge par `tmuxSession` sans écraser `tab.name` existant, il faut close/reopen pour appliquer.
 
-Commit `4e3f75e` sur `master` uniquement (pas sur `main`).
+Commit `4e3f75e` sur `master`, cherry-pick `e651aa3` sur `main` (.100).
+
+**BUG-154 : onglet du projet principal affiche la branche checked-out au lieu de la default**
+
+Les onglets de projet régulier (non-worktree) affichaient `gitInfo.branch` (checkout courant) — instable quand le dossier principal est sur une feature branch. Résultat : `terminal-launcher` montrait "master" (vert) mais `cactus_erp` montrait "fix/mcmaster-l" (bleu) car le dossier principal de cactus_erp était checkout sur cette branche.
+
+Fix : `getTabBranchBadge()` (`index.html:5858`) utilise désormais `gitInfo.default_branch || gitInfo.branch`. Les onglets de projet régulier affichent toujours la branche par défaut du repo (stable, vert "main"/"master"). Les onglets worktree (`project--branch`) sont inchangés — ils affichent leur branche spécifique.
+
+Commit `7ff129c` sur `master`, cherry-pick `f528b6d` sur `main`.
+
+**Backport : infrastructure git sur `.100/main`**
+
+Découvert que BUG-153/154 étaient inactifs sur `.100` — le backend `server.py` n'émettait aucune info git (le payload `/api/projects/folders?git=1` renvoyait juste des strings sans `branch`/`worktrees`/`default_branch`). Backport surgical depuis master :
+
+- `Dockerfile` : ajout `git + openssh-client`, config SSH (`IdentityFile /root/.ssh/github_key`, `StrictHostKeyChecking accept-new`), `git config --global safe.directory='*'`
+- `config.py` : variable `GITHUB_USER` (défaut `Cactusrad`)
+- `docker-compose.yml` : montage `~/.ssh/github_key` et `known_hosts` du host dans `/root/.ssh/` du conteneur (ro)
+- `server.py` : import `subprocess`, bloc de 6 helpers git (`get_project_path`, `is_git_repo`, `run_git`, `get_main_project`, `sanitize_branch_for_dirname`, `detect_default_branch`), fonction `get_git_info()` (branche, default_branch, dirty, worktrees avec behind_main, branches locales avec merged/behind_main), support `?git=1` sur `/api/projects/folders` (avec grouping des worktrees), 8 endpoints git (`/status`, `/branches` GET, `/branches/<b>` DELETE, `/worktrees` GET/POST, `/worktrees/<d>` DELETE, `/remotes`, `/link`)
+
+**Explicitement non backporté** : multi-user auth (`bcrypt`, `SECRET_KEY`, `USERS_*`, `users.json`), nginx reverse-proxy + HTTPS, détection LAN auto-login. `main` reste single-user port 180 direct. La topologie divergente master/main persiste donc, mais réduite à : auth + nginx/HTTPS seulement.
+
+Commit `2de40df` sur `main` uniquement.
+
+**Audit sécurité — repo public Cactusrad/terminal-launcher**
+
+Vérification après le travail ci-dessus :
+
+1. **🔴 Telegram bot token fuité dans l'historique git** (commit `701b6213`) : `TELEGRAM_BOT_TOKEN="8559016458:AAFZJLQO_Mm3ew-L9nbmWWTwOOManjbcszc"` hardcodé dans `server.py` avant d'être migré vers `.env`. Bot compromis = `Cactus-vm-server` (@CactusMainBot). **Résolu** : ancien token révoqué via BotFather (confirmé `401 Unauthorized`), nouveau token `8559016458:AAE7sS5AFM85rNCUn-U3FoeKtPLIQaD-w3A` dans `.env` sur `.200`, conteneur redémarré, message test envoyé. `.100` n'avait pas Telegram configuré.
+
+2. **🟠 Certs HTTPS auto-signés committés** (`certs/cert.pem`, `certs/key.pem`) : clé privée RSA 4096 visible dans l'historique. Risque limité (cert self-signed "Cactus Home" pour usage LAN uniquement, valide 2026→2036). **Résolu** : régénéré via openssl (nouveau fingerprint SHA1 `89:9A:16:DA:...`, valide jusqu'en 2036), ajouté `certs/*.pem` à `.gitignore`, `git rm --cached`, nginx redémarré. L'ancienne clé dans l'historique est désormais inutile car `.200` sert le nouveau cert.
+
+3. **🟠 `BUGS_API_KEY` hardcodée dans `index.html:8446`** (`TER_7cd1...`) : **risque connu accepté**. La clé est de toute façon visible dans le DevTools de tout utilisateur légitime du launcher. Le repo public n'ajoute pas significativement à l'exposition. L'attaque nécessite en plus un accès au LAN (`192.168.1.200:9010`) → exposition effective très limitée. Pour éliminer complètement : soit rendre le repo privé, soit migrer vers un proxy serveur dans `terminal-launcher` (frontend appelle `/api/bugs/*` du launcher, qui relay vers le bugs service avec la clé côté backend).
+
+4. **🟡 Mots de passe par défaut `12345`** pour `pierre` (admin) et `mohamed` dans `server.py:117,124` (seed au premier démarrage) : impact uniquement si quelqu'un déploie tel quel avec auth activée sans changer les mdp. Acceptable pour un homelab, à documenter dans le README si on en crée un.
