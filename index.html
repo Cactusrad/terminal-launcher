@@ -5816,8 +5816,23 @@
                 }, 300);
             });
 
-            // Note: Ctrl+V paste requires HTTPS due to browser security restrictions
-            // In HTTP, use right-click context menu to paste
+            // Ctrl+V → paste clipboard text via bracketed paste (bypasses Claude Code's ^V image-paste).
+            // Ctrl+Shift+V falls through to xterm.js default (^V byte) so Claude still receives it.
+            // navigator.clipboard.readText() requires HTTPS or localhost.
+            terminal.attachCustomKeyEventHandler((e) => {
+                if (e.type !== 'keydown') return true;
+                if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'v' || e.key === 'V')) {
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        navigator.clipboard.readText()
+                            .then(text => { if (text) terminal.paste(text); })
+                            .catch(() => showToast('Presse-papiers refusé — utiliser clic droit'));
+                    } else {
+                        showToast('Presse-papiers indisponible — utiliser clic droit');
+                    }
+                    return false;
+                }
+                return true;
+            });
 
             // Handle resize (debounced, uses getWs() to survive reconnections)
             let gridResizeTimeout = null;
