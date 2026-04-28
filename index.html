@@ -5878,6 +5878,8 @@
 
         function getOrphanBadge(tab) {
             if (!tab.project) return '';
+            // Bash tabs use synthetic project ids ('home', 'home_2', ...) — no real folder to check
+            if (tab.type === 'bash' && tab.project.startsWith('home')) return '';
             if (allProjectFolders.includes(tab.project)) return '';
             // For worktrees (project--branch), check if parent project exists
             if (tab.project.includes('--')) {
