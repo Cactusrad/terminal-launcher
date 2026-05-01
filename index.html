@@ -5988,9 +5988,7 @@
                 let worktreeHtml = '';
                 if (hasGit && isExpanded) {
                     const worktrees = gitInfo.worktrees || [];
-                    const branches = gitInfo.branches || [];
                     const hasWorktreeItems = worktrees.length > 0;
-                    const hasBranchItems = branches.length > 0;
 
                     // Worktree items
                     let wtSection = '';
@@ -6018,72 +6016,12 @@
                                 </div>
                             `;
                         }).join('');
-                        wtSection = (hasBranchItems ? '<div class="git-section-label">Worktrees</div>' : '') + wtItems;
-                    }
-
-                    // Branch items (not checked out as worktree)
-                    let brSection = '';
-                    if (hasBranchItems) {
-                        const activeBranches = branches.filter(b => !b.merged);
-                        const mergedBranches = branches.filter(b => b.merged);
-
-                        const brItems = activeBranches.map(brObj => {
-                            const brName = typeof brObj === 'string' ? brObj : brObj.name;
-                            const brBehind = typeof brObj === 'object' ? (brObj.behind_main || 0) : 0;
-                            const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                            const brBehindRef = gitInfo.default_branch || gitInfo.branch;
-                            const brBehindBadge = brBehind > 0 ? `<span class="behind-badge" title="${brBehind} commit(s) derrière ${escapeHtml(brBehindRef)}">↓${brBehind}</span>` : '';
-                            const isDefault = brName === gitInfo.default_branch;
-                            const defaultTag = isDefault ? '<span class="default-branch-tag" title="Branche par défaut du repo">défaut</span>' : '';
-                            const deleteBtn = isDefault ? '' : `<button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer la branche" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem;margin-left:4px">✕</button>`;
-                            return `
-                                <div class="branch-item">
-                                    <div class="branch-name">
-                                        <span class="git-type-icon branch" title="Branche locale">B</span>
-                                        <span class="branch-label" title="${escapeHtml(brName)}">${escapeHtml(brName)}</span>
-                                        ${defaultTag}${brBehindBadge}
-                                    </div>
-                                    <div class="project-actions">
-                                        <button class="branch-checkout-btn" onclick="createWorktreeFromBranch('${jsProject}', '${brJs}')" title="Ouvrir comme worktree">↗ Worktree</button>
-                                        ${deleteBtn}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-
-                        let mergedHtml = '';
-                        if (mergedBranches.length > 0) {
-                            const mergedNames = mergedBranches.map(b => (typeof b === 'string' ? b : b.name).replace(/'/g, "\\'"));
-                            const mergedItems = mergedBranches.map(brObj => {
-                                const brName = typeof brObj === 'string' ? brObj : brObj.name;
-                                const brJs = brName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                                return `
-                                    <div class="branch-item merged">
-                                        <div class="branch-name">
-                                            <span class="git-type-icon branch merged" title="Branche merged">B</span>
-                                            <span class="branch-label" title="${escapeHtml(brName)}">${escapeHtml(brName)}</span>
-                                        </div>
-                                        <div class="project-actions">
-                                            <button class="project-btn" onclick="deleteBranch('${jsProject}', '${brJs}')" title="Supprimer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:0.65rem">✕</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-                            mergedHtml = `
-                                <div class="merged-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('show')">
-                                    <span class="merged-arrow">▶</span> ${mergedBranches.length} merged
-                                    <button class="delete-merged-btn" onclick="event.stopPropagation();deleteMergedBranches('${jsProject}', [${mergedNames.map(n => "'" + n + "'").join(',')}])">Supprimer tout</button>
-                                </div>
-                                <div class="merged-list">${mergedItems}</div>
-                            `;
-                        }
-
-                        brSection = (hasWorktreeItems ? '<div class="git-section-label">Branches</div>' : '') + brItems + mergedHtml;
+                        wtSection = wtItems;
                     }
 
                     const addBtn = `<button class="worktree-add-btn" onclick="createWorktree('${jsProject}')">+ Nouveau worktree</button>`;
 
-                    worktreeHtml = `<div class="project-worktrees expanded">${wtSection}${brSection}${addBtn}</div>`;
+                    worktreeHtml = `<div class="project-worktrees expanded">${wtSection}${addBtn}</div>`;
                 }
 
                 return `
