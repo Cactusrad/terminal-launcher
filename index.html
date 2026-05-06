@@ -5822,6 +5822,8 @@
             terminal.attachCustomKeyEventHandler((e) => {
                 if (e.type !== 'keydown') return true;
                 if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'v' || e.key === 'V')) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (navigator.clipboard && navigator.clipboard.readText) {
                         navigator.clipboard.readText()
                             .then(text => { if (text) terminal.paste(text); })
