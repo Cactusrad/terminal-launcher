@@ -50,8 +50,10 @@ Navigateur ──► Docker (terminal-launcher, port 80)
 ```bash
 cd /home/cactus/claude/terminal-launcher
 
-# Rebuild et redéployer
-docker compose build --no-cache && docker compose up -d
+# Rebuild local (dev). NE PAS utiliser --no-cache : ça reconstruit toutes les
+# layers à neuf et fait exploser le build cache (303 GB observés en 3 jours,
+# incident 2026-05-07 — disque .100 à 96% par accumulation de dangling images).
+docker compose build && docker compose up -d
 
 # Logs
 docker logs terminal-launcher
@@ -203,7 +205,7 @@ terminal-launcher/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
-- **Déploiement** : dev sur `.200` (`~/claude/terminal-launcher/`, branche `master`), prod sur `.100` (`~/terminal-launcher/`, branche `main`). **Règle** : toute modif part de `.200` → commit → push → `git pull` sur `.100` → `docker compose build && docker compose up -d --force-recreate`. **Jamais d'edit direct sur `.100`** (ni `ssh ... sed`, ni `docker cp`, ni SCP d'un fichier isolé) — ça crée une divergence entre prod et Git.
+- **Déploiement (tag-based, depuis 2026-05-07)** : dev sur `.200` (`~/claude/terminal-launcher/`), prod sur `.100` (`~/terminal-launcher/`). **Workflow** : commit & push librement sur `.200` (branche au choix) ; pour mettre en prod, créer un tag `vX.Y.Z` et `git push --tags`. Le timer user `terminal-launcher-autosync.timer` (toutes les 2 min sur `.200`) détecte le nouveau tag, SSH sur `.100`, checkout du tag, rebuild, redeploy. Tant qu'il n'y a pas de nouveau tag, **rien ne part en prod** — fini les rebuilds à chaque commit. Script : `~/.local/bin/terminal-launcher-autosync.sh`. État courant tracké dans `/home/cactus/terminal-launcher/VERSION` sur `.100`. **Jamais d'edit direct sur `.100`** (ni `ssh ... sed`, ni `docker cp`, ni SCP) — ça crée une divergence entre prod et Git.
 - **Topologie divergente entre `main` et `master`** : `main` (prod `.100`) expose le port 180 en direct (`PORT=180` dans `.env`), pas d'HTTPS, pas de multi-user auth. `master` (dev `.200`) ajoute nginx reverse-proxy + HTTPS (certs dans `./certs/`), multi-user auth avec `SECRET_KEY`, détection default_branch. Un merge `master` → `main` nécessiterait de provisionner nginx + certs + `SECRET_KEY` sur `.100` avant rebuild — pas fait, réconciliation à planifier séparément.
 - **Déploiement indépendant** : chaque install (`.100`, `.200`) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
 - **Remote git sur `.100`** : `git@github.com:Cactusrad/terminal-launcher.git` (SSH via `~/.ssh/github_key`). `.100` utilisait HTTPS au départ, basculé en SSH le 24 avril 2026 pour permettre les `git push` sans prompt credentials.
