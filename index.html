@@ -3217,6 +3217,16 @@
             width: 16px;
             height: 16px;
         }
+        /* Auto-scroll toggle — dimmed/struck when disabled */
+        .header-scroll-btn.autoscroll-off {
+            color: var(--cactus-text-muted, #6b7280);
+            opacity: 0.5;
+        }
+        .header-scroll-btn.autoscroll-off:hover {
+            background: var(--cactus-bg-hover);
+            color: var(--cactus-text-secondary);
+            opacity: 0.9;
+        }
         .terminal-div .xterm {
             height: 100%;
         }
@@ -3948,6 +3958,9 @@
                         <button class="subagent-mode-btn" data-mode="grid" onclick="setSubagentViewMode('grid')" title="Vue grille">Grid</button>
                     </div>
                     <button class="mute-toggle" id="muteToggle" onclick="toggleAlertMute()" title="Mute/Unmute alertes">🔔</button>
+                    <button class="header-scroll-btn" id="autoScrollToggle" onclick="toggleAutoScroll()" title="Auto-défilement : activé">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l7 7 7-7 1.4 1.4L12 13.4 3.6 5 5 3zm0 7l7 7 7-7 1.4 1.4L12 20.4 3.6 12 5 10z"/></svg>
+                    </button>
                     <button class="header-scroll-btn" id="headerScrollBtn" onclick="scrollActiveTerminalToBottom()" title="Aller en bas">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
                     </button>
@@ -4779,6 +4792,8 @@
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
         let viewMode = 'tabs';  // 'tabs' or 'grid' — loaded from server in loadTerminalStateFromServer()
+        // Auto-scroll: when false, terminals never force scrollToBottom (pure browser UI state)
+        let autoScrollEnabled = localStorage.getItem('terminalAutoScroll') !== 'false';
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver, disposed, reconnectTimer }
         const disposedTabs = new Set();  // Track disposed tabs to prevent reconnection
         const disposedSessions = new Set();  // Track disposed sessions by tmux name to prevent sync re-adding
@@ -5437,9 +5452,9 @@
                     try {
                         // Terminal was hidden — viewport may be stale (viewportY=0, baseY>0)
                         // Force follow mode + scroll to bottom before and after fit
-                        instance.terminal._followMode = true;
+                        if (autoScrollEnabled) instance.terminal._followMode = true;
                         fitPreservingScroll(instance.terminal, instance.fitAddon);
-                        instance.terminal.scrollToBottom();
+                        if (autoScrollEnabled) instance.terminal.scrollToBottom();
                         // Focus terminal so cursor blinks
                         if (instance.terminal) {
                             instance.terminal.focus();
@@ -5489,6 +5504,25 @@
             if (activeTerminalTabId) {
                 scrollTerminalToBottom(activeTerminalTabId);
             }
+        }
+
+        // Reflect autoScrollEnabled on the header toggle button
+        function applyAutoScrollState() {
+            const btn = document.getElementById('autoScrollToggle');
+            if (!btn) return;
+            btn.classList.toggle('autoscroll-off', !autoScrollEnabled);
+            btn.title = autoScrollEnabled
+                ? 'Auto-défilement : activé (cliquer pour désactiver)'
+                : 'Auto-défilement : désactivé (cliquer pour activer)';
+        }
+
+        // Toggle the auto-scroll-to-bottom feature. When off, terminals stay
+        // wherever the user scrolled — no forced scrollToBottom on new output.
+        function toggleAutoScroll() {
+            autoScrollEnabled = !autoScrollEnabled;
+            localStorage.setItem('terminalAutoScroll', autoScrollEnabled ? 'true' : 'false');
+            applyAutoScrollState();
+            showToast(autoScrollEnabled ? 'Auto-défilement activé' : 'Auto-défilement désactivé');
         }
 
         // fit() wrapper — locks follow mode during fit to prevent false onScroll triggers
@@ -5697,7 +5731,7 @@
                     // Focus terminal so cursor blinks
                     terminal.focus();
                     terminal._followMode = true;
-                    terminal.scrollToBottom();
+                    if (autoScrollEnabled) terminal.scrollToBottom();
                     // After buffer replay + resize, force a screen redraw (Ctrl+L)
                     setTimeout(() => {
                         if (ws.readyState === WebSocket.OPEN) {
@@ -5710,7 +5744,7 @@
                             } catch (e) {}
                             const encoder = new TextEncoder();
                             ws.send(encoder.encode('\x0c'));
-                            terminal.scrollToBottom();
+                            if (autoScrollEnabled) terminal.scrollToBottom();
                         }
                     }, 500);
                 };
@@ -5719,7 +5753,7 @@
                     if (event.data instanceof ArrayBuffer) {
                         const text = new TextDecoder().decode(event.data);
                         terminal.write(text);
-                        if (terminal._followMode !== false) {
+                        if (autoScrollEnabled && terminal._followMode !== false) {
                             terminal.scrollToBottom();
                         }
                         lastActivity.set(tab.id, Date.now());
@@ -6620,6 +6654,9 @@
                 muteBtn.textContent = isMuted ? '🔇' : '🔔';
                 muteBtn.classList.toggle('muted', isMuted);
             }
+
+            // Restore auto-scroll toggle state
+            applyAutoScrollState();
 
             const placeholder = document.getElementById('terminalPlaceholder');
             if (placeholder) placeholder.style.display = terminalTabs.length > 0 ? 'none' : 'block';
