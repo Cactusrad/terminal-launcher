@@ -404,6 +404,59 @@ def stop_session(session: SharedSession):
     logger.info(f"Stopped session: {session.session_name}")
 
 
+def kill_dtach_session(session_name: str) -> dict:
+    """Fully destroy a session: stop our PTY attach, kill the dtach master
+    process holding the socket, and remove the stale socket file.
+
+    Unlike stop_session() — which only detaches our connection and leaves the
+    persistent dtach process (bash/claude) running — this terminates the
+    process for good. Used by the "kill terminal" button."""
+    import time
+    result = {"session": session_name, "in_memory": False,
+              "dtach_pids": [], "socket_removed": False}
+
+    # 1. Stop our in-memory attach (closes our PTY, removes from registry)
+    if session_name in active_sessions:
+        stop_session(active_sessions[session_name])
+        result["in_memory"] = True
+
+    # 2. Kill the dtach master process(es) that hold the socket. Killing the
+    #    master closes the inner PTY -> bash/claude receives SIGHUP and exits.
+    socket_path = get_session_socket(session_name)
+    try:
+        pgrep = subprocess.run(
+            ['pgrep', '-f', re.escape(str(socket_path))],
+            capture_output=True, text=True)
+        pids = [int(p) for p in pgrep.stdout.split() if p.strip().isdigit()]
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+        if pids:
+            time.sleep(0.3)
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
+        result["dtach_pids"] = pids
+    except Exception as e:
+        logger.warning(f"kill_dtach_session: pgrep/kill failed for {session_name}: {e}")
+
+    # 3. Remove the socket file so auto-discovery won't resurrect it. dtach
+    #    usually removes it itself when its master exits; unlink any leftover.
+    try:
+        if socket_path.exists():
+            socket_path.unlink()
+    except OSError as e:
+        logger.warning(f"kill_dtach_session: failed to remove {socket_path}: {e}")
+    result["socket_removed"] = not socket_path.exists()
+
+    logger.info(f"Killed session: {result}")
+    return result
+
+
 async def read_and_broadcast(session: SharedSession):
     """Background task to read PTY output and broadcast to all connected clients."""
     loop = asyncio.get_event_loop()
@@ -637,12 +690,11 @@ async def send_input_handler(request: web.Request) -> web.Response:
 
 
 async def delete_session_handler(request: web.Request) -> web.Response:
-    """Delete (stop) a specific session."""
+    """Kill a specific session for good — terminates the persistent dtach
+    process. Works even when no WebSocket client is currently attached."""
     name = sanitize_session_name(request.match_info['name'])
-    if name not in active_sessions:
-        return web.json_response({"error": "Session not found"}, status=404)
-    stop_session(active_sessions[name])
-    return web.json_response({"status": "deleted"})
+    result = kill_dtach_session(name)
+    return web.json_response({"status": "killed", **result})
 
 
 def create_app() -> web.Application:
