@@ -831,6 +831,44 @@ def sanitize_branch_for_dirname(branch):
     """Convert branch name to safe dirname: feat/login -> feat-login"""
     return re.sub(r'[^a-zA-Z0-9._-]', '-', branch)
 
+# Origine des worktrees (option B — marqueur explicite).
+# Aucun signal git ne distingue un worktree créé par Pierre d'un créé par Claude
+# (même auteur "Cactusrad", conventions de branche identiques). On tient donc un
+# registre : l'endpoint "+ Nouveau worktree" du dashboard (= Pierre) marque ses
+# créations "user" ; tout ce qui n'est pas dans le registre = créé en terminal par
+# les skills de Claude = "claude". Clé = dirname (globalement unique : projet--branche).
+WORKTREE_ORIGINS_FILE = DATA_DIR / 'worktree_origins.json'
+
+def load_worktree_origins():
+    try:
+        with open(WORKTREE_ORIGINS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def set_worktree_origin(dirname, origin):
+    data = load_worktree_origins()
+    data[dirname] = origin
+    tmp = str(WORKTREE_ORIGINS_FILE) + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, WORKTREE_ORIGINS_FILE)
+
+def forget_worktree_origin(dirname):
+    data = load_worktree_origins()
+    if dirname in data:
+        del data[dirname]
+        tmp = str(WORKTREE_ORIGINS_FILE) + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, WORKTREE_ORIGINS_FILE)
+
+def guess_worktree_origin(dirname, origins=None):
+    """'user' si marqué via le dashboard, sinon 'claude' (créé hors dashboard)."""
+    if origins is None:
+        origins = load_worktree_origins()
+    return origins.get(dirname, 'claude')
+
 def detect_default_branch(project_path):
     """Detect the repo's default branch (main/master), not the currently checked-out one."""
     ok, out, _ = run_git(project_path, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
@@ -895,6 +933,7 @@ def get_git_info(project_path):
 
         # Use the repo's default branch (main/master) for behind-main detection
         main_branch = info['default_branch'] or info['branch']
+        wt_origins = load_worktree_origins()
 
         for wt in worktrees:
             dirname = os.path.basename(wt.get('path', ''))
@@ -916,7 +955,8 @@ def get_git_info(project_path):
                 'branch': wt_branch,
                 'dirname': dirname,
                 'dirty': wt_dirty,
-                'behind_main': behind_main
+                'behind_main': behind_main,
+                'origin': guess_worktree_origin(dirname, wt_origins)
             })
 
     # Detect merged branches (merged into default branch — main/master)
@@ -1172,6 +1212,9 @@ def create_git_worktree(project):
     if not ok:
         return jsonify({"status": "error", "message": err}), 500
 
+    # Créé via le dashboard => c'est Pierre. Marquer "user" dans le registre.
+    set_worktree_origin(dirname, 'user')
+
     return jsonify({"status": "ok", "dirname": dirname, "branch": branch})
 
 @app.route('/api/projects/<project>/git/worktrees/<dirname>', methods=['DELETE'])
@@ -1203,6 +1246,8 @@ def delete_git_worktree(project, dirname):
 
     if not ok:
         return jsonify({"status": "error", "message": err}), 500
+
+    forget_worktree_origin(dirname)
 
     return jsonify({"status": "ok"})
 
