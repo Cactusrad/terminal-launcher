@@ -2251,6 +2251,16 @@
             background: #f59e0b;
             flex-shrink: 0;
         }
+        .wt-origin {
+            font-size: 0.7rem;
+            line-height: 1;
+            flex-shrink: 0;
+            cursor: help;
+            opacity: 0.85;
+        }
+        .wt-origin.user {
+            opacity: 0.55;
+        }
         .worktree-add-btn {
             display: flex;
             align-items: center;
@@ -5689,12 +5699,15 @@
                             const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
                             const behindRef = gitInfo.default_branch || gitInfo.branch;
                             const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(behindRef)}">↓${wt.behind_main}</span>` : '';
+                            const originBadge = wt.origin === 'claude'
+                                ? `<span class="wt-origin claude" title="Worktree créé par Claude (branche ${escapeHtml(wt.branch)})">🤖</span>`
+                                : `<span class="wt-origin user" title="Worktree créé par toi (branche ${escapeHtml(wt.branch)})">👤</span>`;
                             return `
                                 <div class="worktree-item">
                                     <div class="worktree-name">
                                         <span class="git-type-icon worktree" title="Worktree (dossier séparé)">W</span>
                                         <span class="worktree-branch" title="${escapeHtml(wt.dirname)} — branche: ${escapeHtml(wt.branch)}">${escapeHtml(worktreeDisplayName(wt.dirname))}</span>
-                                        ${dirtyDot}${behindBadge}${wtBadge}
+                                        ${originBadge}${dirtyDot}${behindBadge}${wtBadge}
                                     </div>
                                     <div class="project-actions">
                                         <button class="project-btn claude-btn" onclick="createTerminalTab('claude', '${wtJsDir}')" title="Claude">C</button>
