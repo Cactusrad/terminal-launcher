@@ -869,6 +869,45 @@ def guess_worktree_origin(dirname, origins=None):
         origins = load_worktree_origins()
     return origins.get(dirname, 'claude')
 
+# Marqueur posé DANS le worktree (en plus du registre central). Avantage : il
+# voyage avec le dossier et survit sur n'importe quelle install (ex. .100 où le
+# registre démarre vide). Lecture prioritaire sur le registre.
+WORKTREE_MARKER_FILE = '.cactus-worktree.json'
+
+def read_worktree_marker(wt_path):
+    """Retourne le 'creator' du marqueur dans le worktree, ou None s'il n'existe pas."""
+    try:
+        with open(os.path.join(wt_path, WORKTREE_MARKER_FILE)) as f:
+            return json.load(f).get('creator')
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+def write_worktree_marker(wt_path, creator):
+    """Écrit le marqueur dans le worktree et l'ajoute à l'exclude git (pas de bruit dans git status)."""
+    try:
+        with open(os.path.join(wt_path, WORKTREE_MARKER_FILE), 'w') as f:
+            json.dump({'creator': creator}, f, indent=2)
+    except OSError:
+        return
+    # Ignorer le marqueur côté git pour qu'il ne pollue pas `git status`.
+    ok, exclude_path, _ = run_git(wt_path, ['rev-parse', '--git-path', 'info/exclude'])
+    if ok and exclude_path:
+        if not os.path.isabs(exclude_path):
+            exclude_path = os.path.join(wt_path, exclude_path)
+        try:
+            existing = ''
+            if os.path.exists(exclude_path):
+                with open(exclude_path) as f:
+                    existing = f.read()
+            if WORKTREE_MARKER_FILE not in existing.split():
+                os.makedirs(os.path.dirname(exclude_path), exist_ok=True)
+                with open(exclude_path, 'a') as f:
+                    if existing and not existing.endswith('\n'):
+                        f.write('\n')
+                    f.write(WORKTREE_MARKER_FILE + '\n')
+        except OSError:
+            pass
+
 def detect_default_branch(project_path):
     """Detect the repo's default branch (main/master), not the currently checked-out one."""
     ok, out, _ = run_git(project_path, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
@@ -951,12 +990,14 @@ def get_git_info(project_path):
                 ok3, count, _ = run_git(project_path, ['rev-list', '--count', f'{wt_branch}..{main_branch}'])
                 if ok3 and count.strip().isdigit():
                     behind_main = int(count.strip())
+            # Marqueur dans le worktree prioritaire, sinon registre central, sinon claude.
+            origin = read_worktree_marker(wt_path) or guess_worktree_origin(dirname, wt_origins)
             info['worktrees'].append({
                 'branch': wt_branch,
                 'dirname': dirname,
                 'dirty': wt_dirty,
                 'behind_main': behind_main,
-                'origin': guess_worktree_origin(dirname, wt_origins)
+                'origin': origin
             })
 
     # Detect merged branches (merged into default branch — main/master)
@@ -1212,7 +1253,8 @@ def create_git_worktree(project):
     if not ok:
         return jsonify({"status": "error", "message": err}), 500
 
-    # Créé via le dashboard => c'est Pierre. Marquer "user" dans le registre.
+    # Créé via le dashboard => c'est Pierre. Marqueur dans le worktree + registre central.
+    write_worktree_marker(wt_path, 'user')
     set_worktree_origin(dirname, 'user')
 
     return jsonify({"status": "ok", "dirname": dirname, "branch": branch})
