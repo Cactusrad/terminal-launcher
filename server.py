@@ -1293,6 +1293,26 @@ def delete_git_worktree(project, dirname):
 
     return jsonify({"status": "ok"})
 
+@app.route('/api/projects/<project>/git/worktrees/<dirname>/origin', methods=['POST'])
+def set_git_worktree_origin(project, dirname):
+    """Marquer manuellement l'origine d'un worktree ('user' ou 'claude')."""
+    if '..' in dirname or '/' in dirname or '\\' in dirname:
+        return jsonify({"status": "error", "message": "Nom invalide"}), 400
+
+    data = request.get_json() or {}
+    origin = data.get('origin')
+    if origin not in ('user', 'claude'):
+        return jsonify({"status": "error", "message": "origin doit être 'user' ou 'claude'"}), 400
+
+    wt_path = os.path.join(str(CLAUDE_PROJECTS_DIR), dirname)
+    if not os.path.isdir(wt_path):
+        return jsonify({"status": "error", "message": "Worktree introuvable"}), 404
+
+    write_worktree_marker(wt_path, origin)
+    set_worktree_origin(dirname, origin)
+
+    return jsonify({"status": "ok", "dirname": dirname, "origin": origin})
+
 @app.route('/api/projects/<project>/git/remotes', methods=['GET'])
 def get_git_remotes(project):
     """Get remotes and auto-detect GitHub"""
