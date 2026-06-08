@@ -3577,6 +3577,7 @@
                             </svg>
                         </button>
                         <button class="sidebar-btn" onclick="refreshProjectFolders()" title="Rafraîchir">↻</button>
+                        <button class="sidebar-btn" id="hideClaudeBtn" onclick="toggleHideClaudeWorktrees()" title="Masquer les worktrees créés par Claude">🤖</button>
                         <button class="sidebar-btn" onclick="openProjectSettings()" title="Gérer les projets">⚙</button>
                     </div>
                 </div>
@@ -4049,6 +4050,26 @@
             const savedExpanded = localStorage.getItem('expandedProjects');
             if (savedExpanded) expandedProjects = new Set(JSON.parse(savedExpanded));
         } catch(e) {}
+
+        // UI state (pur navigateur) : masquer les worktrees créés par Claude
+        let hideClaudeWorktrees = localStorage.getItem('hideClaudeWorktrees') === '1';
+
+        function toggleHideClaudeWorktrees() {
+            hideClaudeWorktrees = !hideClaudeWorktrees;
+            localStorage.setItem('hideClaudeWorktrees', hideClaudeWorktrees ? '1' : '0');
+            updateHideClaudeBtn();
+            const searchInput = document.getElementById('projectSearch');
+            renderProjectList(searchInput ? searchInput.value : '');
+        }
+
+        function updateHideClaudeBtn() {
+            const btn = document.getElementById('hideClaudeBtn');
+            if (!btn) return;
+            btn.classList.toggle('active', hideClaudeWorktrees);
+            btn.title = hideClaudeWorktrees
+                ? 'Worktrees de Claude masqués — cliquer pour les afficher'
+                : 'Masquer les worktrees créés par Claude';
+        }
 
         async function loadProjectFolders() {
             try {
@@ -5683,6 +5704,7 @@
                 return matchesFilter && !isHidden;
             });
 
+            updateHideClaudeBtn();
             container.innerHTML = filteredProjects.map(project => {
                 const safeProject = escapeHtml(project);
                 const jsProject = project.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -5691,7 +5713,10 @@
                 const gitInfo = projectGitInfo[project];
                 const isExpanded = expandedProjects.has(project);
                 const hasGit = !!gitInfo;
-                const hasWorktrees = hasGit && gitInfo.worktrees && gitInfo.worktrees.length > 0;
+                const visibleWorktrees = hasGit && gitInfo.worktrees
+                    ? (hideClaudeWorktrees ? gitInfo.worktrees.filter(w => w.origin !== 'claude') : gitInfo.worktrees)
+                    : [];
+                const hasWorktrees = visibleWorktrees.length > 0;
 
                 // Expand/collapse arrow (only for git repos)
                 const expandBtn = hasGit ? `<span class="project-expand-btn ${isExpanded ? 'expanded' : ''}" onclick="toggleWorktrees('${jsProject}')">▶</span>` : '<span style="width:20px;display:inline-block"></span>';
@@ -5709,7 +5734,7 @@
                 // Worktrees + Branches sub-list
                 let worktreeHtml = '';
                 if (hasGit && isExpanded) {
-                    const worktrees = gitInfo.worktrees || [];
+                    const worktrees = visibleWorktrees;
                     const hasWorktreeItems = worktrees.length > 0;
 
                     // Worktree items
