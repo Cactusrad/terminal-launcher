@@ -2255,8 +2255,13 @@
             font-size: 0.7rem;
             line-height: 1;
             flex-shrink: 0;
-            cursor: help;
+            cursor: pointer;
             opacity: 0.85;
+            user-select: none;
+        }
+        .wt-origin:hover {
+            opacity: 1;
+            transform: scale(1.2);
         }
         .wt-origin.user {
             opacity: 0.55;
@@ -4118,6 +4123,25 @@
             }
         }
 
+        async function toggleWorktreeOrigin(project, dirname, currentOrigin) {
+            const next = currentOrigin === 'claude' ? 'user' : 'claude';
+            try {
+                const resp = await fetch(`${API_BASE}/projects/${encodeURIComponent(project)}/git/worktrees/${encodeURIComponent(dirname)}/origin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ origin: next })
+                });
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.message || 'Erreur changement origine');
+                    return;
+                }
+                await refreshProjectFolders();
+            } catch (e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
         async function deleteWorktree(project, dirname, branch) {
             if (!confirm(`Supprimer le worktree "${branch}" ?\nDossier: ${dirname}`)) return;
             try {
@@ -5700,8 +5724,8 @@
                             const behindRef = gitInfo.default_branch || gitInfo.branch;
                             const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(behindRef)}">↓${wt.behind_main}</span>` : '';
                             const originBadge = wt.origin === 'claude'
-                                ? `<span class="wt-origin claude" title="Worktree créé par Claude (branche ${escapeHtml(wt.branch)})">🤖</span>`
-                                : `<span class="wt-origin user" title="Worktree créé par toi (branche ${escapeHtml(wt.branch)})">👤</span>`;
+                                ? `<span class="wt-origin claude" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'claude')" title="Créé par Claude — cliquer pour marquer comme créé par toi">🤖</span>`
+                                : `<span class="wt-origin user" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'user')" title="Créé par toi — cliquer pour marquer comme créé par Claude">👤</span>`;
                             return `
                                 <div class="worktree-item">
                                     <div class="worktree-name">
