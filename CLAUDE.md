@@ -87,8 +87,11 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 | `/api/terminal/state` | GET/POST | État des terminaux (onglets, vue) |
 | `/api/terminal/activity` | GET | Détection d'attente terminal |
 | `/api/terminal/sessions` | GET | Sessions dtach actives |
-| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude (scan local du volume monté). `?git=1` enrichit avec branches + worktrees |
+| `/api/projects/folders` | GET | Dossiers dans /home/cactus/claude (scan local du volume monté). `?git=1` enrichit avec branches + worktrees (+ `origin` par worktree) |
 | `/api/projects/hidden` | POST | Dossiers cachés |
+| `/api/projects/<p>/git/worktrees` | POST | Créer un worktree (marque `origin=user` dans le registre + marqueur in-tree) |
+| `/api/projects/<p>/git/worktrees/<dir>` | DELETE | Supprimer un worktree (nettoie le registre) |
+| `/api/projects/<p>/git/worktrees/<dir>/origin` | POST | Forcer l'origine d'un worktree `{"origin":"user"\|"claude"}` |
 | `/api/erp/requests` | GET/POST | Demandes ERP (+notification Telegram) |
 | `/api/erp/requests/<id>` | PATCH/DELETE | Gestion demande ERP |
 | `/api/subagents/<project>` | GET | Sous-agents Claude d'un projet |
@@ -165,8 +168,33 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
   - **Branches** (icône **B** violette) : branches locales non-worktree, avec bouton "↗ Worktree" pour les convertir
   - Les labels "WORKTREES" / "BRANCHES" n'apparaissent que si les deux types sont présents
   - `get_git_info()` retourne `worktrees[]` et `branches[]` (branches locales excluant celles déjà en worktree ou branche courante)
+- **Origine des worktrees (toi vs Claude)** : chaque worktree porte un champ `origin` (`user`/`claude`) affiché par un badge **👤 / 🤖** dans la sidebar. Voir la section dédiée ci-dessous.
 - **Demandes ERP** : tickets avec notifications Telegram
 - **Bug Report** : widget connecté au bugs_service local (http://192.168.1.200:9010), projet "Terminal Launcher" (slug: terminal-launcher, préfixe: TER)
+
+## Origine des worktrees (toi vs Claude)
+
+Distingue les worktrees créés par Pierre de ceux créés par Claude (skills `night-watch`/`bugs-fix`/`release-loop` qui font `git worktree add` en terminal).
+
+**Pourquoi un marqueur explicite** : aucun signal git ne les distingue — même auteur de commit (`Cactusrad`, car Claude commit avec l'identité de Pierre), conventions de nommage de branche identiques (Pierre nomme aussi ses branches `feat/...`), tracking remote mélangé. Une heuristique de nommage a été testée puis abandonnée (3 erreurs sur 6 contre la vérité terrain).
+
+**Deux sources de vérité, par priorité de lecture** :
+1. **Marqueur in-tree** `.cactus-worktree.json` (`{"creator":"user"|"claude"}`) écrit **dans le worktree**. Ajouté à l'`info/exclude` du worktree → invisible dans `git status`. Avantage : voyage avec le dossier, survit sur n'importe quelle install (ex. `.100` où le registre démarre vide).
+2. **Registre central** `/data/worktree_origins.json` (volume `launcher-data`), clé = `dirname`.
+3. **Défaut** : `claude` (tout ce qui n'est ni marqué ni dans le registre = créé hors dashboard).
+
+**Helpers `server.py`** : `load/set/forget_worktree_origin()`, `read/write_worktree_marker()`, `guess_worktree_origin(dirname, origins)`. `get_git_info()` fait `read_worktree_marker(wt_path) or guess_worktree_origin(dirname, wt_origins)`.
+
+**Règle de fonctionnement** :
+- Worktree créé via le bouton **« + Nouveau worktree »** du dashboard → marqué `user` automatiquement (marqueur in-tree + registre).
+- Worktree créé par Claude en terminal → pas marqué → `claude` par défaut.
+- 100% fiable tant que les worktrees perso passent par le bouton.
+
+**UI (`index.html`)** :
+- Badge **👤 / 🤖** par worktree, **cliquable** → bascule l'origine (`toggleWorktreeOrigin()` → `POST .../origin`). Sert à corriger/reclasser, notamment les worktrees créés hors dashboard.
+- Bouton **🤖** dans l'en-tête du panneau projets (`toggleHideClaudeWorktrees()`) → masque/affiche les worktrees `origin=claude`. État en `localStorage` (`hideClaudeWorktrees`, UI state pur navigateur, autorisé).
+
+**Retro-tag manuel** (données runtime, pas de divergence git — markers exclus, registre dans le volume) : écrire `.cactus-worktree.json` dans chaque worktree + `info/exclude`, et/ou éditer le registre via `docker exec terminal-launcher`. La sidebar ne rend plus les branches standalone (seulement les worktrees), donc le masquage couvre tout l'affiché.
 
 ## Créer un raccourci (code)
 
@@ -331,3 +359,33 @@ Ajout d'un client `cactus_secrets_client.py` (88 lignes, copié depuis `/home/ca
 **Rotation des secrets** : `PUT /secrets/launcher/<key>` côté cactus-secrets avec le bootstrap admin token, cache invalidé en ~5 min sur les backends, zero redéploiement.
 
 Commits : `3283eb9` (master), cherry-pick `daab27f` (main), `a6d154f` (docs `.env.example`).
+
+## Session du 8 juin 2026
+
+**Origine des worktrees (toi vs Claude)** — voir la section dédiée plus haut pour le mécanisme complet.
+
+Contexte : le workflow récent de Claude (skills lancés en `/loop`) crée une branche nommée par tâche dans des worktrees `projet--slug`, d'où la confusion « qui a créé ce worktree ». Aucun signal git ne les distingue (auteur `Cactusrad` partagé, branches `feat/...` des deux côtés). Heuristique de nommage testée puis abandonnée → marqueur explicite.
+
+Livré en 4 releases tag-based (déployées sur `.100` via autosync) :
+- **v1.0.2** : champ `origin` dans `get_git_info()` + badge 👤/🤖 sidebar (registre central `/data/worktree_origins.json`)
+- **v1.0.3** : marqueur portable `.cactus-worktree.json` écrit dans le worktree à la création (+ ajout à `info/exclude` → git status propre)
+- **v1.0.4** : badge cliquable → `POST .../git/worktrees/<dir>/origin` (`toggleWorktreeOrigin`)
+- **v1.0.5** : bouton 🤖 dans l'en-tête pour masquer les worktrees `origin=claude` (`hideClaudeWorktrees` en localStorage)
+
+Retro-tag des worktrees existants sur `.200` : `fix/fix3/hook/partz/kestion` = toi, `nordsku/demande-id` = Claude (vérité terrain donnée par Pierre). `.100` n'a aucun worktree → rien à reclasser.
+
+Découverte au passage : **la sidebar ne rend plus les branches standalone** (retirées dans `37d7d23` « collapsible projects sidebar, remove agents panel »), seulement les worktrees.
+
+## Session du 9 juin 2026
+
+**v1.0.6 — visibilité des boutons d'onglets terminaux**
+
+Les boutons d'action des onglets (rafraîchir `.tab-refresh`, tuer `.tab-kill`, fermer `.tab-close` dans `index.html`) étaient quasi invisibles : `.tab-refresh`/`.tab-kill` en `opacity:0` (cachés sauf survol de l'onglet), les 3 en `--cactus-text-muted` (#555566, ~2:1, sous WCAG).
+
+Fix CSS :
+- couleur de base `--cactus-text-muted` → `--cactus-text-secondary` (#8a8a9a, ~4.3:1)
+- `.tab-refresh`/`.tab-kill` : `opacity:0` → `0.5` au repos, `1` au survol de l'onglet (découvrables sans cacher)
+- boutons 18 → 20px, icône kill svg 11 → 13px, override mobile `.tab-close` aligné (20px)
+- feedback survol bouton renforcé (fond bleu `0,101,255` refresh / rouge `222,53,11` kill+close, alpha 0.35)
+
+Vérifié par screenshots Playwright avant/après (`/app-team-test` scopé à un fix CSS ciblé plutôt que la team de 6 agents) + mesure couleur computed (`rgb(138,138,154)`).
