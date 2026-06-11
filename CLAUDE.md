@@ -4,7 +4,8 @@
 
 Dashboard homelab "Cactus Home" — lanceur de raccourcis avec authentification multi-utilisateur et préférences isolées par user.
 
-- **URL** : `http://192.168.1.100` (port 80)
+- **URL prod** : `https://192.168.1.100` (nginx 443 ; HTTP sur le port 180 → 301 HTTPS). ⚠️ le port 80 de `.100` est pris par `erp-web`, pas par le launcher
+- **URL dev** : `https://192.168.1.200` (même topologie nginx)
 - **Repo** : `git@github.com:Cactusrad/terminal-launcher.git`
 - **Conteneur** : `terminal-launcher` (Docker Compose)
 
@@ -18,9 +19,11 @@ Navigateur ──► Docker (terminal-launcher, port 80)
                 │       ├── /api/auth/*   → Login/logout/session (bcrypt + signed cookies)
                 │       └── /api/*         → JSON preferences (user-scoped)
                 └── Volume launcher-data
-                    ├── /data/users.json          (comptes utilisateurs)
-                    ├── /data/.secret_key         (clé de session Flask)
-                    └── /data/users/{username}/   (préférences per-user)
+                    ├── /data/users.json            (comptes utilisateurs)
+                    ├── /data/.secret_key           (clé de session Flask)
+                    ├── /data/shared_page.json      (page de raccourcis partagée, admin-éditable)
+                    ├── /data/worktree_origins.json (registre origine/owner des worktrees)
+                    └── /data/users/{username}/     (préférences per-user)
                         ├── preferences.json
                         └── apps.json
 
@@ -153,15 +156,16 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Versionnement de session** : `SESSION_VERSION` (`session['v']`) — les sessions de l'ancien auto-login (sans `v`) sont invalidées au premier hit, chaque appareil repasse une fois par le sélecteur
 - **Admin** : Pierre peut switcher vers un autre user pour voir/modifier ses données (`admin_view_as` en session)
 - **Migration** : au premier démarrage, si `/data/preferences.json` existe et `/data/users/` n'existe pas, les données globales sont copiées vers chaque user puis renommées en `.bak`
-- **Frontend** : login overlay glassmorphism (z-index 2000), fetch interceptor 401 avec compteur de 3 consécutifs, menu user + admin switcher dans la top-bar
+- **Frontend** : login overlay glassmorphism (z-index 2000) en deux modes — sélecteur de user (LAN) / formulaire mot de passe (lien de bascule) ; fetch interceptor 401 avec compteur de 3 consécutifs ; menu user + admin switcher dans la top-bar ; chip user (initiale colorée + nom, clic → logout) dans la barre des onglets terminaux desktop et mobile
 
 ## Fonctionnalités principales
 
 - **Raccourcis** : création avec nom, URL, icône (82+), couleur (16 gradients)
 - **Auto-prefix URL** : ajoute `http://` si protocole manquant
-- **Pages multiples** : organisation par pages, drag & drop
+- **Pages multiples** : organisation par pages, drag & drop. **Atterrissage par défaut sur la vue Terminaux** à l'ouverture (la page sauvegardée ne sert qu'à la navigation en cours de session)
+- **Page partagée** : onglet « 📌 Partagé » visible par tous les users (stockage global `/data/shared_page.json`, objets app complets indépendants des customApps). Édition **admin only** : « Nouveau » sur la page, clic droit → supprimer, menu contextuel d'une app perso → « Copier vers Partagé »
 - **Menu contextuel** : clic droit → modifier, déplacer, supprimer
-- **Multi-utilisateur** : login, préférences isolées, admin peut voir les données des autres
+- **Multi-utilisateur** : sélecteur de user sur le LAN (sans mot de passe) / login classique hors LAN, préférences isolées, admin peut voir les données des autres
 - **Sync globale** : préférences partagées entre appareils (per-user)
 - **Thème** : dark (défaut) / light toggle
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
@@ -171,7 +175,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
   - **Branches** (icône **B** violette) : branches locales non-worktree, avec bouton "↗ Worktree" pour les convertir
   - Les labels "WORKTREES" / "BRANCHES" n'apparaissent que si les deux types sont présents
   - `get_git_info()` retourne `worktrees[]` et `branches[]` (branches locales excluant celles déjà en worktree ou branche courante)
-- **Origine des worktrees (toi vs Claude)** : chaque worktree porte un champ `origin` (`user`/`claude`) affiché par un badge **👤 / 🤖** dans la sidebar. Voir la section dédiée ci-dessous.
+- **Origine des worktrees (users vs Claude)** : chaque worktree porte `origin` (`user`/`claude`) + `owner` (username). Badge **initiale du créateur** (P/M, couleur stable) ou **🤖** dans la sidebar, avertissement si un autre user ouvre le worktree. Voir la section dédiée ci-dessous.
 - **Demandes ERP** : tickets avec notifications Telegram
 - **Bug Report** : widget connecté au bugs_service local (http://192.168.1.200:9010), projet "Terminal Launcher" (slug: terminal-launcher, préfixe: TER)
 
@@ -194,7 +198,7 @@ Distingue les worktrees créés par un utilisateur (pierre, mohamed, …) de ceu
 - 100% fiable tant que les worktrees perso passent par le bouton.
 
 **UI (`index.html`)** :
-- Badge **👤 / 🤖** par worktree, **cliquable** → bascule l'origine (`toggleWorktreeOrigin()` → `POST .../origin`). Sert à corriger/reclasser, notamment les worktrees créés hors dashboard.
+- Badge par worktree, **cliquable** → bascule l'origine (`toggleWorktreeOrigin()` → `POST .../origin`) : **initiale du créateur** (couleur `userColor(username)`, tooltip « Créé par X ») pour `origin=user`, **🤖** pour `origin=claude`. Re-cliquer un 🤖 le revendique au nom du user connecté. Sert à corriger/reclasser, notamment les worktrees créés hors dashboard.
 - Bouton **🤖** dans l'en-tête du panneau projets (`toggleHideClaudeWorktrees()`) → masque/affiche les worktrees `origin=claude`. État en `localStorage` (`hideClaudeWorktrees`, UI state pur navigateur, autorisé).
 
 **Retro-tag manuel** (données runtime, pas de divergence git — markers exclus, registre dans le volume) : écrire `.cactus-worktree.json` dans chaque worktree + `info/exclude`, et/ou éditer le registre via `docker exec terminal-launcher`. La sidebar ne rend plus les branches standalone (seulement les worktrees), donc le masquage couvre tout l'affiché.
@@ -217,7 +221,8 @@ Puis ajouter l'icône SVG dans l'objet `icons` et le style CSS `.myapp { backgro
 ```
 terminal-launcher/
 ├── CLAUDE.md              # Cette documentation
-├── server.py              # Flask backend + API REST + auth (~1100 lignes)
+├── server.py              # Flask backend + API REST + auth (~1200 lignes)
+├── test_multiuser.py      # Assertions multi-user / page partagée / owner worktree (lancer après rebuild)
 ├── config.py              # Configuration centralisée (dotenv, Path, SECRET_KEY, USERS_*)
 ├── index.html             # Frontend complet (~300KB, inclut login overlay + auth JS)
 ├── requirements.txt       # flask, flask-cors, gunicorn, requests, python-dotenv, aiohttp, bcrypt
@@ -237,7 +242,7 @@ terminal-launcher/
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
 - **Déploiement (tag-based, depuis 2026-05-07)** : dev sur `.200` (`~/claude/terminal-launcher/`), prod sur `.100` (`~/terminal-launcher/`). **Workflow** : commit & push librement sur `.200` (branche au choix) ; pour mettre en prod, créer un tag `vX.Y.Z` et `git push --tags`. Le timer user `terminal-launcher-autosync.timer` (toutes les 2 min sur `.200`) détecte le nouveau tag, SSH sur `.100`, checkout du tag, rebuild, redeploy. Tant qu'il n'y a pas de nouveau tag, **rien ne part en prod** — fini les rebuilds à chaque commit. Script : `~/.local/bin/terminal-launcher-autosync.sh`. État courant tracké dans `/home/cactus/terminal-launcher/VERSION` sur `.100`. **Jamais d'edit direct sur `.100`** (ni `ssh ... sed`, ni `docker cp`, ni SCP) — ça crée une divergence entre prod et Git.
-- **Topologie divergente entre `main` et `master`** : `main` (prod `.100`) expose le port 180 en direct (`PORT=180` dans `.env`), pas d'HTTPS, pas de multi-user auth. `master` (dev `.200`) ajoute nginx reverse-proxy + HTTPS (certs dans `./certs/`), multi-user auth avec `SECRET_KEY`, détection default_branch. Un merge `master` → `main` nécessiterait de provisionner nginx + certs + `SECRET_KEY` sur `.100` avant rebuild — pas fait, réconciliation à planifier séparément.
+- **Topologie `main` vs `master` (constat 2026-06-11, remplace la note d'avril)** : depuis l'autosync tag-based, `.100` tourne en **HEAD détaché sur les tags `vX.Y.Z` créés depuis `master`** (vérifié : v1.0.7 = `c42ebdd`), donc avec nginx + HTTPS + multi-user auth, exactement comme `.200`. `PORT=180` dans l'`.env` de `.100` → nginx HTTP sur 180 (301 vers HTTPS), app servie sur 443. La branche **`main` est gelée depuis avril 2026** (`daab27f`) et ne reflète plus la prod : ne plus cherry-pick vers `main` — releaser = commiter sur `master` + tagger.
 - **Déploiement indépendant** : chaque install (`.100`, `.200`) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
 - **Remote git sur `.100`** : `git@github.com:Cactusrad/terminal-launcher.git` (SSH via `~/.ssh/github_key`). `.100` utilisait HTTPS au départ, basculé en SSH le 24 avril 2026 pour permettre les `git push` sans prompt credentials.
 - **Persistance** : toutes les données (users, préférences, apps, secret key) survivent aux rebuilds Docker grâce au volume `launcher-data`
@@ -381,7 +386,7 @@ Découverte au passage : **la sidebar ne rend plus les branches standalone** (re
 
 ## Session du 11 juin 2026
 
-**Multi-user réel + worktrees nominatifs + page partagée** (master/.200 uniquement, non déployé)
+**Multi-user réel + worktrees nominatifs + page partagée** — commit `c42ebdd` sur `master`, release **v1.0.7** déployée sur `.100` via autosync (health 200, HEAD détaché sur le tag). Constat au passage : `.100` déploie les tags de `master` depuis mai — la note « topologie divergente » d'avril est remplacée (voir Notes importantes), `main` est gelée.
 
 1. **Fin de l'auto-login global** : tous les appareils LAN devenaient `pierre` (admin). Remplacé par un **sélecteur de user sans mot de passe** sur le LAN (overlay « Qui es-tu ? », un clic par user, lien « Connexion avec mot de passe » en secours). `SESSION_VERSION=2` invalide les anciennes sessions auto-login. Bouton/chip user (initiale colorée + nom) dans la barre des onglets terminaux (desktop + mobile) → confirm → logout.
 2. **Worktrees au nom du créateur** : origine `user` enrichie du `username` (marqueur in-tree + registre, rétro-compatible). Badge initiale (P/M) coloré, tooltip nominatif, et confirm « Du travail est actuellement en cours par X » quand un autre user clique C/T sur le worktree. Rétro-tag effectué sur `.200` : tous les anciens `user` → `pierre`.
