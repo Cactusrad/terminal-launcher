@@ -380,9 +380,27 @@ migrate_to_multi_user()
 
 # ============ Auth Middleware ============
 LOCAL_SUBNET = ipaddress.ip_network('192.168.1.0/24')
-LOCAL_DEFAULT_USER = 'pierre'
-PUBLIC_ROUTES = {'/', '/health', '/api/auth/login', '/api/auth/me'}
+# Version de session : les sessions créées par l'ancien auto-login LAN (qui mettait
+# tout le monde sur 'pierre') n'ont pas ce champ -> invalidées au premier hit pour
+# forcer chaque appareil à passer une fois par le sélecteur de user.
+SESSION_VERSION = 2
+PUBLIC_ROUTES = {'/', '/health', '/api/auth/login', '/api/auth/me', '/api/auth/select-user'}
 PUBLIC_PREFIXES = ('/chromium/',)
+
+def public_user_list():
+    """Liste des users (sans hash) pour le sélecteur LAN."""
+    users = load_users().get('users', {})
+    return [
+        {"username": u, "display_name": d.get('display_name', u)}
+        for u, d in users.items()
+    ]
+
+def start_session(username):
+    """Ouvre une session versionnée pour un user."""
+    session.permanent = True
+    session['username'] = username
+    session['v'] = SESSION_VERSION
+    session.pop('admin_view_as', None)
 
 def is_local_network():
     """Check if request comes from the local subnet"""
@@ -409,11 +427,11 @@ def require_auth():
     if not request.path.startswith('/api/'):
         return None
     user = get_current_user()
-    if not user and is_local_network():
-        # Auto-login for local network requests
-        session.permanent = True
-        session['username'] = LOCAL_DEFAULT_USER
-        return None
+    # Invalider les sessions de l'ancien auto-login (pas de version) : chaque
+    # appareil doit choisir son user via le sélecteur.
+    if user and session.get('v') != SESSION_VERSION:
+        session.clear()
+        user = None
     if not user:
         cookie_val = request.cookies.get('session', 'NONE')
         print(f"[AUTH 401] {request.method} {request.path} | Cookie present: {cookie_val != 'NONE'} | Cookie[:30]: {cookie_val[:30]} | Session keys: {list(session.keys())} | PID: {os.getpid()} | IP: {request.remote_addr}")
@@ -433,9 +451,37 @@ def auth_login():
         if not user or not check_password(password, user['password_hash']):
             return jsonify({"status": "error", "message": "Identifiants incorrects"}), 401
 
-        session.permanent = True
-        session['username'] = username
-        session.pop('admin_view_as', None)
+        start_session(username)
+
+        return jsonify({
+            "status": "ok",
+            "user": {
+                "username": username,
+                "display_name": user['display_name'],
+                "role": user['role']
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/auth/select-user', methods=['POST'])
+def auth_select_user():
+    """Sélection de user sans mot de passe — réservé au réseau local.
+
+    Remplace l'ancien auto-login qui mettait tous les appareils sur 'pierre' :
+    même niveau de confiance (le LAN), mais chaque appareil choisit son user.
+    """
+    if not is_local_network():
+        return jsonify({"status": "error", "message": "Réservé au réseau local"}), 403
+    try:
+        data = request.get_json() or {}
+        username = data.get('username', '').strip().lower()
+        users = load_users()
+        user = users.get('users', {}).get(username)
+        if not user:
+            return jsonify({"status": "error", "message": "Utilisateur inconnu"}), 404
+
+        start_session(username)
 
         return jsonify({
             "status": "ok",
@@ -458,12 +504,18 @@ def auth_logout():
 def auth_me():
     """Get current user info"""
     username = get_current_user()
-    if not username and is_local_network():
-        session.permanent = True
-        session['username'] = LOCAL_DEFAULT_USER
-        username = LOCAL_DEFAULT_USER
+    # Sessions de l'ancien auto-login (sans version) : on les jette ici aussi,
+    # car cette route est publique et ne passe pas par le check du middleware.
+    if username and session.get('v') != SESSION_VERSION:
+        session.clear()
+        username = None
     if not username:
-        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        payload = {"status": "error", "message": "Not authenticated"}
+        if is_local_network():
+            # Le frontend affiche le sélecteur de user (sans mot de passe) sur le LAN
+            payload['lan'] = True
+            payload['users'] = public_user_list()
+        return jsonify(payload), 401
 
     users = load_users()
     user = users.get('users', {}).get(username)
@@ -646,6 +698,41 @@ def update_app_overrides():
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============ Page partagée (raccourcis visibles par tous) ============
+# Contrairement aux pages perso (IDs pointant vers les customApps du user), la
+# page partagée stocke des objets app complets dans un fichier global — elle ne
+# dépend des données d'aucun user. Lecture : tous. Écriture : admin uniquement.
+SHARED_PAGE_FILE = DATA_DIR / 'shared_page.json'
+
+def load_shared_page():
+    data = load_json_file(str(SHARED_PAGE_FILE), lambda: {"name": "Partagé", "apps": []})
+    if not isinstance(data.get('apps'), list):
+        data['apps'] = []
+    return data
+
+@app.route('/api/shared/page', methods=['GET'])
+def get_shared_page():
+    return jsonify(load_shared_page())
+
+@app.route('/api/shared/page', methods=['POST'])
+def update_shared_page():
+    if not is_admin(get_current_user()):
+        return jsonify({"status": "error", "message": "Seul l'admin peut modifier la page partagée"}), 403
+    try:
+        data = request.get_json() or {}
+        page = load_shared_page()
+        if isinstance(data.get('name'), str) and data['name'].strip():
+            page['name'] = data['name'].strip()
+        if 'apps' in data:
+            if not isinstance(data['apps'], list):
+                return jsonify({"status": "error", "message": "apps doit être une liste"}), 400
+            page['apps'] = data['apps']
+        if save_json_file(str(SHARED_PAGE_FILE), page):
+            return jsonify({"status": "ok", "page": page})
+        return jsonify({"status": "error", "message": "Erreur de sauvegarde"}), 500
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -834,10 +921,22 @@ def sanitize_branch_for_dirname(branch):
 # Origine des worktrees (option B — marqueur explicite).
 # Aucun signal git ne distingue un worktree créé par Pierre d'un créé par Claude
 # (même auteur "Cactusrad", conventions de branche identiques). On tient donc un
-# registre : l'endpoint "+ Nouveau worktree" du dashboard (= Pierre) marque ses
-# créations "user" ; tout ce qui n'est pas dans le registre = créé en terminal par
-# les skills de Claude = "claude". Clé = dirname (globalement unique : projet--branche).
+# registre : l'endpoint "+ Nouveau worktree" du dashboard marque ses créations
+# "user" + le username du créateur ; tout ce qui n'est pas dans le registre =
+# créé en terminal par les skills de Claude = "claude".
+# Clé = dirname (globalement unique : projet--branche).
+# Format des entrées : {"origin": "user"|"claude", "username": "pierre"|None}
+# (les anciennes entrées string "user"/"claude" restent lisibles).
 WORKTREE_ORIGINS_FILE = DATA_DIR / 'worktree_origins.json'
+
+def normalize_origin_entry(entry):
+    """Normalise une entrée d'origine (string legacy ou dict) en dict."""
+    if isinstance(entry, dict):
+        origin = entry.get('origin', 'claude')
+        return {'origin': origin, 'username': entry.get('username') if origin == 'user' else None}
+    if entry == 'user':
+        return {'origin': 'user', 'username': None}
+    return {'origin': 'claude', 'username': None}
 
 def load_worktree_origins():
     try:
@@ -846,9 +945,9 @@ def load_worktree_origins():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def set_worktree_origin(dirname, origin):
+def set_worktree_origin(dirname, origin, username=None):
     data = load_worktree_origins()
-    data[dirname] = origin
+    data[dirname] = {'origin': origin, 'username': username if origin == 'user' else None}
     tmp = str(WORKTREE_ORIGINS_FILE) + '.tmp'
     with open(tmp, 'w') as f:
         json.dump(data, f, indent=2)
@@ -864,10 +963,12 @@ def forget_worktree_origin(dirname):
         os.replace(tmp, WORKTREE_ORIGINS_FILE)
 
 def guess_worktree_origin(dirname, origins=None):
-    """'user' si marqué via le dashboard, sinon 'claude' (créé hors dashboard)."""
+    """Entrée normalisée du registre, défaut 'claude' (créé hors dashboard)."""
     if origins is None:
         origins = load_worktree_origins()
-    return origins.get(dirname, 'claude')
+    if dirname in origins:
+        return normalize_origin_entry(origins[dirname])
+    return {'origin': 'claude', 'username': None}
 
 # Marqueur posé DANS le worktree (en plus du registre central). Avantage : il
 # voyage avec le dossier et survit sur n'importe quelle install (ex. .100 où le
@@ -875,18 +976,25 @@ def guess_worktree_origin(dirname, origins=None):
 WORKTREE_MARKER_FILE = '.cactus-worktree.json'
 
 def read_worktree_marker(wt_path):
-    """Retourne le 'creator' du marqueur dans le worktree, ou None s'il n'existe pas."""
+    """Retourne {'origin', 'username'} du marqueur dans le worktree, ou None."""
     try:
         with open(os.path.join(wt_path, WORKTREE_MARKER_FILE)) as f:
-            return json.load(f).get('creator')
+            data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return None
+    creator = data.get('creator')
+    if creator not in ('user', 'claude'):
+        return None
+    return {'origin': creator, 'username': data.get('username') if creator == 'user' else None}
 
-def write_worktree_marker(wt_path, creator):
+def write_worktree_marker(wt_path, creator, username=None):
     """Écrit le marqueur dans le worktree et l'ajoute à l'exclude git (pas de bruit dans git status)."""
+    marker = {'creator': creator}
+    if creator == 'user' and username:
+        marker['username'] = username
     try:
         with open(os.path.join(wt_path, WORKTREE_MARKER_FILE), 'w') as f:
-            json.dump({'creator': creator}, f, indent=2)
+            json.dump(marker, f, indent=2)
     except OSError:
         return
     # Ignorer le marqueur côté git pour qu'il ne pollue pas `git status`.
@@ -973,6 +1081,7 @@ def get_git_info(project_path):
         # Use the repo's default branch (main/master) for behind-main detection
         main_branch = info['default_branch'] or info['branch']
         wt_origins = load_worktree_origins()
+        display_names = {u: d.get('display_name', u) for u, d in load_users().get('users', {}).items()}
 
         for wt in worktrees:
             dirname = os.path.basename(wt.get('path', ''))
@@ -991,13 +1100,16 @@ def get_git_info(project_path):
                 if ok3 and count.strip().isdigit():
                     behind_main = int(count.strip())
             # Marqueur dans le worktree prioritaire, sinon registre central, sinon claude.
-            origin = read_worktree_marker(wt_path) or guess_worktree_origin(dirname, wt_origins)
+            entry = read_worktree_marker(wt_path) or guess_worktree_origin(dirname, wt_origins)
+            owner = entry.get('username')
             info['worktrees'].append({
                 'branch': wt_branch,
                 'dirname': dirname,
                 'dirty': wt_dirty,
                 'behind_main': behind_main,
-                'origin': origin
+                'origin': entry['origin'],
+                'owner': owner,
+                'owner_display': display_names.get(owner, owner) if owner else None
             })
 
     # Detect merged branches (merged into default branch — main/master)
@@ -1253,11 +1365,12 @@ def create_git_worktree(project):
     if not ok:
         return jsonify({"status": "error", "message": err}), 500
 
-    # Créé via le dashboard => c'est Pierre. Marqueur dans le worktree + registre central.
-    write_worktree_marker(wt_path, 'user')
-    set_worktree_origin(dirname, 'user')
+    # Créé via le dashboard => marqué au nom du user connecté (marqueur in-tree + registre).
+    creator = get_effective_user()
+    write_worktree_marker(wt_path, 'user', creator)
+    set_worktree_origin(dirname, 'user', creator)
 
-    return jsonify({"status": "ok", "dirname": dirname, "branch": branch})
+    return jsonify({"status": "ok", "dirname": dirname, "branch": branch, "owner": creator})
 
 @app.route('/api/projects/<project>/git/worktrees/<dirname>', methods=['DELETE'])
 def delete_git_worktree(project, dirname):
@@ -1308,10 +1421,17 @@ def set_git_worktree_origin(project, dirname):
     if not os.path.isdir(wt_path):
         return jsonify({"status": "error", "message": "Worktree introuvable"}), 404
 
-    write_worktree_marker(wt_path, origin)
-    set_worktree_origin(dirname, origin)
+    # origin=user sans username explicite => le user connecté revendique le worktree
+    username = None
+    if origin == 'user':
+        username = (data.get('username') or '').strip().lower() or get_effective_user()
+        if username not in load_users().get('users', {}):
+            return jsonify({"status": "error", "message": "Utilisateur inconnu"}), 400
 
-    return jsonify({"status": "ok", "dirname": dirname, "origin": origin})
+    write_worktree_marker(wt_path, origin, username)
+    set_worktree_origin(dirname, origin, username)
+
+    return jsonify({"status": "ok", "dirname": dirname, "origin": origin, "owner": username})
 
 @app.route('/api/projects/<project>/git/remotes', methods=['GET'])
 def get_git_remotes(project):

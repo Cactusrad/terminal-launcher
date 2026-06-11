@@ -464,6 +464,91 @@
             margin-bottom: 12px;
             display: none;
         }
+        /* Sélecteur de user sans mot de passe (réseau local) */
+        .login-user-picker {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .login-user-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--cactus-border);
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--cactus-text);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+        .login-user-btn:hover {
+            border-color: var(--cactus-primary);
+            background: rgba(231, 91, 18, 0.08);
+        }
+        .login-user-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+        .login-mode-toggle {
+            width: 100%;
+            margin-top: 14px;
+            background: none;
+            border: none;
+            color: var(--cactus-text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .login-mode-toggle:hover {
+            color: var(--cactus-text-secondary);
+        }
+        /* Chip user dans la barre des terminaux */
+        .terminal-user-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px 4px 4px;
+            margin: 4px 6px;
+            border: 1px solid var(--cactus-border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--cactus-text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            align-self: center;
+            transition: all 0.2s;
+        }
+        .terminal-user-chip:hover {
+            border-color: var(--cactus-negative);
+            color: var(--cactus-text);
+        }
+        .terminal-user-chip .chip-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
 
         /* ============ User Menu (top-bar) ============ */
         .user-menu {
@@ -2264,7 +2349,15 @@
             transform: scale(1.2);
         }
         .wt-origin.user {
-            opacity: 0.55;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 0.6rem;
+            font-weight: 700;
         }
         .worktree-add-btn {
             display: flex;
@@ -3455,15 +3548,18 @@
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h1><span>Cactus</span> Home</h1>
-            <p class="login-subtitle">Connexion</p>
+            <p class="login-subtitle" id="loginSubtitle">Connexion</p>
             <div class="login-error" id="loginError"></div>
-            <form onsubmit="handleLogin(event)">
+            <!-- Sélecteur de user (réseau local) : un clic, pas de mot de passe -->
+            <div class="login-user-picker" id="loginUserPicker" style="display:none;"></div>
+            <form onsubmit="handleLogin(event)" id="loginForm">
                 <label for="loginUsername">Utilisateur</label>
                 <input type="text" id="loginUsername" autocomplete="username" autofocus>
                 <label for="loginPassword">Mot de passe</label>
                 <input type="password" id="loginPassword" autocomplete="current-password">
                 <button type="submit" class="btn-login">Se connecter</button>
             </form>
+            <button type="button" class="login-mode-toggle" id="loginModeToggle" style="display:none;" onclick="toggleLoginMode()">Connexion avec mot de passe</button>
         </div>
     </div>
 
@@ -3624,6 +3720,7 @@
                         </svg>
                     </button>
                     <div class="terminal-tabs" id="terminalTabsMobile"></div>
+                    <button class="terminal-user-chip" onclick="terminalUserLogout()" title="Cliquer pour se déconnecter"></button>
                     <button class="mobile-home-btn" onclick="goToHome()" title="Accueil">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
@@ -3633,6 +3730,7 @@
                 <!-- Desktop tabs + view mode toggle -->
                 <div style="display: flex; align-items: flex-end; background: rgba(30, 41, 59, 0.95); border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <div class="terminal-tabs terminal-tabs-desktop" id="terminalTabs" style="border-bottom: none; flex: 1;"></div>
+                    <button class="terminal-user-chip" onclick="terminalUserLogout()" title="Cliquer pour se déconnecter"></button>
                     <button class="mute-toggle" id="muteToggle" onclick="toggleAlertMute()" title="Mute/Unmute alertes">🔔</button>
                     <button class="header-scroll-btn" id="autoScrollToggle" onclick="toggleAutoScroll()" title="Auto-défilement : activé">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l7 7 7-7 1.4 1.4L12 13.4 3.6 5 5 3zm0 7l7 7 7-7 1.4 1.4L12 20.4 3.6 12 5 10z"/></svg>
@@ -5022,6 +5120,26 @@
             return idx === -1 ? dirname : dirname.slice(idx + 2);
         }
 
+        // Si le worktree appartient à un autre user (badge initiale), retourne son nom d'affichage.
+        function worktreeOwnedByOther(project) {
+            const sep = project.indexOf('--');
+            if (sep === -1) return null;
+            const parent = project.slice(0, sep);
+            const worktrees = (projectGitInfo[parent] && projectGitInfo[parent].worktrees) || [];
+            const wt = worktrees.find(w => w.dirname === project);
+            if (wt && wt.origin === 'user' && wt.owner && wt.owner !== currentUser) {
+                return wt.owner_display || wt.owner;
+            }
+            return null;
+        }
+
+        // Confirmation avant d'ouvrir un terminal sur le worktree d'un autre user
+        function confirmWorktreeAccess(project) {
+            const owner = worktreeOwnedByOther(project);
+            if (!owner) return true;
+            return confirm(`⚠️ Du travail est actuellement en cours par ${owner} sur ce worktree.\nContinuer quand même ?`);
+        }
+
         function createTerminalTab(type, project) {
             const typeInfo = terminalTypes[type];
             if (!typeInfo) return;
@@ -5036,6 +5154,8 @@
                 activateTerminalTab(existingTab.id);
                 return;
             }
+
+            if (!confirmWorktreeAccess(project)) return;
 
             const tabId = generateTabId();
             const tab = {
@@ -5061,6 +5181,7 @@
         }
 
         function createTeamTerminal(project) {
+            if (!confirmWorktreeAccess(project)) return;
             const agentName = prompt('Nom du teammate (ex: researcher, tester):');
             if (!agentName || !agentName.trim()) return;
 
@@ -5749,9 +5870,16 @@
                             const dirtyDot = wt.dirty ? '<span class="worktree-dirty-dot" title="Modifications non commités"></span>' : '';
                             const behindRef = gitInfo.default_branch || gitInfo.branch;
                             const behindBadge = wt.behind_main > 0 ? `<span class="behind-badge" title="${wt.behind_main} commit(s) derrière ${escapeHtml(behindRef)}">↓${wt.behind_main}</span>` : '';
-                            const originBadge = wt.origin === 'claude'
-                                ? `<span class="wt-origin claude" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'claude')" title="Créé par Claude — cliquer pour marquer comme créé par toi">🤖</span>`
-                                : `<span class="wt-origin user" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'user')" title="Créé par toi — cliquer pour marquer comme créé par Claude">👤</span>`;
+                            let originBadge;
+                            if (wt.origin === 'claude') {
+                                originBadge = `<span class="wt-origin claude" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'claude')" title="Créé par Claude — cliquer pour le marquer à ton nom">🤖</span>`;
+                            } else {
+                                // Badge avec l'initiale du créateur (ex: P pour Pierre), couleur stable par user
+                                const ownerName = wt.owner_display || wt.owner || '';
+                                const initial = ownerName ? ownerName.charAt(0).toUpperCase() : '👤';
+                                const whose = ownerName ? `Créé par ${ownerName}${wt.owner === currentUser ? ' (toi)' : ''}` : 'Créé par un utilisateur';
+                                originBadge = `<span class="wt-origin user" style="background:${userColor(wt.owner || 'user')}" onclick="toggleWorktreeOrigin('${jsProject}', '${wtJsDir}', 'user')" title="${escapeHtml(whose)} — cliquer pour marquer comme créé par Claude">${escapeHtml(initial)}</span>`;
+                            }
                             return `
                                 <div class="worktree-item">
                                     <div class="worktree-name">
@@ -6091,6 +6219,7 @@
         let currentPageId = 'main';
         let contextAppId = null;
         let cachedPages = null;
+        let sharedPage = null;  // page de raccourcis partagée (visible par tous, éditable par l'admin)
         let apiEnabled = false;
         let syncDebounceTimer = null;
         let currentProjectId = null;
@@ -6138,11 +6267,15 @@
 
         async function loadPreferencesFromAPI() {
             try {
-                // Load preferences and apps in parallel
-                const [prefsResponse, appsResponse] = await Promise.all([
+                // Load preferences, apps and shared page in parallel
+                const [prefsResponse, appsResponse, sharedResponse] = await Promise.all([
                     fetch(`${API_BASE}/preferences`),
-                    fetch(`${API_BASE}/apps`)
+                    fetch(`${API_BASE}/apps`),
+                    fetch(`${API_BASE}/shared/page`)
                 ]);
+                if (sharedResponse && sharedResponse.ok) {
+                    try { sharedPage = await sharedResponse.json(); } catch (e) { sharedPage = null; }
+                }
                 if (prefsResponse.ok) {
                     const data = await prefsResponse.json();
                     apiEnabled = true;
@@ -6388,6 +6521,91 @@
             `;
         }
 
+        // ============ Page partagée ============
+        function createSharedCard(app) {
+            const iconSvg = icons[app.icon] || icons['project-card'];
+            const gradient = app.gradient || 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+            const ctx = isAdmin ? `oncontextmenu="showSharedContextMenu(event, '${app.id}'); return false;"` : '';
+            return `
+                <a href="${app.url}" class="card" data-id="${app.id}" target="_blank" ${ctx}>
+                    <div class="card-icon" style="background:${gradient}">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">${iconSvg}</svg>
+                    </div>
+                    <h2>${escapeHtml(app.name)}</h2>
+                    <p>${escapeHtml(app.desc || '')}</p>
+                </a>
+            `;
+        }
+
+        function renderSharedApps(grid) {
+            const apps = (sharedPage && sharedPage.apps) || [];
+            if (apps.length === 0) {
+                const hint = isAdmin
+                    ? 'Cliquez sur <strong>Nouveau</strong> pour ajouter un raccourci visible par tous'
+                    : "L'administrateur n'a pas encore ajouté de raccourcis partagés";
+                grid.innerHTML = `
+                    <div class="empty-page" style="grid-column: 1 / -1;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3; margin-bottom: 16px;"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+                        <p style="font-size:1.1rem; font-weight:500; margin-bottom:8px;">Aucun raccourci partagé</p>
+                        <p style="font-size:0.85rem; opacity:0.7;">${hint}</p>
+                    </div>
+                `;
+                return;
+            }
+            grid.innerHTML = apps.map(createSharedCard).join('');
+        }
+
+        async function saveSharedPageToAPI() {
+            if (!sharedPage) return;
+            try {
+                const res = await fetch(`${API_BASE}/shared/page`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apps: sharedPage.apps })
+                });
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.message || 'Erreur sauvegarde page partagée');
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                alert('Erreur réseau: ' + e.message);
+                return false;
+            }
+        }
+
+        function showSharedContextMenu(e, appId) {
+            e.preventDefault();
+            if (!isAdmin || !sharedPage) return;
+            const app = (sharedPage.apps || []).find(a => a.id === appId);
+            if (!app) return;
+            if (confirm(`Supprimer "${app.name}" de la page partagée ?`)) {
+                sharedPage.apps = sharedPage.apps.filter(a => a.id !== appId);
+                saveSharedPageToAPI();
+                renderApps();
+            }
+        }
+
+        // Admin : copie un raccourci perso vers la page partagée (l'original reste intact)
+        function copyAppToShared(appId) {
+            if (!isAdmin || !sharedPage) return;
+            const app = getAppById(appId);
+            if (!app) return;
+            sharedPage.apps.push({
+                id: 'shared_' + Date.now(),
+                name: app.name,
+                url: app.url,
+                desc: app.desc || '',
+                icon: app.icon || 'globe',
+                gradient: app.gradient || ''
+            });
+            saveSharedPageToAPI();
+            hideContextMenu();
+            renderApps();
+            renderPageDots();
+        }
+
         function renderApps() {
             const pages = getPages();
             const currentPage = pages.find(p => p.id === currentPageId);
@@ -6401,6 +6619,12 @@
             } else {
                 grid.style.display = '';
                 showTerminalManager(false);
+            }
+
+            // Page partagée : apps globales (objets complets), lecture seule sauf admin
+            if (currentPageId === 'shared') {
+                renderSharedApps(grid);
+                return;
             }
 
             if (!currentPage || currentPage.apps.length === 0) {
@@ -6426,12 +6650,17 @@
             const pages = getPages();
             const nav = document.getElementById('pageNav');
 
-            if (pages.length <= 1) {
+            // L'onglet "Partagé" (global) s'affiche avant les pages perso du user
+            const tabs = [];
+            if (sharedPage) tabs.push({ id: 'shared', name: '📌 ' + (sharedPage.name || 'Partagé') });
+            tabs.push(...pages);
+
+            if (tabs.length <= 1) {
                 nav.innerHTML = '';
                 return;
             }
 
-            nav.innerHTML = pages.map(page => `
+            nav.innerHTML = tabs.map(page => `
                 <button class="page-tab ${page.id === currentPageId ? 'active' : ''}"
                         onclick="setCurrentPageId('${page.id}')">
                     ${page.name}
@@ -6511,7 +6740,11 @@
                         onclick="moveAppToPage('${appId}', '${page.id}')">
                     ${page.name}
                 </button>
-            `).join('');
+            `).join('') + (isAdmin && sharedPage ? `
+                <button class="context-item" onclick="copyAppToShared('${appId}')">
+                    📌 Copier vers ${escapeHtml(sharedPage.name || 'Partagé')}
+                </button>
+            ` : '');
 
             // Show delete button for all apps
             const deleteSection = document.getElementById('contextDeleteSection');
@@ -6761,6 +6994,12 @@
         function openCreateApp() {
             hideContextMenu();
 
+            // Page partagée : seul l'admin peut y créer des raccourcis
+            if (currentPageId === 'shared' && !isAdmin) {
+                alert('Seul l\'administrateur peut modifier la page partagée.');
+                return;
+            }
+
             selectedCreateIcon = 'globe';
             selectedCreateGradient = getNextUniqueGradient();
 
@@ -6835,6 +7074,26 @@
 
             // Auto-add http:// if no protocol specified
             const finalUrl = /^https?:\/\//i.test(url) ? url : 'http://' + url;
+
+            // Création sur la page partagée (admin) : app globale, pas dans les customApps du user
+            if (currentPageId === 'shared') {
+                if (!isAdmin || !sharedPage) {
+                    alert('Seul l\'administrateur peut modifier la page partagée.');
+                    return;
+                }
+                sharedPage.apps.push({
+                    id: 'shared_' + Date.now(),
+                    name: name,
+                    url: finalUrl,
+                    desc: desc || '',
+                    icon: selectedCreateIcon,
+                    gradient: selectedCreateGradient
+                });
+                saveSharedPageToAPI();
+                renderApps();
+                closeCreateApp();
+                return;
+            }
 
             const id = 'custom_' + Date.now();
             const newApp = {
@@ -8147,10 +8406,20 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
 
         // ============ Auth State ============
         let currentUser = null;
+        let currentUserDisplay = null;
         let isAdmin = false;
         let allUsers = [];
         let viewingAs = null;
+        let lanUsers = null;  // liste des users renvoyée par /api/auth/me en 401 sur le LAN (sélecteur sans mot de passe)
         let _authInProgress = false; // Guard: prevent interceptor during login/init flow
+
+        // Couleur stable par user (avatars du sélecteur + badges de worktree)
+        const USER_BADGE_COLORS = ['#E75B12', '#3b82f6', '#22c55e', '#a855f7', '#06b6d4', '#f43f5e', '#eab308', '#14b8a6'];
+        function userColor(username) {
+            let h = 0;
+            for (const c of String(username || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+            return USER_BADGE_COLORS[h % USER_BADGE_COLORS.length];
+        }
 
         // ============ Fetch Interceptor (401 handler) ============
         const originalFetch = window.fetch;
@@ -8176,6 +8445,7 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
         };
 
         function showLoginOverlay() {
+            renderLoginPicker();
             document.getElementById('loginOverlay').classList.remove('hidden');
         }
 
@@ -8187,9 +8457,17 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             try {
                 const res = await originalFetch('/api/auth/me', { credentials: 'same-origin' });
                 console.log('[Auth] checkAuth /api/auth/me:', res.status);
-                if (!res.ok) return false;
+                if (!res.ok) {
+                    // Sur le LAN, le 401 contient la liste des users -> sélecteur sans mot de passe
+                    try {
+                        const err = await res.json();
+                        lanUsers = (err.lan && err.users) ? err.users : null;
+                    } catch (e) { lanUsers = null; }
+                    return false;
+                }
                 const data = await res.json();
                 currentUser = data.username;
+                currentUserDisplay = data.display_name || data.username;
                 isAdmin = data.is_admin;
                 allUsers = data.all_users || [];
                 viewingAs = data.viewing_as || data.username;
@@ -8201,6 +8479,77 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
             }
         }
 
+        // ============ Sélecteur de user (LAN, sans mot de passe) ============
+        function renderLoginPicker() {
+            const picker = document.getElementById('loginUserPicker');
+            const form = document.getElementById('loginForm');
+            const toggle = document.getElementById('loginModeToggle');
+            const subtitle = document.getElementById('loginSubtitle');
+            if (!lanUsers || !lanUsers.length) {
+                picker.style.display = 'none';
+                form.style.display = '';
+                toggle.style.display = 'none';
+                subtitle.textContent = 'Connexion';
+                return;
+            }
+            subtitle.textContent = 'Qui es-tu ?';
+            picker.innerHTML = lanUsers.map(u => {
+                const name = u.display_name || u.username;
+                const safe = escapeHtml(name);
+                return `
+                    <button type="button" class="login-user-btn" onclick="selectUser('${u.username.replace(/'/g, "\\'")}')">
+                        <span class="login-user-avatar" style="background:${userColor(u.username)}">${safe.charAt(0).toUpperCase()}</span>
+                        ${safe}
+                    </button>
+                `;
+            }).join('');
+            picker.style.display = '';
+            form.style.display = 'none';
+            toggle.style.display = '';
+            toggle.textContent = 'Connexion avec mot de passe';
+        }
+
+        function toggleLoginMode() {
+            const picker = document.getElementById('loginUserPicker');
+            const form = document.getElementById('loginForm');
+            const toggle = document.getElementById('loginModeToggle');
+            const pickerVisible = picker.style.display !== 'none';
+            picker.style.display = pickerVisible ? 'none' : '';
+            form.style.display = pickerVisible ? '' : 'none';
+            toggle.textContent = pickerVisible ? 'Choisir un utilisateur' : 'Connexion avec mot de passe';
+            document.getElementById('loginSubtitle').textContent = pickerVisible ? 'Connexion' : 'Qui es-tu ?';
+        }
+
+        async function selectUser(username) {
+            const errorEl = document.getElementById('loginError');
+            try {
+                _authInProgress = true;
+                const res = await originalFetch('/api/auth/select-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username }),
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    errorEl.textContent = data.message || 'Erreur de connexion';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                errorEl.style.display = 'none';
+                if (await checkAuth()) {
+                    hideLoginOverlay();
+                    await initDashboard();
+                }
+            } catch (e) {
+                console.error('[Auth] selectUser error:', e);
+                errorEl.textContent = 'Erreur réseau';
+                errorEl.style.display = 'block';
+            } finally {
+                _authInProgress = false;
+            }
+        }
+
         function updateUserMenu() {
             const nameEl = document.getElementById('userDisplayName');
             const switcher = document.getElementById('adminSwitcher');
@@ -8208,6 +8557,16 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 const displayUser = viewingAs !== currentUser ? `${currentUser} → ${viewingAs}` : currentUser;
                 nameEl.textContent = displayUser;
             }
+            // Chips user dans les barres de terminaux (desktop + mobile)
+            document.querySelectorAll('.terminal-user-chip').forEach(el => {
+                if (currentUser) {
+                    const name = currentUserDisplay || currentUser;
+                    el.style.display = '';
+                    el.innerHTML = `<span class="chip-avatar" style="background:${userColor(currentUser)}">${escapeHtml(name.charAt(0).toUpperCase())}</span>${escapeHtml(name)}`;
+                } else {
+                    el.style.display = 'none';
+                }
+            });
             if (switcher) {
                 if (isAdmin && allUsers.length > 1) {
                     switcher.style.display = '';
@@ -8274,11 +8633,19 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 await originalFetch('/api/auth/logout', { method: 'POST' });
             } catch (e) {}
             currentUser = null;
+            currentUserDisplay = null;
             isAdmin = false;
             allUsers = [];
             viewingAs = null;
+            // Re-fetch /api/auth/me pour récupérer la liste des users LAN (sélecteur)
+            await checkAuth();
             showLoginOverlay();
             document.getElementById('loginPassword').value = '';
+        }
+
+        function terminalUserLogout() {
+            if (!currentUser) return;
+            if (confirm(`Déconnecter ${currentUserDisplay || currentUser} ?`)) handleLogout();
         }
 
         async function switchUser(username) {
@@ -8299,7 +8666,7 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                         currentPageId = getCurrentPageId();
                     }
                     const pages = getPages();
-                    if (!pages.find(p => p.id === currentPageId)) {
+                    if (!pages.find(p => p.id === currentPageId) && !(currentPageId === 'shared' && sharedPage)) {
                         currentPageId = pages.length > 0 ? pages[0].id : 'main';
                     }
                     renderApps();
@@ -8358,10 +8725,9 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 currentPageId = getCurrentPageId();
             }
 
-            const pages = getPages();
-            if (!pages.find(p => p.id === currentPageId)) {
-                currentPageId = pages.length > 0 ? pages[0].id : 'main';
-            }
+            // Atterrissage par défaut : la vue Terminaux (la page sauvegardée
+            // ne sert que pour la navigation en cours de session)
+            currentPageId = 'terminals';
 
             renderApps();
             renderPageDots();
@@ -8379,6 +8745,8 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
                 if (authed) {
                     hideLoginOverlay();
                     await initDashboard();
+                } else {
+                    showLoginOverlay();
                 }
             } finally {
                 _authInProgress = false;

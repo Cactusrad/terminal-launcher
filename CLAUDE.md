@@ -75,6 +75,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 | `/` | GET | Page HTML (lu depuis disque, no-cache) |
 | `/health` | GET | Health check |
 | `/api/auth/login` | POST | Login (username/password → cookie session) |
+| `/api/auth/select-user` | POST | Sélection de user **sans mot de passe** (LAN uniquement, 403 sinon) |
 | `/api/auth/logout` | POST | Logout (détruit session) |
 | `/api/auth/me` | GET | Info user courant + is_admin + liste users |
 | `/api/auth/password` | POST | Changer son mot de passe |
@@ -84,6 +85,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 | `/api/preferences/current-page` | POST | Page courante |
 | `/api/preferences/custom-apps` | POST | Applications personnalisées |
 | `/api/preferences/app-overrides` | POST | Overrides d'apps (URL, nom, etc.) |
+| `/api/shared/page` | GET/POST | Page de raccourcis partagée (GET : tous ; POST : admin only) |
 | `/api/terminal/state` | GET/POST | État des terminaux (onglets, vue) |
 | `/api/terminal/activity` | GET | Détection d'attente terminal |
 | `/api/terminal/sessions` | GET | Sessions dtach actives |
@@ -145,9 +147,10 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Users** : stockés dans `/data/users.json` avec hash bcrypt
 - **Users par défaut** : `pierre` (admin, mdp `12345`), `mohamed` (user, mdp `12345`)
 - **Cookie** : `cactus_session`, signé avec `/data/.secret_key`, HTTPOnly, SameSite=Lax, 7 jours
-- **Routes publiques** : `/`, `/health`, `/api/auth/login`, `/api/auth/me`
+- **Routes publiques** : `/`, `/health`, `/api/auth/login`, `/api/auth/me`, `/api/auth/select-user`
 - **Middleware** : `before_request` retourne 401 sur `/api/*` si pas de session
-- **Réseau local** : les requêtes depuis `192.168.1.0/24` sont auto-connectées en tant que `pierre` (pas de login requis). Configuré via `LOCAL_SUBNET` et `LOCAL_DEFAULT_USER` dans `server.py`
+- **Réseau local (depuis 2026-06-11)** : plus d'auto-login global vers `pierre`. Sur le LAN (`LOCAL_SUBNET`), le 401 de `/api/auth/me` contient `{lan:true, users:[...]}` → le frontend affiche un **sélecteur de user** (un clic, pas de mot de passe, `POST /api/auth/select-user`). Hors LAN : login classique avec mot de passe. Le choix est mémorisé 7 jours par appareil (cookie).
+- **Versionnement de session** : `SESSION_VERSION` (`session['v']`) — les sessions de l'ancien auto-login (sans `v`) sont invalidées au premier hit, chaque appareil repasse une fois par le sélecteur
 - **Admin** : Pierre peut switcher vers un autre user pour voir/modifier ses données (`admin_view_as` en session)
 - **Migration** : au premier démarrage, si `/data/preferences.json` existe et `/data/users/` n'existe pas, les données globales sont copiées vers chaque user puis renommées en `.bak`
 - **Frontend** : login overlay glassmorphism (z-index 2000), fetch interceptor 401 avec compteur de 3 consécutifs, menu user + admin switcher dans la top-bar
@@ -172,21 +175,21 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Demandes ERP** : tickets avec notifications Telegram
 - **Bug Report** : widget connecté au bugs_service local (http://192.168.1.200:9010), projet "Terminal Launcher" (slug: terminal-launcher, préfixe: TER)
 
-## Origine des worktrees (toi vs Claude)
+## Origine des worktrees (users vs Claude)
 
-Distingue les worktrees créés par Pierre de ceux créés par Claude (skills `night-watch`/`bugs-fix`/`release-loop` qui font `git worktree add` en terminal).
+Distingue les worktrees créés par un utilisateur (pierre, mohamed, …) de ceux créés par Claude (skills `night-watch`/`bugs-fix`/`release-loop` qui font `git worktree add` en terminal). **Depuis 2026-06-11, l'origine `user` porte aussi le `username` du créateur** : badge avec l'**initiale** du user (ex. **P** pour Pierre, couleur stable par user via `userColor()`) au lieu du 👤 générique, et **avertissement** (`confirm`) quand un autre user ouvre un terminal (boutons C/T) sur ce worktree : « Du travail est actuellement en cours par Pierre. Continuer quand même ? ». Helpers frontend : `worktreeOwnedByOther()`, `confirmWorktreeAccess()`.
 
 **Pourquoi un marqueur explicite** : aucun signal git ne les distingue — même auteur de commit (`Cactusrad`, car Claude commit avec l'identité de Pierre), conventions de nommage de branche identiques (Pierre nomme aussi ses branches `feat/...`), tracking remote mélangé. Une heuristique de nommage a été testée puis abandonnée (3 erreurs sur 6 contre la vérité terrain).
 
 **Deux sources de vérité, par priorité de lecture** :
-1. **Marqueur in-tree** `.cactus-worktree.json` (`{"creator":"user"|"claude"}`) écrit **dans le worktree**. Ajouté à l'`info/exclude` du worktree → invisible dans `git status`. Avantage : voyage avec le dossier, survit sur n'importe quelle install (ex. `.100` où le registre démarre vide).
-2. **Registre central** `/data/worktree_origins.json` (volume `launcher-data`), clé = `dirname`.
+1. **Marqueur in-tree** `.cactus-worktree.json` (`{"creator":"user"|"claude", "username":"pierre"}`) écrit **dans le worktree**. Ajouté à l'`info/exclude` du worktree → invisible dans `git status`. Avantage : voyage avec le dossier, survit sur n'importe quelle install (ex. `.100` où le registre démarre vide).
+2. **Registre central** `/data/worktree_origins.json` (volume `launcher-data`), clé = `dirname`, valeur `{"origin":"user"|"claude","username":...}` (les anciennes valeurs string restent lisibles via `normalize_origin_entry()`).
 3. **Défaut** : `claude` (tout ce qui n'est ni marqué ni dans le registre = créé hors dashboard).
 
-**Helpers `server.py`** : `load/set/forget_worktree_origin()`, `read/write_worktree_marker()`, `guess_worktree_origin(dirname, origins)`. `get_git_info()` fait `read_worktree_marker(wt_path) or guess_worktree_origin(dirname, wt_origins)`.
+**Helpers `server.py`** : `load/set/forget_worktree_origin()`, `read/write_worktree_marker()`, `guess_worktree_origin(dirname, origins)`, `normalize_origin_entry()`. `get_git_info()` expose par worktree : `origin`, `owner` (username) et `owner_display`.
 
 **Règle de fonctionnement** :
-- Worktree créé via le bouton **« + Nouveau worktree »** du dashboard → marqué `user` automatiquement (marqueur in-tree + registre).
+- Worktree créé via le bouton **« + Nouveau worktree »** du dashboard → marqué `user` **au nom du user connecté** (marqueur in-tree + registre).
 - Worktree créé par Claude en terminal → pas marqué → `claude` par défaut.
 - 100% fiable tant que les worktrees perso passent par le bouton.
 
@@ -375,6 +378,17 @@ Livré en 4 releases tag-based (déployées sur `.100` via autosync) :
 Retro-tag des worktrees existants sur `.200` : `fix/fix3/hook/partz/kestion` = toi, `nordsku/demande-id` = Claude (vérité terrain donnée par Pierre). `.100` n'a aucun worktree → rien à reclasser.
 
 Découverte au passage : **la sidebar ne rend plus les branches standalone** (retirées dans `37d7d23` « collapsible projects sidebar, remove agents panel »), seulement les worktrees.
+
+## Session du 11 juin 2026
+
+**Multi-user réel + worktrees nominatifs + page partagée** (master/.200 uniquement, non déployé)
+
+1. **Fin de l'auto-login global** : tous les appareils LAN devenaient `pierre` (admin). Remplacé par un **sélecteur de user sans mot de passe** sur le LAN (overlay « Qui es-tu ? », un clic par user, lien « Connexion avec mot de passe » en secours). `SESSION_VERSION=2` invalide les anciennes sessions auto-login. Bouton/chip user (initiale colorée + nom) dans la barre des onglets terminaux (desktop + mobile) → confirm → logout.
+2. **Worktrees au nom du créateur** : origine `user` enrichie du `username` (marqueur in-tree + registre, rétro-compatible). Badge initiale (P/M) coloré, tooltip nominatif, et confirm « Du travail est actuellement en cours par X » quand un autre user clique C/T sur le worktree. Rétro-tag effectué sur `.200` : tous les anciens `user` → `pierre`.
+3. **Atterrissage par défaut sur la vue Terminaux** : à l'ouverture (et après login), `initDashboard()` force `currentPageId='terminals'` — la page sauvegardée ne sert que pour la navigation en cours de session.
+4. **Page partagée** : onglet « 📌 Partagé » visible par tous (`/data/shared_page.json`, objets app complets, indépendant des users). Édition admin only : création via « Nouveau » sur la page, clic droit → suppression, menu contextuel d'une app perso → « Copier vers Partagé ».
+
+Vérifié par 27 assertions (`test_multiuser.py` + Playwright) : avant le fix `/api/auth/me` sans cookie → 200 pierre ; après → 401 + sélecteur, session par user, 403 hors LAN, shared page admin-only, owner de worktree de bout en bout (badge + avertissement + refus = pas de terminal).
 
 ## Session du 9 juin 2026
 
