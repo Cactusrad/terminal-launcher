@@ -2920,6 +2920,47 @@
             min-width: 0;
             background: var(--cactus-bg-subtle);
         }
+        /* Barre de touches tactile — le clavier virtuel iOS/iPadOS n'a ni Esc,
+           ni Tab, ni flèches : sans elle, impossible de répondre aux prompts
+           interactifs (Claude Code) depuis iPhone/iPad. Visible uniquement sur
+           écran tactile (pointer: coarse). */
+        .terminal-keybar {
+            display: none;
+            gap: 6px;
+            padding: 6px 8px;
+            background: var(--cactus-bg-card);
+            border-top: 1px solid var(--cactus-border);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex-shrink: 0;
+        }
+        .terminal-keybar button {
+            flex: 1 1 0;
+            min-width: 34px;
+            max-width: 80px;
+            height: 36px;
+            padding: 0 4px;
+            border: 1px solid var(--cactus-border);
+            border-radius: 8px;
+            background: var(--cactus-bg-subtle);
+            color: var(--cactus-text-secondary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+        .terminal-keybar button:active {
+            background: rgba(231, 91, 18, 0.25);
+            color: var(--cactus-text);
+        }
+        @media (hover: none) and (pointer: coarse) {
+            :root { --keybar-h: 49px; }
+            .terminal-keybar { display: flex; }
+        }
         .terminal-placeholder {
             position: absolute;
             top: 50%;
@@ -3454,11 +3495,11 @@
                 font-size: 0.6rem;
             }
 
-            /* Terminal container - iOS fix */
+            /* Terminal container - iOS fix (réserve la hauteur de la keybar tactile) */
             .terminal-container {
                 flex: 1;
-                height: calc(100% - 60px);
-                height: calc(var(--vh, 1vh) * 100 - 60px);
+                height: calc(100% - 60px - var(--keybar-h, 0px));
+                height: calc(var(--vh, 1vh) * 100 - 60px - var(--keybar-h, 0px));
                 min-height: 0;
                 overflow: hidden;
                 -webkit-overflow-scrolling: touch;
@@ -3759,6 +3800,17 @@
                         </div>
                     </div>
 
+                </div>
+                <!-- Touches absentes du clavier virtuel iOS/iPadOS (Esc, Tab, flèches…) -->
+                <div class="terminal-keybar" id="terminalKeybar">
+                    <button type="button" data-key="esc">Esc</button>
+                    <button type="button" data-key="tab">⇥</button>
+                    <button type="button" data-key="shifttab">⇧⇥</button>
+                    <button type="button" data-key="up">↑</button>
+                    <button type="button" data-key="down">↓</button>
+                    <button type="button" data-key="left">←</button>
+                    <button type="button" data-key="right">→</button>
+                    <button type="button" data-key="ctrlc">^C</button>
                 </div>
             </div>
         </div>
@@ -6168,13 +6220,48 @@
 
         function goToHome() {
             showTerminalManager(false);
-            switchPage('main');
+            setCurrentPageId('main');
         }
 
         // Check if mobile and update UI accordingly
         function isMobile() {
             return window.innerWidth < 768;
         }
+
+        // ============ Barre de touches tactile (iOS/iPadOS) ============
+        // Envoie les séquences ANSI des touches absentes du clavier virtuel
+        // directement sur le WebSocket du terminal actif. Les flèches respectent
+        // le mode "application cursor keys" (DECCKM) activé par les TUI.
+        function keybarSequence(key, terminal) {
+            const arrows = { up: 'A', down: 'B', right: 'C', left: 'D' };
+            if (arrows[key]) {
+                const app = terminal && terminal.modes && terminal.modes.applicationCursorKeysMode;
+                return (app ? '\x1bO' : '\x1b[') + arrows[key];
+            }
+            return { esc: '\x1b', tab: '\t', shifttab: '\x1b[Z', ctrlc: '\x03' }[key] || null;
+        }
+
+        function sendKeybarKey(key) {
+            if (!activeTerminalTabId) return;
+            const instance = terminalInstances.get(activeTerminalTabId);
+            if (!instance || !instance.ws || instance.ws.readyState !== WebSocket.OPEN) return;
+            const seq = keybarSequence(key, instance.terminal);
+            if (!seq) return;
+            instance.ws.send(new TextEncoder().encode(seq));
+        }
+
+        (function initTerminalKeybar() {
+            const keybar = document.getElementById('terminalKeybar');
+            if (!keybar) return;
+            // pointerdown + preventDefault : ne pas voler le focus du textarea
+            // xterm, sinon le clavier iOS se referme à chaque touche.
+            keybar.addEventListener('pointerdown', (e) => {
+                const btn = e.target.closest('button[data-key]');
+                if (!btn) return;
+                e.preventDefault();
+                sendKeybarKey(btn.dataset.key);
+            });
+        })();
 
         // Sync mobile terminal tabs with desktop
         function syncMobileTerminalTabs() {
@@ -8395,12 +8482,19 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
         });
 
         // ============ iOS Safari viewport height fix ============
+        // visualViewport.height (quand dispo) suit l'ouverture du clavier
+        // virtuel iOS — innerHeight ne le fait pas toujours. C'est ce qui garde
+        // la keybar tactile visible au-dessus du clavier.
         function setViewportHeight() {
-            const vh = window.innerHeight * 0.01;
+            const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+            const vh = h * 0.01;
             document.documentElement.style.setProperty('--vh', `${vh}px`);
         }
         setViewportHeight();
         window.addEventListener('resize', setViewportHeight);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setViewportHeight);
+        }
         window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 100));
         // Note: No visibilitychange refresh - causes scroll issues in xterm.js
 
