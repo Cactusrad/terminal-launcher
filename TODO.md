@@ -15,6 +15,13 @@
 
 - [ ] Bug report widget ne fonctionne plus (investiguer la connexion avec bugs_service sur http://192.168.1.200:9010)
 
+## Suites de la session du 11 juin 2026
+
+- [ ] **Committer + tagger v1.0.8** : fix `goToHome()`, barre de touches tactile iPhone/iPad, vhost `nginx.conf` (terminal.sharpi.ca, non commité — un checkout de tag le perdrait), CLAUDE.md/TODO.md (attente du feu vert de Pierre)
+- [ ] **Fix structurel respawn des terminaux** : au page load, l'app reconnecte le WS de chaque onglet sauvegardé même si la session dtach est morte → le terminal-server la recrée et relance `claude` (cause de l'incident « terminaux qui réouvrent », voir CLAUDE.md). Proposition : afficher les onglets à session morte en « endormis », respawn au clic seulement
+- [ ] Valider la keybar tactile sur iPhone réel (l'émulation ne simule pas le clavier virtuel iOS ouvert — vérifier que la barre reste visible au-dessus du clavier)
+- [ ] Trier/supprimer les scripts de debug non trackés : `test_401_monitor.py`, `test_config_modal.js`, `test_login_flow.js`, `screenshot_after_login.png`
+
 ## Améliorations prévues
 
 - [ ] Ajouter logging structuré (remplacer les `print()` par `logging`)

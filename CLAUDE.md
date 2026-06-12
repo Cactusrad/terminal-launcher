@@ -6,6 +6,7 @@ Dashboard homelab "Cactus Home" — lanceur de raccourcis avec authentification 
 
 - **URL prod** : `https://192.168.1.100` (nginx 443 ; HTTP sur le port 180 → 301 HTTPS). ⚠️ le port 80 de `.100` est pris par `erp-web`, pas par le launcher
 - **URL dev** : `https://192.168.1.200` (même topologie nginx)
+- **URL distante** : `https://terminal.sharpi.ca` → instance dev `.200` via Cloudflare Access + tunnel SSH (voir « Accès distant »)
 - **Repo** : `git@github.com:Cactusrad/terminal-launcher.git`
 - **Conteneur** : `terminal-launcher` (Docker Compose)
 
@@ -39,6 +40,27 @@ Navigateur ──► Docker (terminal-launcher, port 80)
 **Dev/git** : `~/claude/terminal-launcher/` sur 192.168.1.200
 
 **Fichier unique** : `index.html` (~290KB) contient tout le CSS, JS et HTML.
+
+## Accès distant (terminal.sharpi.ca)
+
+Expose l'instance dev `.200` hors LAN, sans ouvrir de port chez Cactus :
+
+```
+Navigateur ──► Cloudflare (CF Access : auth Pierre uniquement)
+           ──► Droplet DO 143.198.32.13 (nginx + TLS Let's Encrypt)
+                └── proxy_pass http://127.0.0.1:9103
+           ──► Tunnel SSH inverse (initié DEPUIS .200 : -R 127.0.0.1:9103:localhost:80)
+           ──► nginx .200 port 80, vhost `server_name terminal.sharpi.ca` (nginx.conf)
+                ├── /              → conteneur terminal-launcher:80
+                ├── /terminal-ws/  → host:7681 (WebSocket terminaux, Upgrade headers)
+                └── /terminal-api/ → host:7681 (REST sessions dtach)
+```
+
+- **Pas de redirect HTTPS sur ce vhost** : la requête arrive déjà en HTTPS côté public (TLS terminé au droplet), un 301 vers HTTPS créerait une boucle. Le `default_server` port 80 garde son 301 pour l'accès LAN direct.
+- **Keepalive** : cron (`* * * * *` + `@reboot`) → `/home/cactus/scripts/terminal-tunnel-keepalive.sh`. Idempotent via PID file `/tmp/terminal_tunnel.pid` ; si le tunnel meurt, relancé au tick suivant. Logs : `~/logs/terminal-tunnel.log` (+ `terminal-tunnel-ssh.log`).
+- **Clé dédiée restreinte** : `~/.ssh/id_ed25519_terminal_tunnel`, limitée côté droplet par `restrict,permitlisten="127.0.0.1:9103"` — même compromise, elle ne peut faire que ce port-forward précis. SSH du droplet sur le port **5896**. `known_hosts` séparé : `~/.ssh/known_hosts_terminal`.
+- **Frontend** : aucun changement requis — quand la page est servie en HTTPS, `index.html` utilise déjà les chemins relatifs `/terminal-ws/` et `/terminal-api/` (même mécanisme que l'accès HTTPS LAN) au lieu de `host:7681` en direct.
+- Le droplet est le même que celui du tunnel Home Assistant (`hilo.sharpi.ca`, service user `ha-tunnel.service`), mais le tunnel terminal est géré par cron, pas par systemd.
 
 ## Stack
 
@@ -169,6 +191,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Sync globale** : préférences partagées entre appareils (per-user)
 - **Thème** : dark (défaut) / light toggle
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
+- **Barre de touches tactile (iPhone/iPad)** : Esc, Tab, ⇧Tab, flèches, ^C sous le terminal sur écran tactile (`pointer: coarse`) — le clavier virtuel iOS n'a pas ces touches, indispensables pour répondre aux prompts interactifs de Claude Code. Envoi des séquences ANSI directement sur le WebSocket (`sendKeybarKey()`), flèches sensibles au mode DECCKM (`terminal.modes.applicationCursorKeysMode`). `pointerdown` + `preventDefault` pour ne pas voler le focus xterm (le clavier iOS reste ouvert). Test : `test_mobile_keybar.py`
 - **Projets** : scan dynamique de /home/cactus/claude, gestion git intégrée
 - **Git branches vs worktrees** : dans la liste des projets, l'expand affiche deux sections distinctes :
   - **Worktrees** (icône **W** verte) : branches checkout dans un dossier séparé (`projet--branche`), avec boutons Claude/Team/Supprimer
@@ -223,11 +246,14 @@ terminal-launcher/
 ├── CLAUDE.md              # Cette documentation
 ├── server.py              # Flask backend + API REST + auth (~1200 lignes)
 ├── test_multiuser.py      # Assertions multi-user / page partagée / owner worktree (lancer après rebuild)
+├── test_mobile_keybar.py  # Assertions barre de touches tactile iPhone/iPad (WebKit) — se logge en mohamed, jamais pierre
 ├── config.py              # Configuration centralisée (dotenv, Path, SECRET_KEY, USERS_*)
 ├── index.html             # Frontend complet (~300KB, inclut login overlay + auth JS)
 ├── requirements.txt       # flask, flask-cors, gunicorn, requests, python-dotenv, aiohttp, bcrypt
 ├── Dockerfile             # Python 3.11-slim, gunicorn, healthcheck
-├── docker-compose.yml     # Port 80, volume launcher-data
+├── docker-compose.yml     # Port 80 + nginx (443), volume launcher-data
+├── nginx.conf             # Reverse-proxy : 80→301 HTTPS, vhost terminal.sharpi.ca, 443 SSL
+├── certs/                 # Certs self-signed nginx (gitignorés depuis l'audit d'avril)
 ├── .env.example           # Template de configuration
 ├── terminal-server.py     # Serveur WebSocket pour terminaux
 ├── chromium/              # Config navigateur Chromium distant
@@ -392,6 +418,30 @@ Découverte au passage : **la sidebar ne rend plus les branches standalone** (re
 2. **Worktrees au nom du créateur** : origine `user` enrichie du `username` (marqueur in-tree + registre, rétro-compatible). Badge initiale (P/M) coloré, tooltip nominatif, et confirm « Du travail est actuellement en cours par X » quand un autre user clique C/T sur le worktree. Rétro-tag effectué sur `.200` : tous les anciens `user` → `pierre`.
 3. **Atterrissage par défaut sur la vue Terminaux** : à l'ouverture (et après login), `initDashboard()` force `currentPageId='terminals'` — la page sauvegardée ne sert que pour la navigation en cours de session.
 4. **Page partagée** : onglet « 📌 Partagé » visible par tous (`/data/shared_page.json`, objets app complets, indépendant des users). Édition admin only : création via « Nouveau » sur la page, clic droit → suppression, menu contextuel d'une app perso → « Copier vers Partagé ».
+
+**Documentation de l'accès distant `terminal.sharpi.ca`** (en place depuis ~5 juin, voir la section « Accès distant » plus haut). Le vhost nginx (`nginx.conf`) et le script keepalive (`/home/cactus/scripts/terminal-tunnel-keepalive.sh`, hors repo) existaient mais n'étaient pas documentés. ⚠️ Au 11 juin, la modif `nginx.conf` (vhost `terminal.sharpi.ca`) est **non commitée** sur `.200` — à committer pour qu'un futur tag ne la perde pas.
+
+**Barre de touches tactile iPhone/iPad** (bug rapporté par Pierre : Esc/Tab/flèches impossibles depuis iOS → coincé quand Claude pose une question dans le terminal). Ajout dans `index.html` :
+- Barre `#terminalKeybar` (Esc, ⇥, ⇧⇥, ↑ ↓ ← →, ^C) sous le terminal, visible uniquement en `@media (hover: none) and (pointer: coarse)` (couvre iPhone ET iPad, y compris iPad en mode desktop > 768px) ; masquée sur desktop souris
+- `sendKeybarKey()` envoie la séquence sur le `ws` du terminal actif (`terminalInstances.get(activeTerminalTabId)`) ; flèches en `\x1bO?` si DECCKM actif, sinon `\x1b[?`
+- Listener `pointerdown` + `preventDefault` : ne vole pas le focus du textarea xterm → le clavier iOS ne se referme pas entre deux touches
+- `--keybar-h: 49px` soustrait du calc de hauteur mobile du `.terminal-container` ; `setViewportHeight()` utilise désormais `visualViewport.height` (suit l'ouverture du clavier iOS, garde la barre visible au-dessus)
+
+Vérifié par `test_mobile_keybar.py` (10/10) : AVANT sur prod `.100` la barre est absente ; APRÈS sur `.200` en WebKit iPhone 14, chaque touche tapée arrive au PTY, prouvé par `cat -vt` (`^[`, `^I`, `^[[A`, `^[[Z`, `^C` interrompt) ; visible sur iPad gen 7 ; masquée en Chromium desktop. Limite : l'émulation ne simule pas le clavier virtuel iOS réel — comportement clavier ouvert à valider une fois sur appareil réel.
+
+**Incident : terminaux qui réouvrent tout seuls (sharpi, 16:25–16:42)** — causé par les tests Playwright de cette session, loggés en `pierre`. Mécanisme (trois rouages, tous confirmés dans les logs terminal-server) :
+1. Au chargement de page, l'app restaure **tous** les onglets du `terminalState` du user **sans vérifier que la session dtach existe** (`syncTabsWithActiveSessions` : « *Don't filter by dtach status - terminal-server creates sessions on demand* ») → la connexion WS fait recréer la session **et relancer `claude`** côté terminal-server.
+2. L'auto-discovery (`syncTerminalTabs` 4c) recrée l'onglet sur tous les appareils dès qu'une session vit, et le smart-save union le réécrit dans le state.
+3. Un onglet n'est retiré du state que si la session est morte **ET** absente du state serveur (4b) → un onglet mort dans le state est une mine : chaque page load le respawne.
+
+Donc : Pierre tue `claude_sharpi` → un login frais (test Playwright, autre appareil, reload) la respawne → ses navigateurs la redécouvrent en ≤5s. Preuve : `Created dtach session: claude_sharpi` à 16:41:49 avec UA `HeadlessChrome/143` (Playwright).
+
+**Règles tirées de l'incident** :
+- **Tests E2E : se logger en `mohamed`, jamais en `pierre`** (son `terminalState` a été vidé — c'étaient 11 onglets fantômes de la migration, eux-mêmes des mines à respawn ; ses `pages` de référence sont intactes)
+- Nettoyage fait : session `claude_sharpi` tuée, onglet retiré du state de pierre
+- **TODO (fix structurel à discuter)** : au page load, ne pas reconnecter le WS des onglets dont la session dtach est morte (les afficher « endormis » et ne respawn qu'au clic), ou purger du state les onglets morts au moment du kill sur tous les clients
+
+**Fix : bouton « Accueil » mobile cassé** — `goToHome()` appelait `switchPage('main')`, fonction inexistante (reste d'un ancien nom avant refactor) → `ReferenceError`, le bouton 🏠 de la barre mobile ne faisait rien. Fix d'une ligne : `setCurrentPageId('main')` (la fonction utilisée partout ailleurs pour changer de page). Vérifié : `page.evaluate('goToHome()')` levait `ReferenceError` avant, passe après (+ tap réel du `.mobile-home-btn` en WebKit iPhone 14 : retour dashboard, `currentPageId=main`, 0 erreur). Touche aussi prod `.100` — corrigé là-bas au prochain tag.
 
 Vérifié par 27 assertions (`test_multiuser.py` + Playwright) : avant le fix `/api/auth/me` sans cookie → 200 pierre ; après → 401 + sélecteur, session par user, 403 hors LAN, shared page admin-only, owner de worktree de bout en bout (badge + avertissement + refus = pas de terminal).
 
