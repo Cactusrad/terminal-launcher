@@ -2012,5 +2012,29 @@ def get_agent_logs(project, agent_id):
     except Exception as e:
         return jsonify({'messages': [], 'error': str(e)})
 
+# ============ VM status (libvirt host on .100) ============
+# Lecture seule : on sonde le port VNC de qemu (ouvert uniquement quand la VM
+# tourne) plutôt que d'embarquer une clé SSH root dans ce conteneur web.
+# Le démarrage/arrêt et la console restent délégués à Cockpit (auth propre).
+VM_HOST = os.environ.get('VM_HOST', '192.168.1.100')
+VM_VNC_PORT = int(os.environ.get('VM_VNC_PORT', '5900'))
+COCKPIT_URL = os.environ.get('COCKPIT_URL', f'https://{VM_HOST}:9090/machines')
+
+@app.route('/api/vm/<name>/status', methods=['GET'])
+def vm_status(name):
+    import socket
+    running = False
+    try:
+        with socket.create_connection((VM_HOST, VM_VNC_PORT), timeout=1.5):
+            running = True
+    except OSError:
+        running = False
+    return jsonify({
+        'name': name,
+        'state': 'running' if running else 'stopped',
+        'host': VM_HOST,
+        'cockpit_url': COCKPIT_URL,
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=False)

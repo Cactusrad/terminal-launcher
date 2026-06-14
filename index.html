@@ -265,6 +265,21 @@
             position: relative;
         }
 
+        /* VM status card */
+        .vm-icon { background: linear-gradient(135deg, #0ea5e9, #1e3a8a); }
+        .vm-dot {
+            display: inline-block;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #9ca3af;
+            margin-right: 6px;
+            vertical-align: middle;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .vm-dot.running { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
+        .vm-dot.stopped { background: #9ca3af; }
+        .vm-dot.unknown { background: #f59e0b; }
+
         .card h2 {
             font-size: 0.9rem;
             font-weight: 600;
@@ -6567,6 +6582,46 @@
             return `<div class="card-customized-badge" title="Personnalisé"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>`;
         }
 
+        // ============ VM cnc2 (carte de statut + lien Cockpit) ============
+        const VM_NAME = 'cnc2';
+        const VM_COCKPIT_URL = 'https://192.168.1.100:9090/machines';
+        let vmPollTimer = null;
+
+        function vmWidgetCard() {
+            return `
+                <a href="${VM_COCKPIT_URL}" class="card vm-card" target="_blank" rel="noopener" data-id="__vm" title="Ouvrir Cockpit pour gérer la VM ${VM_NAME}">
+                    <div class="card-icon vm-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    </div>
+                    <h2>VM ${VM_NAME}</h2>
+                    <p><span class="vm-dot unknown" id="vmStatusDot"></span><span id="vmStatusText">Vérification…</span></p>
+                </a>
+            `;
+        }
+
+        async function pollVmStatus() {
+            const dot = document.getElementById('vmStatusDot');
+            const txt = document.getElementById('vmStatusText');
+            if (!dot || !txt) return;
+            try {
+                const res = await fetch(`/api/vm/${VM_NAME}/status`, { credentials: 'same-origin' });
+                if (!res.ok) throw new Error(res.status);
+                const d = await res.json();
+                const running = d.state === 'running';
+                dot.className = 'vm-dot ' + (running ? 'running' : 'stopped');
+                txt.textContent = running ? 'En marche' : 'Arrêtée';
+            } catch (e) {
+                dot.className = 'vm-dot unknown';
+                txt.textContent = 'Statut inconnu';
+            }
+        }
+
+        function startVmPolling() {
+            if (vmPollTimer) clearInterval(vmPollTimer);
+            pollVmStatus();
+            vmPollTimer = setInterval(pollVmStatus, 15000);
+        }
+
         function createCard(app) {
             const badge = createCustomizedBadge(app.id);
             const isCustom = !!customApps[app.id];
@@ -6715,13 +6770,14 @@
             }
 
             if (!currentPage || currentPage.apps.length === 0) {
-                grid.innerHTML = `
+                grid.innerHTML = vmWidgetCard() + `
                     <div class="empty-page" style="grid-column: 1 / -1;">
                         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3; margin-bottom: 16px;"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
                         <p style="font-size:1.1rem; font-weight:500; margin-bottom:8px;">Ajoutez votre premier raccourci</p>
                         <p style="font-size:0.85rem; opacity:0.7;">Cliquez sur le bouton <strong>+</strong> ci-dessus ou faites un clic droit ici</p>
                     </div>
                 `;
+                pollVmStatus();
                 return;
             }
 
@@ -6729,8 +6785,9 @@
                 .map(id => getAppById(id))
                 .filter(a => a);
 
-            grid.innerHTML = apps.map(createCard).join('');
+            grid.innerHTML = vmWidgetCard() + apps.map(createCard).join('');
             setupDragAndDrop();
+            pollVmStatus();
         }
 
         function renderPageDots() {
@@ -7366,7 +7423,7 @@
 
         function saveCurrentOrder() {
             const cards = document.querySelectorAll('#appGrid .card');
-            const newOrder = [...cards].map(c => c.dataset.id);
+            const newOrder = [...cards].map(c => c.dataset.id).filter(id => id && id !== '__vm');
 
             const pages = getPages();
             const currentPage = pages.find(p => p.id === currentPageId);
@@ -8825,6 +8882,7 @@ Peux-tu traiter cette demande pour le projet Todo List ERP?
 
             renderApps();
             renderPageDots();
+            startVmPolling();
         }
 
         // ============ Init ============
