@@ -4843,11 +4843,24 @@
             return Math.ceil(Math.sqrt(n));
         }
 
+        // Remet les panes terminaux dans le DOM dans l'ordre de terminalTabs.
+        // Garantit que la grille (et les onglets) suivent l'ordre canonique même
+        // après un dispose/recreate ou un ajout par auto-découverte (push en fin).
+        function reconcileGridOrder() {
+            const container = document.getElementById('terminalContainer');
+            if (!container) return;
+            terminalTabs.forEach(tab => {
+                const div = container.querySelector(`.terminal-div[data-tab-id="${tab.id}"]`);
+                if (div) container.appendChild(div); // ré-append dans l'ordre du tableau
+            });
+        }
+
         function applyViewMode() {
             const container = document.getElementById('terminalContainer');
             const toggleBtn = document.getElementById('viewModeToggle');
             const label = document.getElementById('viewModeLabel');
             if (!container) return;
+            reconcileGridOrder();
 
             // Remove old grid-cols classes
             container.className = container.className.replace(/grid-cols-\d+/g, '').trim();
@@ -5020,7 +5033,8 @@
             // Don't filter by dtach status - terminal-server creates sessions on demand
             const validTabs = existingTabs.filter(tab => tab.tmuxSession);
 
-            return validTabs;
+            // Ordre stable au chargement/refresh (l'ordre premier reste premier).
+            return sortTabsByOrder(validTabs);
         }
 
         async function loadTerminalStateFromServer() {
@@ -5069,6 +5083,23 @@
             };
         }
 
+        // Clé d'ordre stable et intrinsèque à l'onglet, identique sur toutes les fenêtres.
+        // `order` (fractionnaire, posé uniquement par le drag-drop) prime ; sinon createdAt
+        // (= ordre de création). Garantit un ordre déterministe au merge multi-fenêtres :
+        // sans ça, le merge "append en fin" faisait dériver l'ordre serveur, et un refresh
+        // adoptait l'ordre dérivé (l'onglet premier ne l'était plus).
+        function tabOrderKey(t) {
+            if (t && typeof t.order === 'number') return t.order;
+            if (t && typeof t.createdAt === 'number') return t.createdAt;
+            return 0;
+        }
+        function sortTabsByOrder(tabs) {
+            return tabs.slice().sort((a, b) => {
+                const d = tabOrderKey(a) - tabOrderKey(b);
+                return d !== 0 ? d : String(a.id || '').localeCompare(String(b.id || ''));
+            });
+        }
+
         let saveDebounceTimeout = null;
         function saveTerminalState() {
             // Debounced save to server with smart merge
@@ -5099,12 +5130,15 @@
                             mergedTabs.push(remoteTab);
                         }
                     });
+                    // Ordre canonique stable (sinon l'ordre serveur dérive au fil des saves
+                    // multi-fenêtres et un refresh déplace l'onglet premier).
+                    const sortedMergedTabs = sortTabsByOrder(mergedTabs);
 
                     // Merge dismissed sessions (union of local + server)
                     const mergedDismissed = new Set([...dismissedSessions, ...serverDismissed]);
 
                     const mergedState = {
-                        tabs: mergedTabs,
+                        tabs: sortedMergedTabs,
                         activeTabId: activeTerminalTabId,
                         viewMode: viewMode,
                         dismissedSessions: [...mergedDismissed]
@@ -5167,7 +5201,20 @@
 
             const [movedTab] = terminalTabs.splice(sourceIdx, 1);
             const newTargetIdx = terminalTabs.findIndex(t => t.id === targetTabId);
-            terminalTabs.splice(insertAfter ? newTargetIdx + 1 : newTargetIdx, 0, movedTab);
+            const insertIdx = insertAfter ? newTargetIdx + 1 : newTargetIdx;
+            terminalTabs.splice(insertIdx, 0, movedTab);
+
+            // Indexation fractionnaire : ne touche QUE l'onglet déplacé, entre ses nouveaux
+            // voisins. Préserve l'ordre stable des autres et survit au tri sortTabsByOrder.
+            const prev = terminalTabs[insertIdx - 1];
+            const next = terminalTabs[insertIdx + 1];
+            if (prev && next) {
+                movedTab.order = (tabOrderKey(prev) + tabOrderKey(next)) / 2;
+            } else if (prev) {
+                movedTab.order = tabOrderKey(prev) + 1000;
+            } else if (next) {
+                movedTab.order = tabOrderKey(next) - 1000;
+            }
 
             saveTerminalState();
             renderTerminalTabs();
@@ -5572,7 +5619,18 @@
             termWrapper.style.cssText = 'flex: 1; min-height: 0; position: relative;';
             termDiv.appendChild(termWrapper);
 
-            container.appendChild(termDiv);
+            // Insérer le pane à sa position dans terminalTabs, pas en fin. Sans ça,
+            // un refresh (dispose du div + recréation) réappendait le terminal en
+            // dernière position de la grille.
+            const myIdx = terminalTabs.findIndex(t => t.id === tab.id);
+            let placed = false;
+            if (myIdx !== -1) {
+                for (let j = myIdx + 1; j < terminalTabs.length; j++) {
+                    const nextDiv = container.querySelector(`.terminal-div[data-tab-id="${terminalTabs[j].id}"]`);
+                    if (nextDiv) { container.insertBefore(termDiv, nextDiv); placed = true; break; }
+                }
+            }
+            if (!placed) container.appendChild(termDiv);
 
             // Apply view mode display
             if (viewMode === 'grid') {
@@ -6094,6 +6152,8 @@
                 if (dismissedChanged) changed = true;
 
                 if (changed) {
+                    // Les tabs ajoutés (push en fin) sont remis à leur place canonique.
+                    terminalTabs = sortTabsByOrder(terminalTabs);
                     renderTerminalTabs(); syncMobileTerminalTabs();
                     renderProjectList();
                     applyViewMode();

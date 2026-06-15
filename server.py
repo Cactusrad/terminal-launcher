@@ -838,6 +838,23 @@ def delete_app(app_id):
 
 # ============ Terminal State (for multi-device sync) ============
 
+def _tab_order_key(tab):
+    """Clé d'ordre stable d'un onglet terminal : `order` (drag-drop) prime, sinon
+    `createdAt` (ordre de création). Identique à la logique frontend tabOrderKey().
+    Trier ici garantit un ordre canonique en persistance — un client en ancienne
+    version (bug d'append) ne peut plus faire dériver l'ordre stocké."""
+    if isinstance(tab, dict):
+        if isinstance(tab.get('order'), (int, float)):
+            return (tab['order'], str(tab.get('id', '')))
+        if isinstance(tab.get('createdAt'), (int, float)):
+            return (tab['createdAt'], str(tab.get('id', '')))
+    return (0, str(tab.get('id', '')) if isinstance(tab, dict) else '')
+
+def _sort_terminal_tabs(tabs):
+    if not isinstance(tabs, list):
+        return tabs
+    return sorted(tabs, key=_tab_order_key)
+
 @app.route('/api/terminal/state', methods=['GET'])
 def get_terminal_state():
     """Récupère l'état des terminaux (user-scoped)"""
@@ -849,6 +866,7 @@ def get_terminal_state():
             'activeTabId': None,
             'viewMode': 'tabs'
         })
+        terminal_state['tabs'] = _sort_terminal_tabs(terminal_state.get('tabs', []))
         return jsonify(terminal_state)
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -861,9 +879,10 @@ def update_terminal_state():
         data = request.get_json()
         prefs = load_user_preferences(username)
         prefs['terminalState'] = {
-            'tabs': data.get('tabs', []),
+            'tabs': _sort_terminal_tabs(data.get('tabs', [])),
             'activeTabId': data.get('activeTabId'),
-            'viewMode': data.get('viewMode', 'tabs')
+            'viewMode': data.get('viewMode', 'tabs'),
+            'dismissedSessions': data.get('dismissedSessions', [])
         }
         if save_user_preferences(username, prefs):
             return jsonify({"status": "ok"})
