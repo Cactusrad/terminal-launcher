@@ -18,7 +18,7 @@
 ## Suites de la session du 11 juin 2026
 
 - [ ] **Committer + tagger v1.0.8** : fix `goToHome()`, barre de touches tactile iPhone/iPad, vhost `nginx.conf` (terminal.sharpi.ca, non commité — un checkout de tag le perdrait), CLAUDE.md/TODO.md (attente du feu vert de Pierre)
-- [ ] **Fix structurel respawn des terminaux** : au page load, l'app reconnecte le WS de chaque onglet sauvegardé même si la session dtach est morte → le terminal-server la recrée et relance `claude` (cause de l'incident « terminaux qui réouvrent », voir CLAUDE.md). Proposition : afficher les onglets à session morte en « endormis », respawn au clic seulement
+- [x] **Fix structurel respawn des terminaux** (25 juin 2026) : au page load, les onglets dont la session dtach est morte sont rendus « endormis » (placeholder + badge 💤, AUCUN WebSocket) ; la session n'est relancée qu'au clic (réveil explicite). Réveil auto si la session redevient vivante ailleurs (`syncTerminalTabs`). Code : `dormantTabs` Set, `loadTerminal(tab, {dormant})`, `wakeTerminal()`, `activateTerminalTab(id, {wake})`, détection des sessions vivantes dans `initTerminalManager`. Vérifié par `test_dormant_terminals.py` (7/7) : AVANT sur `.100` un WS part vers la session morte au load (respawn) ; APRÈS sur `.200` zéro WS au load, réveil au clic. **Non commité / non taggé — attente du feu vert de Pierre.**
 - [ ] Valider la keybar tactile sur iPhone réel (l'émulation ne simule pas le clavier virtuel iOS ouvert — vérifier que la barre reste visible au-dessus du clavier)
 - [ ] Trier/supprimer les scripts de debug non trackés : `test_401_monitor.py`, `test_config_modal.js`, `test_login_flow.js`, `screenshot_after_login.png`
 

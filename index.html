@@ -2719,6 +2719,8 @@
             border-color: var(--cactus-primary);
             color: var(--cactus-primary);
         }
+        .terminal-tab.dormant .tab-name { opacity: 0.55; }
+        .terminal-tab .tab-dormant { font-size: 0.8rem; flex-shrink: 0; line-height: 1; }
         .terminal-tab .tab-type {
             width: 18px;
             height: 18px;
@@ -4650,6 +4652,7 @@
         const terminalInstances = new Map();  // tabId -> { terminal, fitAddon, ws, resizeObserver, disposed, reconnectTimer }
         const disposedTabs = new Set();  // Track disposed tabs to prevent reconnection
         const disposedSessions = new Set();  // Track disposed sessions by tmux name to prevent sync re-adding
+        const dormantTabs = new Set();   // Tabs whose dtach session was dead at load — NOT connected (no respawn). Woken on user activation.
         let dismissedSessions = new Set();  // Persisted on server — sessions user explicitly closed (survives refresh)
 
         const PROJECT_COLORS = [
@@ -5329,9 +5332,28 @@
             if (isMobile()) closeMobileSidebar();
         }
 
-        function activateTerminalTab(tabId) {
+        // Wake a dormant tab: drop the placeholder pane and connect for real.
+        // This is the ONLY path that respawns a dead session, and it's always
+        // triggered by an explicit user action (tab click / wake button).
+        function wakeTerminal(tabId) {
+            if (!dormantTabs.has(tabId)) return;
+            dormantTabs.delete(tabId);
+            const div = document.querySelector(`.terminal-div[data-tab-id="${tabId}"]`);
+            if (div) div.remove();
+            disposedTabs.delete(tabId);
+            const tab = terminalTabs.find(t => t.id === tabId);
+            if (tab) loadTerminal(tab);
+        }
+
+        function activateTerminalTab(tabId, opts = {}) {
             const tab = terminalTabs.find(t => t.id === tabId);
             if (!tab) return;
+
+            // Wake dormant tabs on activation, unless explicitly suppressed (e.g. the
+            // initial activation at page load must NOT respawn a dead session).
+            if (opts.wake !== false && dormantTabs.has(tabId)) {
+                wakeTerminal(tabId);
+            }
 
             activeTerminalTabId = tabId;
             saveTerminalState();
@@ -5460,6 +5482,7 @@
         function disposeTerminal(tabId) {
             // Mark as disposed to prevent reconnection attempts
             disposedTabs.add(tabId);
+            dormantTabs.delete(tabId);
 
             const instance = terminalInstances.get(tabId);
             if (instance) {
@@ -5564,7 +5587,8 @@
             }
         }
 
-        function loadTerminal(tab) {
+        function loadTerminal(tab, opts = {}) {
+            const dormant = opts.dormant === true;
             const container = document.getElementById('terminalContainer');
             if (!container) return;
 
@@ -5637,6 +5661,25 @@
                 termDiv.style.display = 'flex';
             } else {
                 termDiv.style.display = tab.id === activeTerminalTabId ? 'flex' : 'none';
+            }
+
+            // Dormant tab: the dtach session was dead at load time. Show a placeholder
+            // instead of opening a WebSocket — opening one makes terminal-server recreate
+            // the session and relaunch `claude` (the "terminals respawn on their own"
+            // incident). The session is only (re)started when the user explicitly wakes it.
+            if (dormant) {
+                dormantTabs.add(tab.id);
+                termWrapper.innerHTML = `
+                    <div class="terminal-dormant" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--cactus-text-secondary);text-align:center;padding:20px;box-sizing:border-box;">
+                        <div style="font-size:34px;opacity:0.5;">💤</div>
+                        <div style="font-size:14px;font-weight:600;">Session endormie</div>
+                        <div style="font-size:12px;opacity:0.75;max-width:300px;line-height:1.5;">Le terminal n'est pas reconnecté automatiquement pour éviter de relancer une session (et un agent) à votre insu.</div>
+                        <button onclick="activateTerminalTab('${tab.id}')" style="margin-top:4px;padding:8px 18px;border-radius:8px;border:1px solid var(--cactus-border);background:rgba(231,91,18,0.15);color:var(--cactus-primary);cursor:pointer;font-size:13px;font-weight:600;">Réveiller le terminal</button>
+                    </div>`;
+                document.querySelectorAll('.terminal-div').forEach(el => {
+                    el.classList.toggle('active', el.dataset.tabId === tab.id);
+                });
+                return;
             }
 
             // Create xterm.js terminal
@@ -5909,8 +5952,11 @@
                 const isWaiting = waitingTabs[tab.tmuxSession] || false;
                 const waitingClass = isWaiting ? 'waiting-input' : '';
                 const indicatorClass = isWaiting ? 'waiting' : '';
+                const isDormant = dormantTabs.has(tab.id);
+                const dormantClass = isDormant ? 'dormant' : '';
+                const dormantBadge = isDormant ? '<span class="tab-dormant" title="Session endormie — cliquer pour réveiller">💤</span>' : '';
                 return `
-                    <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''} ${waitingClass}"
+                    <div class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''} ${waitingClass} ${dormantClass}"
                          data-tab-id="${tab.id}"
                          data-session="${tab.tmuxSession}"
                          style="border-left: 3px solid ${getProjectColor(tab.project)}"
@@ -5922,6 +5968,7 @@
                          onclick="activateTerminalTab('${tab.id}')"
                          ondblclick="renameTerminalTab('${tab.id}', event)">
                         <span class="tab-type ${typeInfo.color}">${typeInfo.label}</span>
+                        ${dormantBadge}
                         <div class="tab-info">
                             <span class="tab-name" title="${safeName}">${safeName}</span>
                             ${getTabBranchBadge(tab)}${getOrphanBadge(tab)}
@@ -6087,6 +6134,15 @@
 
                 let changed = false;
 
+                // 4-pre. Wake dormant tabs whose dtach session is alive again (e.g. started
+                // on another device). Reconnecting is not a respawn — the session exists.
+                terminalTabs.forEach(tab => {
+                    if (dormantTabs.has(tab.id) && tab.tmuxSession && activeSessionNames.has(tab.tmuxSession)) {
+                        wakeTerminal(tab.id);
+                        changed = true;
+                    }
+                });
+
                 // 4a. Add tabs from server that we don't have locally (if dtach session is alive)
                 serverBySession.forEach((remoteTab, sessionName) => {
                     if (!localBySession.has(sessionName) && activeSessionNames.has(sessionName) && !disposedSessions.has(sessionName)) {
@@ -6196,14 +6252,36 @@
             await loadProjectFolders();
 
             renderProjectList();
+
+            // Which saved tabs still have a live dtach session? Dead ones load dormant
+            // (placeholder, no WebSocket) so a page reload never recreates the session
+            // and relaunches its agent — the "terminals respawn on their own" incident.
+            let activeSessionNames = new Set();
+            try {
+                const sessionsUrl = useSSL
+                    ? `${httpProtocol}//${host}/terminal-api/sessions`
+                    : `http://${host}:${TERMINAL_WS_PORT}/sessions`;
+                const resp = await fetch(sessionsUrl);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const sessions = data.sessions || data || [];
+                    activeSessionNames = new Set(sessions.map(s => s.name || s));
+                }
+            } catch (e) { /* terminal-server unreachable — treat every tab as dormant */ }
+
             renderTerminalTabs(); syncMobileTerminalTabs();
 
-            terminalTabs.forEach(tab => loadTerminal(tab));
+            terminalTabs.forEach(tab => {
+                const alive = tab.tmuxSession && activeSessionNames.has(tab.tmuxSession);
+                loadTerminal(tab, { dormant: !alive });
+            });
+            // Re-render so dormant tabs get their 💤 indicator (dormantTabs is now populated).
+            renderTerminalTabs(); syncMobileTerminalTabs();
 
             if (activeTerminalTabId && terminalTabs.find(t => t.id === activeTerminalTabId)) {
-                activateTerminalTab(activeTerminalTabId);
+                activateTerminalTab(activeTerminalTabId, { wake: false });
             } else if (terminalTabs.length > 0) {
-                activateTerminalTab(terminalTabs[0].id);
+                activateTerminalTab(terminalTabs[0].id, { wake: false });
             }
 
             // Apply saved view mode (tabs or grid)
