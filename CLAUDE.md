@@ -191,6 +191,7 @@ docker exec terminal-launcher rm -rf /data/users /data/users.json /data/.secret_
 - **Sync globale** : préférences partagées entre appareils (per-user)
 - **Thème** : dark (défaut) / light toggle
 - **Terminal Manager** : xterm.js + WebSocket, sessions dtach
+- **Copie terminal = sélection-souris** : surligner du texte le copie automatiquement (`onSelectionChange` → `navigator.clipboard`, toast « Copié ! »), **pas de Ctrl+C** (interrompt) ni de Shift. ⚠️ Nécessite un **contexte sécurisé** (https, donc cert auto-signé OK sur le LAN). Depuis Claude Code ≥ 2.1.150 qui active le mouse tracking xterm, le flux WebSocket est filtré par `stripMouseTracking()` pour que xterm n'entre jamais en mode souris et que la sélection reste possible (voir « Session du 25 juin 2026 », v1.0.13)
 - **Barre de touches tactile (iPhone/iPad)** : Esc, Tab, ⇧Tab, flèches, ^C sous le terminal sur écran tactile (`pointer: coarse`) — le clavier virtuel iOS n'a pas ces touches, indispensables pour répondre aux prompts interactifs de Claude Code. Envoi des séquences ANSI directement sur le WebSocket (`sendKeybarKey()`), flèches sensibles au mode DECCKM (`terminal.modes.applicationCursorKeysMode`). `pointerdown` + `preventDefault` pour ne pas voler le focus xterm (le clavier iOS reste ouvert). Test : `test_mobile_keybar.py`
 - **Projets** : scan dynamique de /home/cactus/claude, gestion git intégrée
 - **Git branches vs worktrees** : dans la liste des projets, l'expand affiche deux sections distinctes :
@@ -462,6 +463,17 @@ Vérifié par 27 assertions (`test_multiuser.py` + Playwright) : avant le fix `/
 - UI : badge 💤 dans la barre d'onglets (`.tab-dormant`, onglet `.dormant` au nom estompé), placeholder centré dans le pane (visible aussi en vue grille).
 
 **Vérifié** par `test_dormant_terminals.py` (7/7). Méthode hermétique : `window.WebSocket` est remplacé par un stub qui **enregistre** l'URL de chaque tentative de connexion sans jamais ouvrir de vraie socket → **aucune vraie session créée**, même contre le vieux code de `.100`. `/api/terminal/state` mocké (un onglet sur une fausse session morte) + endpoint sessions vide. AVANT sur `.100` (vieux code) : un WS part vers la session morte au load (`ws=1`, respawn). APRÈS sur `.200` : `ws=0` au load, onglet `dormant` + badge + placeholder ; clic → `ws=1` (réveil intentionnel) + sortie de `dormantTabs`.
+
+**v1.0.13 — fix copie-par-sélection cassée par le mouse tracking de Claude Code** (rapporté par Pierre : « je ne suis plus en mesure de copier, ni avec Shift ni Ctrl+C, depuis le changement de mode souris de Claude Code »). Commit `f36aea6` sur `master`, tag `v1.0.13` déployé sur `.100` via autosync (fix présent, health 200).
+
+**Le bug** : Claude Code **≥ 2.1.150** (juin 2026) active le *mouse tracking* xterm dans son TUI classique (séquences `CSI ? 1000/1002/1003/1006 h`). Comme Claude tourne sur le PTY Linux de `.200`/`.100` (l'exception Windows-console de la v2.1.181 ne s'applique pas), xterm.js se met à **transmettre le glisser-souris à l'appli au lieu de sélectionner du texte** → l'auto-copie sur sélection (`onSelectionChange`, `index.html:~5834`) ne se déclenche plus. **Aucun interrupteur en mode classique** côté Claude Code (issues GitHub #61936/#23581/#27995 non résolues) ; `CLAUDE_CODE_DISABLE_MOUSE=1` n'agit qu'en plein écran (`CLAUDE_CODE_NO_FLICKER=1`) — écarté car le plein écran repeint l'écran en boucle et risquait de casser la détection d'attente ⏳ (`check_terminal_activity`, `server.py:~1719`, qui lit le log `script`) et le scrollback xterm.
+
+**Le fix** (frontend, `index.html` uniquement — Claude reste en mode classique) :
+- Helper global `stripMouseTracking(text)` + `MOUSE_TRACKING_MODES` (Set `1000,1001,1002,1003,1005,1006,1015,1016`), déclarés juste après `XTERM_OPTIONS`.
+- Retire les modes souris des séquences DEC privées `CSI ? p1;p2;… (h|l)` via regex, **en préservant les autres params** de la même séquence (ex. `?1000;1006h` → supprimé, `?2004h` bracketed paste → intact, `?25h` curseur → intact).
+- Appliqué dans `ws.onmessage` : `stripMouseTracking(new TextDecoder().decode(event.data))` avant `terminal.write`. xterm n'entre jamais en mode souris → sélection-glisser + auto-copie « Copié ! » refonctionnent **sans Shift**.
+
+**Vérifié** par assertion hermétique (Playwright + vrai xterm.js 5.5.0, pas de session réelle) : on écrit la séquence d'activation souris dans un `Terminal`, on lit `terminal.modes.mouseTrackingMode`. AVANT (flux brut) → `'any'` (souris active, drag vole la sélection). APRÈS (flux filtré) → `'none'` (sélection restaurée). Non-régression : `bracketedPasteMode` toujours actif après filtrage.
 
 ## Session du 9 juin 2026
 
