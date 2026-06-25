@@ -4643,6 +4643,27 @@
             }
         };
 
+        // Claude Code >= 2.1.150 active le mouse tracking xterm (CSI ? 1000/1002/1003/1006 h).
+        // xterm.js se met alors à transmettre le glisser-souris à l'appli au lieu de
+        // sélectionner du texte → la copie-par-sélection (onSelectionChange) ne se déclenche
+        // plus. On retire les séquences d'ACTIVATION souris du flux PTY avant terminal.write :
+        // xterm n'entre jamais en mode souris, la sélection/auto-copie refonctionne, et Claude
+        // reste en mode classique (détection d'attente ⏳ + scrollback intacts, contrairement à
+        // CLAUDE_CODE_DISABLE_MOUSE qui imposerait le plein écran).
+        const MOUSE_TRACKING_MODES = new Set(['1000', '1001', '1002', '1003', '1005', '1006', '1015', '1016']);
+        function stripMouseTracking(text) {
+            if (text.indexOf('\x1b[?') === -1) return text;
+            // DEC private mode set/reset : CSI ? p1;p2;... (h|l) — on enlève uniquement les
+            // modes souris, en préservant les autres params de la même séquence.
+            return text.replace(/\x1b\[\?([\d;]+)(h|l)/g, (full, params, final) => {
+                const parts = params.split(';');
+                const kept = parts.filter(p => !MOUSE_TRACKING_MODES.has(p));
+                if (kept.length === parts.length) return full;   // rien de lié à la souris
+                if (kept.length === 0) return '';                 // séquence 100% souris → supprimée
+                return '\x1b[?' + kept.join(';') + final;         // reconstruit sans les modes souris
+            });
+        }
+
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
@@ -5755,7 +5776,7 @@
 
                 ws.onmessage = (event) => {
                     if (event.data instanceof ArrayBuffer) {
-                        const text = new TextDecoder().decode(event.data);
+                        const text = stripMouseTracking(new TextDecoder().decode(event.data));
                         terminal.write(text);
                         if (autoScrollEnabled && terminal._followMode !== false) {
                             terminal.scrollToBottom();
