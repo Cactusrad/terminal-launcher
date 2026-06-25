@@ -4664,6 +4664,22 @@
             });
         }
 
+        // Comme on retire le mouse tracking du flux (ci-dessus), xterm n'entre jamais en
+        // mode souris et NE transmet donc plus la molette à l'appli. Or Claude Code tourne
+        // en alternate screen (CSI ? 1049 h) → AUCUN scrollback xterm à faire défiler : la
+        // molette devenait totalement inopérante (bug du 25 juin 2026). On retient donc
+        // l'INTENTION souris de l'appli depuis le flux BRUT (avant strip) pour pouvoir
+        // réinjecter nous-mêmes les rapports molette qu'elle attend (voir installWheelForwarding).
+        function updateAppMouseState(terminal, raw) {
+            if (raw.indexOf('\x1b[?') === -1) return;
+            // Activation d'un mode de suivi bouton (1000/1001/1002/1003) → l'appli veut la souris
+            if (/\x1b\[\?(?:1000|1001|1002|1003)(?:;\d+)*h/.test(raw)) terminal._appWantsMouse = true;
+            else if (/\x1b\[\?(?:1000|1001|1002|1003)(?:;\d+)*l/.test(raw)) terminal._appWantsMouse = false;
+            // Encodage SGR (1006) — Claude Code l'active ; sinon on retombe sur l'encodage X10
+            if (/\x1b\[\?1006h/.test(raw)) terminal._mouseSGR = true;
+            else if (/\x1b\[\?1006l/.test(raw)) terminal._mouseSGR = false;
+        }
+
         let terminalTabs = [];
         let activeTerminalTabId = null;
         let waitingTabs = {};  // Track which tabs are waiting for input
@@ -5732,6 +5748,38 @@
             // Helper: get current WS from instance (for closures that outlive reconnections)
             const getWs = () => terminalInstances.get(tab.id)?.ws;
 
+            // Réinjection de la molette vers l'appli (voir updateAppMouseState).
+            // Quand l'appli (Claude Code) a demandé le mouse tracking — qu'on a retiré du flux
+            // pour préserver la sélection-souris — xterm ne lui transmet plus la molette et il
+            // n'y a pas de scrollback en alternate screen. On envoie donc nous-mêmes les rapports
+            // souris molette que l'appli attend, à l'identique de ce que xterm émettrait.
+            // Phase de capture : on intercepte avant le handler interne de xterm.
+            // Si l'appli ne veut PAS la souris (ex. bash) → on ne touche à rien, xterm scrolle
+            // son scrollback nativement.
+            termWrapper.addEventListener('wheel', (ev) => {
+                if (!terminal._appWantsMouse) return;
+                const ws = getWs();
+                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                const btn = ev.deltaY < 0 ? 64 : 65;   // 64 = molette haut, 65 = bas
+                // Normalise le nombre de "crans" selon le mode de delta (pixels/lignes/pages)
+                let notches;
+                if (ev.deltaMode === 1)      notches = Math.abs(ev.deltaY);            // lignes
+                else if (ev.deltaMode === 2) notches = Math.abs(ev.deltaY) * 3;        // pages
+                else                          notches = Math.abs(ev.deltaY) / 40;       // pixels
+                notches = Math.max(1, Math.min(5, Math.round(notches)));
+                const encoder = new TextEncoder();
+                for (let i = 0; i < notches; i++) {
+                    // Position 1;1 : Claude est en plein écran, la molette défile quelle que soit
+                    // la cellule visée. SGR (1006) par défaut ; X10 en repli si l'appli ne l'a pas activé.
+                    const seq = terminal._mouseSGR === false
+                        ? '\x1b[M' + String.fromCharCode(32 + btn, 33, 33)   // X10 : btn, col=1, row=1
+                        : `\x1b[<${btn};1;1M`;                                // SGR
+                    ws.send(encoder.encode(seq));
+                }
+            }, { capture: true, passive: false });
+
             // Connect WebSocket with auto-reconnection
             let reconnectDelay = 2000;
             const MAX_RECONNECT_DELAY = 30000;
@@ -5776,7 +5824,9 @@
 
                 ws.onmessage = (event) => {
                     if (event.data instanceof ArrayBuffer) {
-                        const text = stripMouseTracking(new TextDecoder().decode(event.data));
+                        const raw = new TextDecoder().decode(event.data);
+                        updateAppMouseState(terminal, raw);   // intention souris AVANT le strip
+                        const text = stripMouseTracking(raw);
                         terminal.write(text);
                         if (autoScrollEnabled && terminal._followMode !== false) {
                             terminal.scrollToBottom();

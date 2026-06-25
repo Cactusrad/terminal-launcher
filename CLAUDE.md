@@ -475,6 +475,22 @@ Vérifié par 27 assertions (`test_multiuser.py` + Playwright) : avant le fix `/
 
 **Vérifié** par assertion hermétique (Playwright + vrai xterm.js 5.5.0, pas de session réelle) : on écrit la séquence d'activation souris dans un `Terminal`, on lit `terminal.modes.mouseTrackingMode`. AVANT (flux brut) → `'any'` (souris active, drag vole la sélection). APRÈS (flux filtré) → `'none'` (sélection restaurée). Non-régression : `bracketedPasteMode` toujours actif après filtrage.
 
+**v1.0.14 — fix molette : la roulette ne défilait plus dans le terminal** (rapporté par Pierre : « je ne peux plus défiler, la roulette de la souris ne fonctionne plus »). Régression directe de v1.0.13. Commit sur `master`, tag `v1.0.14`.
+
+**Le bug** : v1.0.13 retire le mouse tracking du flux (`stripMouseTracking`) pour rendre la copie-par-sélection. Deux conséquences combinées tuaient la molette :
+1. xterm, n'étant plus en mode souris, ne transmet plus la molette à l'appli.
+2. Claude Code tourne en **alternate screen** (`CSI ? 1049 h`) — vérifié dans `/tmp/terminal-logs/*.log` : `1049h` présent, `1049l` absent sur **toutes** les sessions actives → l'alt-screen n'a **aucun scrollback** xterm à faire défiler localement.
+
+Résultat : ni transmission à Claude, ni scroll local → molette morte. (Avant v1.0.13, le mouse tracking faisait transmettre la molette à Claude comme rapport `\x1b[<64;..M`, et c'est Claude qui défilait son propre transcript.)
+
+**Le fix** (frontend, `index.html` uniquement — le strip reste en place, la copie reste réparée) :
+- `updateAppMouseState(terminal, raw)` (juste après `stripMouseTracking`) : retient l'**intention souris** de l'appli depuis le flux **brut** (avant strip) — `_appWantsMouse` (activé par `?1000/1001/1002/1003 h`, désactivé par `…l`) et `_mouseSGR` (`?1006`). Appelé dans `ws.onmessage` sur le `raw` décodé, AVANT le strip.
+- Handler `wheel` en **phase de capture** sur `termWrapper` (juste après le helper `getWs`) : si `_appWantsMouse`, `preventDefault` + réinjecte sur le WS les rapports molette SGR que l'appli attend (`\x1b[<64;1;1M` haut / `\x1b[<65;1;1M` bas ; repli X10 si `_mouseSGR===false`), nombre de crans normalisé selon `deltaMode` (pixels/lignes/pages), clampé 1–5. Si l'appli ne veut pas la souris (bash) → on ne touche à rien, xterm défile son scrollback nativement.
+
+Copie-par-sélection (mouse=none) **et** molette fonctionnent donc simultanément.
+
+**Vérifié** par `test_wheel_scroll.py` (9/9, fail-before/pass-after sur les vrais déploiements, WS stubbé, aucune session réelle, onglet créé via la vraie `createTerminalTab` → vrai handler inline) : on pousse la séquence d'init RÉELLE de Claude (`?1049h` + `1000/1002/1003/1006h`) dans `ws.onmessage`, puis on dispatch un `wheel`. AVANT (prod `.100`) : molette → seulement resize + `\x0c`, **0 rapport** (roulette morte). APRÈS (`.200`) : `_appWantsMouse=true`, `mouse=none` (sélection intacte), molette haut → **`\x1b[<64;1;1M`** envoyé à l'appli. Non-régression : bash sans mode souris → 0 injection. Helpers `stripMouseTracking`/`updateAppMouseState` aussi testés unitairement contre les octets réels capturés dans les logs.
+
 ## Session du 9 juin 2026
 
 **v1.0.6 — visibilité des boutons d'onglets terminaux**
