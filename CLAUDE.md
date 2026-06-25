@@ -439,11 +439,29 @@ Donc : Pierre tue `claude_sharpi` → un login frais (test Playwright, autre app
 **Règles tirées de l'incident** :
 - **Tests E2E : se logger en `mohamed`, jamais en `pierre`** (son `terminalState` a été vidé — c'étaient 11 onglets fantômes de la migration, eux-mêmes des mines à respawn ; ses `pages` de référence sont intactes)
 - Nettoyage fait : session `claude_sharpi` tuée, onglet retiré du state de pierre
-- **TODO (fix structurel à discuter)** : au page load, ne pas reconnecter le WS des onglets dont la session dtach est morte (les afficher « endormis » et ne respawn qu'au clic), ou purger du state les onglets morts au moment du kill sur tous les clients
+- **~~TODO (fix structurel à discuter)~~ → CORRIGÉ le 25 juin 2026 (v1.0.12)** : au page load, les onglets dont la session dtach est morte sont rendus « endormis » (placeholder + badge 💤, aucun WebSocket) et ne respawn qu'au clic. Voir la section « Session du 25 juin 2026 »
 
 **Fix : bouton « Accueil » mobile cassé** — `goToHome()` appelait `switchPage('main')`, fonction inexistante (reste d'un ancien nom avant refactor) → `ReferenceError`, le bouton 🏠 de la barre mobile ne faisait rien. Fix d'une ligne : `setCurrentPageId('main')` (la fonction utilisée partout ailleurs pour changer de page). Vérifié : `page.evaluate('goToHome()')` levait `ReferenceError` avant, passe après (+ tap réel du `.mobile-home-btn` en WebKit iPhone 14 : retour dashboard, `currentPageId=main`, 0 erreur). Touche aussi prod `.100` — corrigé là-bas au prochain tag.
 
 Vérifié par 27 assertions (`test_multiuser.py` + Playwright) : avant le fix `/api/auth/me` sans cookie → 200 pierre ; après → 401 + sélecteur, session par user, 403 hors LAN, shared page admin-only, owner de worktree de bout en bout (badge + avertissement + refus = pas de terminal).
+
+## Session du 25 juin 2026
+
+**v1.0.12 — fix structurel du respawn des terminaux** (clôt le TODO de l'incident du 11 juin « terminaux qui réouvrent tout seuls »). Commit `3658257` sur `master`, tag `v1.0.12` déployé sur `.100` via autosync (version `v1.0.12`, health 200, code servi confirmé).
+
+**Le bug** : au chargement de page, `initTerminalManager` faisait `terminalTabs.forEach(tab => loadTerminal(tab))` — il reconnectait le WebSocket de **chaque** onglet sauvegardé sans vérifier que sa session dtach vivait encore. Le terminal-server recrée la session à la demande à l'ouverture du WS → relance `claude` → respawn fantôme à chaque page load.
+
+**Le fix** (frontend, `index.html` uniquement) :
+- Nouveau Set `dormantTabs` (déclaré près de `disposedTabs`/`disposedSessions`).
+- `initTerminalManager` interroge d'abord les sessions dtach vivantes (`/terminal-api/sessions` en HTTPS, sinon `host:7681/sessions`) → `activeSessionNames`. Chaque onglet est chargé via `loadTerminal(tab, { dormant: !alive })`.
+- `loadTerminal(tab, opts)` : si `dormant`, construit le pane (div + grid header + position) mais **aucun xterm ni WebSocket** — un placeholder « Session endormie » (bouton « Réveiller ») est injecté, et le tab est ajouté à `dormantTabs`. Sinon, chemin xterm/WS classique **inchangé** (zéro régression sur les sessions vivantes).
+- `wakeTerminal(tabId)` : seul chemin qui (re)lance une session morte — retire le placeholder, `dormantTabs.delete`, `loadTerminal(tab)` normal. Toujours déclenché par une action explicite.
+- `activateTerminalTab(tabId, opts)` : réveille un onglet dormant à l'activation, **sauf** `{ wake: false }` — utilisé par l'activation initiale au page load pour ne PAS respawn la session active morte.
+- `syncTerminalTabs` (étape « 4-pre ») : réveille auto un onglet dormant si sa session **redevient vivante** ailleurs (démarrée sur un autre appareil) — ce n'est pas un respawn, la session existe déjà.
+- `disposeTerminal` nettoie aussi `dormantTabs`.
+- UI : badge 💤 dans la barre d'onglets (`.tab-dormant`, onglet `.dormant` au nom estompé), placeholder centré dans le pane (visible aussi en vue grille).
+
+**Vérifié** par `test_dormant_terminals.py` (7/7). Méthode hermétique : `window.WebSocket` est remplacé par un stub qui **enregistre** l'URL de chaque tentative de connexion sans jamais ouvrir de vraie socket → **aucune vraie session créée**, même contre le vieux code de `.100`. `/api/terminal/state` mocké (un onglet sur une fausse session morte) + endpoint sessions vide. AVANT sur `.100` (vieux code) : un WS part vers la session morte au load (`ws=1`, respawn). APRÈS sur `.200` : `ws=0` au load, onglet `dormant` + badge + placeholder ; clic → `ws=1` (réveil intentionnel) + sortie de `dormantTabs`.
 
 ## Session du 9 juin 2026
 
