@@ -523,4 +523,10 @@ Vérifié par screenshots Playwright avant/après (`/app-team-test` scopé à un
 
 **⚠️ Les /clear ne détruisent rien** : la conversation d'avant reste dans `/resume` (le /clear ouvre une nouvelle session, l'ancienne demeure). Les petites sessions « /clear » (2-5 KB) qui polluent la liste `/resume` peuvent être ignorées/supprimées.
 
-Livré en **v1.0.15** (avec la ré-assertion des modes DEC collants au replay côté `terminal-server.py` + `test_replay_modes.py`, travail de la session précédente qui part dans le même tag).
+Livré en **v1.0.15** (commits `e7ce75a` + `5ad61d1` sur `master`), déployé sur `.100` via autosync et **vérifié en prod 3/3** (0 `\x0c` à la connexion d'un onglet claude, redraw bash conservé). Le tag embarque aussi la ré-assertion des modes DEC collants au replay côté `terminal-server.py` + `test_replay_modes.py` (travail de la session précédente).
+
+**Étapes restantes après le déploiement (ordre important)** :
+1. **Recharger (F5) tous les onglets du launcher sur tous les appareils** — une page chargée avant v1.0.15 garde l'ancien JS et enverra un Ctrl+L à chaque reconnexion tant qu'elle n'est pas rechargée (dernier vecteur du /clear fantôme).
+2. **Ensuite seulement**, `systemctl restart terminal-server` sur `.200` **et** `.100` pour charger le code des modes collants (le service de `.200` tourne depuis le 11/07, le code date du 14/07 ; celui de `.100` doit être redémarré après le checkout v1.0.15). Un restart coupe tous les WebSockets → burst de reconnexions → des pages non rechargées referaient des /clear, d'où l'ordre.
+
+**Piège d'infra rencontré** : des objets `.git` appartenaient à root (commits faits depuis le conteneur, qui tourne en root sur le volume `/home/cactus/claude` monté rw) → `insufficient permission for adding an object`. Réparé via `docker exec terminal-launcher chown -R 1000:1000 .../.git` (pas besoin de sudo : le conteneur EST root sur le volume). `.gitignore` couvre désormais `.env.bak*`.
