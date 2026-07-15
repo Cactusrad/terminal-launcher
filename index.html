@@ -5815,8 +5815,16 @@
                                     ws.send(JSON.stringify({ type: 'resize', cols: newDims.cols, rows: newDims.rows }));
                                 }
                             } catch (e) {}
-                            const encoder = new TextEncoder();
-                            ws.send(encoder.encode('\x0c'));
+                            // ⚠️ Jamais de Ctrl+L vers Claude Code : depuis ~2.1.x,
+                            // Ctrl+L ×2 exécute /clear (« Press ctrl+l again to /clear »).
+                            // Chaque client qui se (re)connectait envoyait ce \x0c —
+                            // plusieurs onglets/appareils = /clear fantôme dans chaque
+                            // conversation (incident 2026-07-15). Le replay du buffer
+                            // suffit à repeindre le TUI ; on garde le redraw pour bash.
+                            if (!/claude/i.test(tab.command || '')) {
+                                const encoder = new TextEncoder();
+                                ws.send(encoder.encode('\x0c'));
+                            }
                             if (autoScrollEnabled) terminal.scrollToBottom();
                         }
                     }, 500);

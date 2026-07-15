@@ -268,6 +268,7 @@ terminal-launcher/
 - Headers `Cache-Control: no-cache, no-store, must-revalidate` sur la route `/`
 - L'IP de la machine est `192.168.1.100` (pas .200)
 - Notifications Telegram via env vars `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`
+- **Secrets sur `.200` : locaux depuis 2026-07-14** (décision Pierre). Le `.env` de `.200` porte directement `BUGS_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` ; `SECRETS_URL`/`SECRETS_TOKEN` retirés → le launcher `.200` n'appelle plus cactus-secrets sur `.100`. Motif : cactus-secrets (`.100:9020`, plafonné 1 CPU, workers en busy-loop ~100 % CPU) répondait en 2–7 s > timeout client 3 s → fallback env vide → `503 clé API bugs manquante` → widget Bug Report cassé par intermittence (à chaque expiration du cache 5 min). Le code `secret_or_env()` est inchangé — c'est une config machine, pas un changement de code. Backup : `.env.bak-20260714`.
 - **Déploiement (tag-based, depuis 2026-05-07)** : dev sur `.200` (`~/claude/terminal-launcher/`), prod sur `.100` (`~/terminal-launcher/`). **Workflow** : commit & push librement sur `.200` (branche au choix) ; pour mettre en prod, créer un tag `vX.Y.Z` et `git push --tags`. Le timer user `terminal-launcher-autosync.timer` (toutes les 2 min sur `.200`) détecte le nouveau tag, SSH sur `.100`, checkout du tag, rebuild, redeploy. Tant qu'il n'y a pas de nouveau tag, **rien ne part en prod** — fini les rebuilds à chaque commit. Script : `~/.local/bin/terminal-launcher-autosync.sh`. État courant tracké dans `/home/cactus/terminal-launcher/VERSION` sur `.100`. **Jamais d'edit direct sur `.100`** (ni `ssh ... sed`, ni `docker cp`, ni SCP) — ça crée une divergence entre prod et Git.
 - **Topologie `main` vs `master` (constat 2026-06-11, remplace la note d'avril)** : depuis l'autosync tag-based, `.100` tourne en **HEAD détaché sur les tags `vX.Y.Z` créés depuis `master`** (vérifié : v1.0.7 = `c42ebdd`), donc avec nginx + HTTPS + multi-user auth, exactement comme `.200`. `PORT=180` dans l'`.env` de `.100` → nginx HTTP sur 180 (301 vers HTTPS), app servie sur 443. La branche **`main` est gelée depuis avril 2026** (`daab27f`) et ne reflète plus la prod : ne plus cherry-pick vers `main` — releaser = commiter sur `master` + tagger.
 - **Déploiement indépendant** : chaque install (`.100`, `.200`) est autonome. Les projets sont scannés depuis le volume local `/home/cactus/claude` monté dans le conteneur, pas via le terminal-server distant.
@@ -504,3 +505,22 @@ Fix CSS :
 - feedback survol bouton renforcé (fond bleu `0,101,255` refresh / rouge `222,53,11` kill+close, alpha 0.35)
 
 Vérifié par screenshots Playwright avant/après (`/app-team-test` scopé à un fix CSS ciblé plutôt que la team de 6 agents) + mesure couleur computed (`rgb(138,138,154)`).
+
+## Session du 15 juillet 2026
+
+**Fix du « /clear fantôme » : le Ctrl+L de redraw envoyé à chaque connexion WebSocket** (rapporté par Pierre : « quelque chose fait des /clear automatiques dans mes sessions » — après un reload/restart, chaque terminal Claude avait un /clear, conversations effacées de l'écran).
+
+**Le bug (trois rouages)** :
+1. `ws.onopen` (`index.html:~5819`) envoyait `\x0c` (Ctrl+L) 500 ms après **chaque** (re)connexion WebSocket, pour « forcer un redraw » après le replay du buffer.
+2. **Claude Code ≥ 2.1.x mappe Ctrl+L ×2 sur `/clear`** (« Press ctrl+l again to /clear » — vérifié empiriquement contre claude 2.1.210 dans un PTY jetable). Le 1er Ctrl+L arme, le 2e exécute.
+3. Plusieurs clients sont attachés à chaque session (4-5 observés : onglets/appareils multiples). Un reload de page, un redémarrage du navigateur ou une coupure réseau ⇒ plusieurs reconnexions quasi simultanées ⇒ ≥2 `\x0c` rapprochés ⇒ `/clear` exécuté dans **chaque** terminal.
+
+**Pourquoi invisible** : `\x0c` = 1 octet, sous le seuil de l'instrumentation `INPUT-CHUNK` (logge les inputs ≥ 3 octets, posée le 7 juillet pour ce fantôme précisément). Traces retrouvées côté Claude Code : sessions `~/.claude/projects/<projet>/` dont le premier enregistrement est `<command-name>/clear</command-name>` (ex. pyt : 2× à 40 ms d'intervalle à 00:49:27, 1× à 07:12:08 le 15 juillet) — 40 ms d'écart = burst de reconnexions, pas un humain.
+
+**Le fix** (`index.html`, `ws.onopen`) : le `\x0c` n'est plus envoyé si `tab.command` contient `claude` — le replay du buffer suffit à repeindre le TUI (surtout avec la ré-assertion des modes DEC collants côté terminal-server). Les onglets bash gardent leur redraw.
+
+**Vérifié** par `test_no_ctrl_l.py` (5/5, fail-before/pass-after, hermétique — WS stubbé, aucune vraie session, onglet créé via la vraie `createTerminalTab`) : AVANT (prod `.100`) : 1 `\x0c` part à la simple connexion d'un onglet claude. APRÈS (`.200`) : 0 `\x0c` (sanity : le WS s'est bien connecté, resize vu). Non-régression : onglet bash → le `\x0c` part toujours. Les onglets `VERIFY*` créés par les tests ont été purgés du terminalState de mohamed sur `.200` et `.100`.
+
+**⚠️ Les /clear ne détruisent rien** : la conversation d'avant reste dans `/resume` (le /clear ouvre une nouvelle session, l'ancienne demeure). Les petites sessions « /clear » (2-5 KB) qui polluent la liste `/resume` peuvent être ignorées/supprimées.
+
+Livré en **v1.0.15** (avec la ré-assertion des modes DEC collants au replay côté `terminal-server.py` + `test_replay_modes.py`, travail de la session précédente qui part dans le même tag).
