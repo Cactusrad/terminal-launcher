@@ -45,14 +45,58 @@ logger = logging.getLogger(__name__)
 
 
 # ============ Session Buffer ============
+
+# Modes DEC privés « collants » : émis UNE seule fois par l'appli (ex. Claude
+# Code au démarrage : ?1049h alt-screen + ?1000/1002/1003/1006h souris), puis
+# évincés du buffer circulaire par les Mo de repaints. Sans ré-assertion au
+# replay, un client qui recharge la page croit que l'appli ne veut ni
+# alt-screen ni souris → molette non forwardée + scrollback local vide =
+# impossible de remonter l'historique. L'ordre compte : 1049 (alt-screen)
+# d'abord, pour que les frames rejouées peignent le bon buffer.
+STICKY_DEC_MODES = (1049, 1047, 1, 1000, 1001, 1002, 1003, 1005, 1006, 1015, 1016, 2004)
+DEC_MODE_RE = re.compile(rb'\x1b\[\?([0-9;]+)([hl])')
+# Une séquence peut être coupée entre deux reads PTY — on garde une queue de
+# scan pour la reconstituer (re-scanner une séquence déjà vue est inoffensif :
+# h/l posent un état absolu, idempotent).
+_SCAN_TAIL_LEN = 32
+
+
 @dataclass
 class SessionBuffer:
     """Circular buffer for session output, supports reconnection replay."""
     data: deque = field(default_factory=lambda: deque(maxlen=BUFFER_MAX_LINES))
     total_bytes: int = 0
+    modes: dict = field(default_factory=dict)
+    _scan_tail: bytes = b''
+
+    def _track_modes(self, data: bytes):
+        """Update sticky-mode state from a raw output chunk."""
+        for params, action in DEC_MODE_RE.findall(data):
+            state = action == b'h'
+            for p in params.split(b';'):
+                try:
+                    mode = int(p)
+                except ValueError:
+                    continue
+                if mode in STICKY_DEC_MODES:
+                    self.modes[mode] = state
+
+    def seed_modes_from_log(self, log_path):
+        """Ressuscite l'état des modes collants depuis le log de session sur
+        disque — utilisé quand le serveur (re)s'attache à une session dtach
+        dont il n'a jamais streamé l'init (restart du serveur, éviction)."""
+        try:
+            data = Path(log_path).read_bytes()
+        except OSError:
+            return
+        self._track_modes(data)
 
     def append(self, chunk: bytes):
         """Add output chunk to buffer."""
+        window = self._scan_tail + chunk
+        self._track_modes(window)
+        self._scan_tail = window[-_SCAN_TAIL_LEN:]
+
         self.data.append(chunk)
         self.total_bytes += len(chunk)
         # Trim if exceeds max bytes
@@ -61,13 +105,20 @@ class SessionBuffer:
             self.total_bytes -= len(removed)
 
     def get_all(self) -> bytes:
-        """Get all buffered output for replay."""
-        return b''.join(self.data)
+        """Get all buffered output for replay, re-asserting sticky DEC modes
+        whose original sequences may have been trimmed out."""
+        prefix = b''.join(
+            b'\x1b[?%dh' % mode
+            for mode in STICKY_DEC_MODES if self.modes.get(mode)
+        )
+        return prefix + b''.join(self.data)
 
     def clear(self):
         """Clear the buffer."""
         self.data.clear()
         self.total_bytes = 0
+        self.modes.clear()
+        self._scan_tail = b''
 
 
 class EventDetector:
@@ -287,6 +338,12 @@ def get_or_create_shared_session(session_name: str, project: str, command: str) 
         command=command
     )
     active_sessions[session_name] = session
+
+    # Session dtach déjà vivante alors qu'on n'a rien en mémoire (restart du
+    # serveur, éviction) : son init TUI (?1049h, modes souris) ne sera jamais
+    # ré-émise par l'appli — on la ressuscite depuis le log de session.
+    if session_exists(session_name):
+        session.buffer.seed_modes_from_log(get_session_log(session_name))
 
     # Start PTY connection
     start_session_pty(session)
@@ -554,7 +611,9 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     # Sanitize session name
     session_name = sanitize_session_name(session_name)
 
-    logger.info(f"WebSocket connection: session={session_name}, project={project}, command={command}")
+    client_ip = request.headers.get('X-Real-IP') or (request.remote or '?')
+    user_agent = request.headers.get('User-Agent', '?')[:60]
+    logger.info(f"WebSocket connection: session={session_name}, project={project}, command={command}, client={client_ip}, ua={user_agent}")
 
     # Accept WebSocket connection
     ws = web.WebSocketResponse()
@@ -582,6 +641,13 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         async for msg in ws:
             if msg.type == WSMsgType.BINARY:
                 # Binary data = keyboard input
+                # DEBUG /clear fantôme (2026-07-07) : un humain tape octet par octet ;
+                # un envoi programmatique arrive en bloc. Logger tout input >= 3 octets.
+                if len(msg.data) >= 3:
+                    logger.warning(
+                        f"INPUT-CHUNK session={session_name} client={client_ip} "
+                        f"len={len(msg.data)} data={msg.data[:80]!r}"
+                    )
                 session_write(session, msg.data)
 
             elif msg.type == WSMsgType.TEXT:
