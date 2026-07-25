@@ -49,6 +49,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '')
 USERS_FILE = DATA_DIR / 'users.json'
 USERS_DATA_DIR = DATA_DIR / 'users'
 
+# Délégation du login à l'ERP (comptes unifiés). ERP_AUTH_KEY vide = délégation
+# désactivée, auth 100% locale (comportement historique). L'ERP prod (.100)
+# fait autorité pour toutes les installs (les comptes réels vivent là).
+ERP_AUTH_URL = os.environ.get('ERP_AUTH_URL') or 'http://192.168.1.100'
+ERP_AUTH_KEY = os.environ.get('ERP_AUTH_KEY', '')
+ERP_USERS_CACHE_FILE = DATA_DIR / 'erp_users_cache.json'
+
 # GitHub
 GITHUB_USER = os.environ.get('GITHUB_USER', 'Cactusrad')
 

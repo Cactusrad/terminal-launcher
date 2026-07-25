@@ -24,6 +24,7 @@ try:
         HOST_IP, BUGS_API_URL, BUGS_API_KEY,
         TERMINAL_WS_PORT, TERMINAL_SERVER_HOST,
         SECRET_KEY, USERS_FILE, USERS_DATA_DIR,
+        ERP_AUTH_URL, ERP_AUTH_KEY, ERP_USERS_CACHE_FILE,
         GITHUB_USER,
         ensure_data_dir, get_base_url,
     )
@@ -51,6 +52,9 @@ except ImportError:
     SECRET_KEY = os.environ.get('SECRET_KEY', '')
     USERS_FILE = DATA_DIR / 'users.json'
     USERS_DATA_DIR = DATA_DIR / 'users'
+    ERP_AUTH_URL = os.environ.get('ERP_AUTH_URL') or 'http://192.168.1.100'
+    ERP_AUTH_KEY = os.environ.get('ERP_AUTH_KEY', '')
+    ERP_USERS_CACHE_FILE = DATA_DIR / 'erp_users_cache.json'
     GITHUB_USER = os.environ.get('GITHUB_USER', 'Cactusrad')
     def ensure_data_dir():
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -123,6 +127,10 @@ def hash_password(password):
 
 def check_password(password, password_hash):
     """Verify a password against its hash"""
+    if not password_hash:
+        # Comptes ERP jamais loggés par mot de passe sur cette install :
+        # aucun hash local en cache → pas de login offline possible.
+        return False
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 def create_initial_users():
@@ -149,6 +157,98 @@ def create_initial_users():
     }
     save_users(data)
     print("Created initial users: pierre (admin), mohamed (user)")
+
+# ============ ERP Auth Delegation ============
+# Les comptes sont unifiés avec Cactus ERP : l'ERP prod (.100) fait autorité
+# sur les identifiants/mots de passe via /api/v1/auth/verify (clé de service).
+# users.json devient un cache : les users ERP y sont upsertés (source='erp')
+# avec le hash bcrypt du dernier mot de passe validé — le launcher reste
+# utilisable si l'ERP est down (fallback offline). Les comptes sans
+# source='erp' (ex. mohamed, comptes de test) restent purement locaux.
+_erp_users_cache = {'ts': 0.0, 'users': None}
+ERP_USERS_TTL = 300      # cache mémoire des users ERP (sélecteur LAN)
+ERP_USERS_FAIL_TTL = 60  # ne pas re-tenter un ERP down à chaque requête
+ERP_HTTP_TIMEOUT = 3
+
+def erp_auth_enabled():
+    return bool(ERP_AUTH_KEY and http_requests)
+
+def erp_username_key(erp_user):
+    """Clé locale d'un user ERP : username sinon local-part de l'email
+    (pierre@cactusrad.ca → pierre, le compte ERP de Pierre n'a pas de username)."""
+    key = (erp_user.get('username') or '').strip().lower()
+    if key:
+        return key
+    email = erp_user.get('email') or ''
+    return email.split('@')[0].strip().lower()
+
+def erp_verify_credentials(identifiant, password):
+    """Vérifie identifiant/mot de passe contre l'ERP.
+
+    Retourne (user_dict | None, reachable). reachable=False couvre aussi les
+    réponses inattendues (clé de service invalide, endpoint absent) : dans ces
+    cas on retombe sur le cache local plutôt que de bloquer tout login.
+    """
+    try:
+        r = http_requests.post(
+            f"{ERP_AUTH_URL}/api/v1/auth/verify",
+            json={'identifiant': identifiant, 'mot_de_passe': password},
+            headers={'X-Service-Key': ERP_AUTH_KEY},
+            timeout=ERP_HTTP_TIMEOUT)
+        if r.status_code != 200:
+            print(f"[ERP-AUTH] verify → HTTP {r.status_code}, fallback local")
+            return None, False
+        data = r.json()
+        if data.get('ok') and data.get('user'):
+            return data['user'], True
+        return None, True
+    except Exception as e:
+        print(f"[ERP-AUTH] verify unreachable: {e}")
+        return None, False
+
+def erp_fetch_users():
+    """Users actifs ERP (sélecteur LAN). Cache mémoire + cache disque (offline)."""
+    now = time.time()
+    cached = _erp_users_cache['users']
+    ttl = ERP_USERS_TTL if cached else ERP_USERS_FAIL_TTL
+    if cached is not None and now - _erp_users_cache['ts'] < ttl:
+        return cached
+    try:
+        r = http_requests.get(
+            f"{ERP_AUTH_URL}/api/v1/auth/users",
+            headers={'X-Service-Key': ERP_AUTH_KEY},
+            timeout=ERP_HTTP_TIMEOUT)
+        if r.status_code == 200:
+            users = r.json().get('users', [])
+            _erp_users_cache.update(ts=now, users=users)
+            save_json_file(str(ERP_USERS_CACHE_FILE), {'users': users})
+            return users
+        print(f"[ERP-AUTH] users → HTTP {r.status_code}, cache disque")
+    except Exception as e:
+        print(f"[ERP-AUTH] users unreachable: {e}")
+    users = load_json_file(str(ERP_USERS_CACHE_FILE), lambda: {'users': []}).get('users', [])
+    _erp_users_cache.update(ts=now, users=users)
+    return users
+
+def upsert_erp_user(erp_user, password=None):
+    """Crée/actualise l'entrée locale d'un user ERP (rôle depuis est_admin ;
+    hash bcrypt du mot de passe validé, pour le fallback offline)."""
+    key = erp_username_key(erp_user)
+    data = load_users()
+    users = data.setdefault('users', {})
+    user = users.get(key, {})
+    user.update({
+        'username': key,
+        'display_name': erp_user.get('nom') or key,
+        'role': 'admin' if erp_user.get('est_admin') else 'user',
+        'source': 'erp',
+    })
+    user.setdefault('created_at', datetime.now().isoformat())
+    if password:
+        user['password_hash'] = hash_password(password)
+    users[key] = user
+    save_users(data)
+    return key, user
 
 # ============ Auth Helpers ============
 def get_current_user():
@@ -388,12 +488,20 @@ PUBLIC_ROUTES = {'/', '/health', '/api/auth/login', '/api/auth/me', '/api/auth/s
 PUBLIC_PREFIXES = ('/chromium/',)
 
 def public_user_list():
-    """Liste des users (sans hash) pour le sélecteur LAN."""
+    """Liste des users (sans hash) pour le sélecteur LAN : users ERP actifs
+    (unifiés) ∪ comptes locaux (ex. mohamed). Clé = username launcher."""
     users = load_users().get('users', {})
-    return [
-        {"username": u, "display_name": d.get('display_name', u)}
+    listed = {
+        u: {"username": u, "display_name": d.get('display_name', u)}
         for u, d in users.items()
-    ]
+    }
+    if erp_auth_enabled():
+        for erp_user in erp_fetch_users():
+            key = erp_username_key(erp_user)
+            if key:
+                listed[key] = {"username": key,
+                               "display_name": erp_user.get('nom') or key}
+    return sorted(listed.values(), key=lambda x: x['username'])
 
 def start_session(username):
     """Ouvre une session versionnée pour un user."""
@@ -443,12 +551,52 @@ def auth_login():
     """Login and create session"""
     try:
         data = request.get_json()
-        username = data.get('username', '').strip().lower()
+        # Peut être un username launcher, un username ERP ou un email ERP.
+        identifiant = data.get('username', '').strip().lower()
         password = data.get('password', '')
 
+        if erp_auth_enabled():
+            erp_user, reachable = erp_verify_credentials(identifiant, password)
+            if erp_user:
+                username, user = upsert_erp_user(erp_user, password=password)
+                start_session(username)
+                return jsonify({
+                    "status": "ok",
+                    "user": {
+                        "username": username,
+                        "display_name": user['display_name'],
+                        "role": user['role']
+                    }
+                })
+            if reachable:
+                # L'ERP a refusé. Seul un compte purement local (jamais unifié,
+                # ex. mohamed) peut encore se logger avec son hash local.
+                local = load_users().get('users', {}).get(identifiant)
+                if not (local and local.get('source') != 'erp'
+                        and check_password(password, local.get('password_hash'))):
+                    return jsonify({"status": "error",
+                                    "message": "Identifiants incorrects"}), 401
+                start_session(identifiant)
+                return jsonify({
+                    "status": "ok",
+                    "user": {
+                        "username": identifiant,
+                        "display_name": local['display_name'],
+                        "role": local['role']
+                    }
+                })
+            # ERP down → fallback offline sur le cache local (dernier mot de
+            # passe validé par l'ERP, ou compte local).
+
+        username = identifiant
         users = load_users()
         user = users.get('users', {}).get(username)
-        if not user or not check_password(password, user['password_hash']):
+        if (not user) and '@' in identifiant:
+            # L'ERP est down et l'utilisateur a tapé son email : retrouve le
+            # compte cache via la même dérivation que erp_username_key().
+            username = identifiant.split('@')[0]
+            user = users.get('users', {}).get(username)
+        if not user or not check_password(password, user.get('password_hash')):
             return jsonify({"status": "error", "message": "Identifiants incorrects"}), 401
 
         start_session(username)
@@ -478,6 +626,14 @@ def auth_select_user():
         username = data.get('username', '').strip().lower()
         users = load_users()
         user = users.get('users', {}).get(username)
+        if not user and erp_auth_enabled():
+            # User ERP jamais loggé sur cette install : crée son entrée locale
+            # (sans hash — le login offline par mot de passe restera impossible
+            # tant qu'un login ERP n'a pas mis un hash en cache).
+            for erp_user in erp_fetch_users():
+                if erp_username_key(erp_user) == username:
+                    username, user = upsert_erp_user(erp_user)
+                    break
         if not user:
             return jsonify({"status": "error", "message": "Utilisateur inconnu"}), 404
 
@@ -556,7 +712,13 @@ def auth_change_password():
 
         users = load_users()
         user = users.get('users', {}).get(username)
-        if not user or not check_password(current_password, user['password_hash']):
+        if user and user.get('source') == 'erp':
+            return jsonify({
+                "status": "error",
+                "message": "Ton mot de passe est géré par l'ERP — change-le là-bas "
+                           "(il sera pris en compte ici au prochain login)."
+            }), 400
+        if not user or not check_password(current_password, user.get('password_hash')):
             return jsonify({"status": "error", "message": "Mot de passe actuel incorrect"}), 401
 
         user['password_hash'] = hash_password(new_password)

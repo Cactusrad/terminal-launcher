@@ -530,3 +530,20 @@ Livré en **v1.0.15** (commits `e7ce75a` + `5ad61d1` sur `master`), déployé su
 2. **Ensuite seulement**, `systemctl restart terminal-server` sur `.200` **et** `.100` pour charger le code des modes collants (le service de `.200` tourne depuis le 11/07, le code date du 14/07 ; celui de `.100` doit être redémarré après le checkout v1.0.15). Un restart coupe tous les WebSockets → burst de reconnexions → des pages non rechargées referaient des /clear, d'où l'ordre.
 
 **Piège d'infra rencontré** : des objets `.git` appartenaient à root (commits faits depuis le conteneur, qui tourne en root sur le volume `/home/cactus/claude` monté rw) → `insufficient permission for adding an object`. Réparé via `docker exec terminal-launcher chown -R 1000:1000 .../.git` (pas besoin de sudo : le conteneur EST root sur le volume). `.gitignore` couvre désormais `.env.bak*`.
+
+## Session du 25 juillet 2026
+
+**v1.0.16 — login unifié avec Cactus ERP** (demande Pierre : « unifier les login avec cactus_erp »). Architecture choisie par Pierre : **vérification live via l'ERP prod** (`.100`, autorité pour toutes les installs), sélecteur LAN sans mot de passe conservé, cache local pour survivre à un ERP down.
+
+**Côté ERP** (PR [#1304](https://github.com/Cactusrad/cactus-erp/pull/1304), branche `feat/service-auth-launcher`, worktree `cactus_erp--service-auth`, sandbox-ok) : `POST /api/v1/auth/verify` + `GET /api/v1/auth/users` dans `app/api/v1/service_auth.py`, protégés par header `X-Service-Key` == env `SERVICE_AUTH_KEY` (comparaison temps constant ; **clé absente = 404**, feature inexistante). Verify refuse les comptes portail client et reste indistinct compte-inconnu/mauvais-mdp (anti-énumération BUG-1636 préservée). `authentifier()` retourne désormais `username`.
+
+**Côté launcher** (`server.py` bloc « ERP Auth Delegation », `config.py`, docker-compose, `.env.example`) :
+- **Login** : si `ERP_AUTH_KEY` configurée → l'ERP vérifie d'abord (timeout 3 s). Succès → user upserté dans `users.json` (`source: 'erp'`, `role` depuis `est_admin`, **hash bcrypt du mdp validé mis en cache** pour le fallback offline). Refus ERP → 401, le cache local ne sert PAS de porte dérobée (seuls les comptes `source != 'erp'`, ex. mohamed, gardent leur mdp local). ERP down → fallback bcrypt local (dernier mdp validé), y compris par email (dérivation local-part).
+- **Clé locale d'un user ERP** : `username` ERP sinon local-part de l'email — le compte ERP de Pierre n'a pas de username, `pierre@cactusrad.ca` → `pierre` (retombe sur son dossier de prefs existant).
+- **Sélecteur LAN** : liste = users ERP actifs (cache mémoire 5 min + cache disque `/data/erp_users_cache.json`) ∪ comptes locaux ; `select-user` crée à la volée l'entrée locale d'un user ERP jamais vu (sans hash).
+- **Changement de mdp** d'un compte `source=erp` → 400 « géré par l'ERP ».
+- **`ERP_AUTH_KEY` vide = comportement historique à l'identique** (vérifié : zéro appel ERP) — déployable avant l'activation.
+
+**Vérifié** : `test_erp_auth.py` (15/15, hermétique — ERP stubbé, `DATA_DIR` temporaire ; le même script contre le `server.py` de v1.0.15 échoue = fail-before) + non-régression clé vide + `test_multiuser.py` 18/18 après rebuild `.200`. Côté ERP : `tests/test_service_auth_api.py` 12/12 + `test_services_auth.py` 25/25 + sandbox éphémère 5 assertions sur clone de DB prod.
+
+**Activation (après merge + release ERP)** : générer une clé (`openssl rand -hex 32`), la poser dans `SERVICE_AUTH_KEY` (`.env` ERP prod `.100`) et `ERP_AUTH_KEY` (`.env` launcher `.200` et `.100`), `docker compose up -d` des deux côtés. ⚠️ Points en suspens : tous les users ERP sont `est_admin=1` → tous admins du launcher, et le compte agent « claude » apparaîtra dans le sélecteur LAN (filtrage à discuter si gênant). Piège : `config.py` de l'ERP est en **CRLF** — ne pas le réécrire en LF (diff de 300 lignes).
