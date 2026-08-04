@@ -3309,11 +3309,6 @@
                 grid-template-columns: 1fr 1fr !important;
             }
         }
-        @media (min-width: 1921px) {
-            .terminal-container.grid-view.grid-cols-3 {
-                grid-template-columns: 1fr 1fr 1fr 1fr;
-            }
-        }
 
         /* Hide mobile elements on desktop */
         .mobile-terminal-header {
@@ -4912,10 +4907,18 @@
                 toggleBtn?.classList.add('active');
                 if (label) label.textContent = 'Onglets';
 
-                // Show all terminals + assign agent colors
+                // Show all terminals + assign agent colors. Le badge numéroté est
+                // renuméroté ici : figé à la création, il gardait des trous après
+                // une fermeture d'onglet (BUG-161 : 1,2,3,4,6,7 sans 5).
                 document.querySelectorAll('.terminal-div').forEach((div, index) => {
                     div.style.display = 'flex';
-                    div.style.setProperty('--agent-color', AGENT_COLORS[index % AGENT_COLORS.length]);
+                    const color = AGENT_COLORS[index % AGENT_COLORS.length];
+                    div.style.setProperty('--agent-color', color);
+                    const num = div.querySelector('.grid-term-number');
+                    if (num) {
+                        num.textContent = index + 1;
+                        num.style.background = color;
+                    }
                 });
 
                 // Fit all terminals

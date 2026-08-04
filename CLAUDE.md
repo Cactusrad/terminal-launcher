@@ -547,3 +547,15 @@ Livré en **v1.0.15** (commits `e7ce75a` + `5ad61d1` sur `master`), déployé su
 **Vérifié** : `test_erp_auth.py` (15/15, hermétique — ERP stubbé, `DATA_DIR` temporaire ; le même script contre le `server.py` de v1.0.15 échoue = fail-before) + non-régression clé vide + `test_multiuser.py` 18/18 après rebuild `.200`. Côté ERP : `tests/test_service_auth_api.py` 12/12 + `test_services_auth.py` 25/25 + sandbox éphémère 5 assertions sur clone de DB prod.
 
 **Activation (après merge + release ERP)** : générer une clé (`openssl rand -hex 32`), la poser dans `SERVICE_AUTH_KEY` (`.env` ERP prod `.100`) et `ERP_AUTH_KEY` (`.env` launcher `.200` et `.100`), `docker compose up -d` des deux côtés. ⚠️ Points en suspens : tous les users ERP sont `est_admin=1` → tous admins du launcher, et le compte agent « claude » apparaîtra dans le sélecteur LAN (filtrage à discuter si gênant). Piège : `config.py` de l'ERP est en **CRLF** — ne pas le réécrire en LF (diff de 300 lignes).
+
+## Session du 4 août 2026
+
+**BUG-161 — la grille de 6 terminaux rendait 4+2 au lieu de 3×2** (rapporté par Pierre avec screenshot : 4 panes en haut, 2 en bas, deux cellules vides). Fix frontend, `index.html` uniquement, **non taggé** (Pierre : pas besoin sur `.100`) — partira en prod avec le prochain tag.
+
+**Deux causes** :
+1. **Media query fautive** : `@media (min-width: 1921px)` (héritée du layout grille initial, commit `71f69e5` de février) redéfinissait `grid-cols-3` en **4 colonnes** sur viewport large. Un moniteur >1920px CSS **ou un zoom navigateur <100 % sur un 1920** suffit à la déclencher : le JS posait bien `grid-cols-3` (`calculateGridCols(6) = ceil(√6) = 3`) mais le CSS rendait 4 pistes → 6 panes en 4+2. **Supprimée** — la classe `grid-cols-N` posée par `applyViewMode()` fait foi à toutes les largeurs desktop (le responsive ≤1024px est inchangé).
+2. **Badges numérotés troués** (visible sur le même screenshot : panes 1,2,3,4,6,7 sans 5) : le numéro du pane (`grid-term-number`) était figé à la création (`tabIndex+1`) et survivait aux fermetures d'onglets. `applyViewMode()` renumérote désormais badge + couleur agent à chaque passage (le forEach qui posait déjà `--agent-color` met aussi à jour le texte et le fond du badge).
+
+**Vérifié** par `test_grid_layout.py` (12/12, fail-before/pass-after, hermétique — WS stubbé, `saveTerminalState` neutralisé, login mohamed, viewport 2200px pour déclencher la media query) : AVANT (prod `.100`) : 4 colonnes calculées malgré la classe `grid-cols-3`, lignes 4+2, badge troué après fermeture du 5e onglet. APRÈS (`.200`) : 3 colonnes, géométrie 3+3 équilibrée, badges 1..5 sans trou. Non-régression : 4 onglets → 2 colonnes, 1 onglet → 1 colonne.
+
+**Tracker** : BUG-161 fermé (`termine`). BUG-152 fermé rétroactivement au passage — corrigé depuis le 24 avril (`c5b7565`) mais jamais fermé dans le tracker.
