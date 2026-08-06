@@ -5,7 +5,7 @@
 Dashboard homelab "Cactus Home" — lanceur de raccourcis avec authentification multi-utilisateur et préférences isolées par user.
 
 - **URL prod** : `https://192.168.1.100` (nginx 443 ; HTTP sur le port 180 → 301 HTTPS). ⚠️ le port 80 de `.100` est pris par `erp-web`, pas par le launcher
-- **URL dev** : `https://192.168.1.200` (même topologie nginx)
+- **URL dev** : `https://terminal.local.sharpi.ca` (= `192.168.1.200`, **certificat Let's Encrypt** — c'est l'URL à utiliser au quotidien, voir « Certificat LAN »). `https://192.168.1.200` marche toujours mais sert l'auto-signé et son avertissement
 - **URL distante** : `https://terminal.sharpi.ca` → instance dev `.200` via Cloudflare Access + tunnel SSH (voir « Accès distant »)
 - **Repo** : `git@github.com:Cactusrad/terminal-launcher.git`
 - **Conteneur** : `terminal-launcher` (Docker Compose)
@@ -61,6 +61,40 @@ Navigateur ──► Cloudflare (CF Access : auth Pierre uniquement)
 - **Clé dédiée restreinte** : `~/.ssh/id_ed25519_terminal_tunnel`, limitée côté droplet par `restrict,permitlisten="127.0.0.1:9103"` — même compromise, elle ne peut faire que ce port-forward précis. SSH du droplet sur le port **5896**. `known_hosts` séparé : `~/.ssh/known_hosts_terminal`.
 - **Frontend** : aucun changement requis — quand la page est servie en HTTPS, `index.html` utilise déjà les chemins relatifs `/terminal-ws/` et `/terminal-api/` (même mécanisme que l'accès HTTPS LAN) au lieu de `host:7681` en direct.
 - Le droplet est le même que celui du tunnel Home Assistant (`hilo.sharpi.ca`, service user `ha-tunnel.service`), mais le tunnel terminal est géré par cron, pas par systemd.
+
+## Certificat LAN (terminal.local.sharpi.ca)
+
+Depuis le 6 août 2026, l'accès LAN à `.200` passe par un **vrai certificat Let's Encrypt**
+au lieu de l'auto-signé. Motif : l'exception « Continuer quand même » de Chrome **expire au
+bout d'une semaine**, et sa chute casse silencieusement tous les terminaux (voir « Session du
+6 août 2026 »).
+
+```
+https://terminal.local.sharpi.ca ──► A 192.168.1.200 (Cloudflare, DNS-only / nuage gris, TTL 120)
+                                └──► nginx vhost `server_name terminal.local.sharpi.ca`
+                                     certs/le-fullchain.pem + certs/le-key.pem (Let's Encrypt ECDSA P-256)
+https://192.168.1.200            ──► nginx `listen 443 ssl default_server` → certs/cert.pem (auto-signé, inchangé)
+```
+
+- **Pourquoi DNS-01 et pas HTTP-01** : `192.168.1.200` est une IP privée, injoignable depuis
+  les serveurs de validation Let's Encrypt. Et LE **n'émet pas** de certificat pour une IP
+  privée — d'où le passage obligé par un nom d'hôte.
+- **Émission / renouvellement** : `acme.sh` v3.1.5 installé **en espace utilisateur**
+  (`~/.acme.sh`, aucun `sudo` nécessaire nulle part sur `.200`), cron user 4×/jour. Le
+  `--reloadcmd` recopie dans `certs/` puis fait `docker exec terminal-launcher-nginx nginx -s reload`.
+  Fenêtre de renouvellement calée sur l'ARI de Let's Encrypt. Zéro intervention.
+- **Jeton Cloudflare** : lu depuis le coffre cactus-secrets (`cloudflare/api_token`), pas
+  besoin d'en créer un. `acme.sh` le persiste ensuite dans `~/.acme.sh/account.conf`.
+  Réémettre à la main :
+  ```bash
+  export CF_Token=$(curl -s -H "Authorization: Bearer $SECRETS_TOKEN" \
+      "$SECRETS_URL/secrets/cloudflare/api_token" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
+  ~/.acme.sh/acme.sh --issue --dns dns_cf -d terminal.local.sharpi.ca --server letsencrypt --keylength ec-256
+  ```
+- **`certs/*.pem` est gitignoré** — les fichiers LE ne partent jamais dans le dépôt, et
+  `./certs` étant déjà monté dans nginx, aucun changement de `docker-compose.yml` n'est requis.
+- **`.100` n'a PAS encore ce traitement** : la prod garde son auto-signé et te refera le coup
+  de l'exception expirée. Même recette avec un nom dédié quand ce sera le moment.
 
 ## Stack
 
@@ -276,6 +310,7 @@ terminal-launcher/
 - **Persistance** : toutes les données (users, préférences, apps, secret key) survivent aux rebuilds Docker grâce au volume `launcher-data`
 - **Cookie session** : nommé `cactus_session` (pas `session`) pour éviter les conflits avec d'anciens cookies
 - **SECRET_KEY** : env var optionnelle ; si absente, auto-générée et persistée dans `/data/.secret_key`
+- **⚠️ Éditer `nginx.conf` ne suffit pas : il faut redémarrer le conteneur nginx.** Le compose monte le **fichier** `./nginx.conf` (pas son dossier), donc le bind-mount pointe sur un **inode**. Tout éditeur qui écrit-puis-renomme (c'est le cas de l'outil Edit de Claude Code, et de `sed -i`) crée un nouvel inode : le conteneur continue de servir l'ancien contenu, et `nginx -t` + `nginx -s reload` valident et rechargent... l'ancienne config, l'air de rien. Symptôme : la modif « ne prend pas » sans le moindre message d'erreur. Vérifier avec `docker exec terminal-launcher-nginx grep … /etc/nginx/conf.d/default.conf`, puis `docker compose restart nginx` (ne touche à aucune session terminal : les WebSockets se reconnectent seules).
 
 ## Session du 27 février 2026
 
@@ -559,3 +594,22 @@ Livré en **v1.0.15** (commits `e7ce75a` + `5ad61d1` sur `master`), déployé su
 **Vérifié** par `test_grid_layout.py` (12/12, fail-before/pass-after, hermétique — WS stubbé, `saveTerminalState` neutralisé, login mohamed, viewport 2200px pour déclencher la media query) : AVANT (prod `.100`) : 4 colonnes calculées malgré la classe `grid-cols-3`, lignes 4+2, badge troué après fermeture du 5e onglet. APRÈS (`.200`) : 3 colonnes, géométrie 3+3 équilibrée, badges 1..5 sans trou. Non-régression : 4 onglets → 2 colonnes, 1 onglet → 1 colonne.
 
 **Tracker** : BUG-161 fermé (`termine`). BUG-152 fermé rétroactivement au passage — corrigé depuis le 24 avril (`c5b7565`) mais jamais fermé dans le tracker.
+
+## Session du 6 août 2026
+
+**Tous les terminaux bloqués sur « Connexion perdue. Reconnexion… » sur `.200`** (rapporté par Pierre). Cause finale : **le certificat auto-signé**, pas les terminaux. Aucun code applicatif en jeu.
+
+**Le diagnostic, dans l'ordre** :
+1. Service `terminal-server` sain (actif depuis 3 j), port 7681 en écoute, `/sessions` → 200, **7 sessions dtach toutes vivantes**. Rien de perdu, rien à redémarrer — et surtout **pas** de `systemctl restart terminal-server` : plusieurs `claude` tournent en enfants directs du PID du service (sessions non-dtach), un restart les tuerait.
+2. WS testée à trois niveaux : `127.0.0.1:7681` ✅, `192.168.1.200:7681` ✅, `wss://192.168.1.200/terminal-ws/ws` via nginx ✅ (58 Ko de replay). Serveur hors de cause.
+3. **Journal, 09:37:23** : un seul client quitte les 6 sessions à la même seconde (`Client left session … (remaining clients: 1)`), WS ouvertes depuis les 4, 5 et 6 août. L'autre appareil (`.227`) reste connecté et fonctionnel — donc le problème est **par appareil**, pas global.
+4. **Zéro requête `/terminal-ws/` dans les logs nginx sur 3 h**, et aucun handshake refusé côté terminal-server → les tentatives WS **n'atteignent jamais le serveur**, elles sont bloquées dans le navigateur.
+5. Console de Pierre (récupérée via un fichier, il ne pouvait pas coller) : **47 occurrences de `net::ERR_CERT_AUTHORITY_INVALID`** sur `/api/terminal/state`, `/api/shared/page` et chaque `wss://…/terminal-ws/ws`.
+
+**Le mécanisme** : le certificat n'a pas bougé (même empreinte `89:9A:16:DA:…` depuis le 24 avril, valide jusqu'en 2036). C'est **l'exception « Continuer quand même » mémorisée par Chrome qui expire** (~1 semaine). À sa chute, toute **nouvelle** connexion TLS est refusée, alors que le document HTML déjà chargé reste affiché : la page a l'air vivante, elle poll `/terminal-api/sessions`… et toutes les WebSockets meurent en boucle. Le piège de diagnostic est là — ça ressemble à une panne serveur, ce n'en est pas une.
+
+**Le fix** : vrai certificat **Let's Encrypt** sur `terminal.local.sharpi.ca` → `192.168.1.200`, émis en DNS-01 (IP privée : ni HTTP-01 ni certificat d'IP possibles), renouvellement automatique par `acme.sh` en espace utilisateur. Voir la section « Certificat LAN » pour l'architecture complète. Le jeton Cloudflare existait déjà dans cactus-secrets (`cloudflare/api_token`) — rien à créer.
+
+**Vérifié** par `verify_le_cert.py` (fail-before/pass-after, Playwright avec `ignore_https_errors=False` — un navigateur **sans aucune exception**, exactement l'état de celui de Pierre) : AVANT `https://192.168.1.200` → `ERR_CERT_AUTHORITY_INVALID`, page inaccessible. APRÈS `https://terminal.local.sharpi.ca` → page chargée, WS ouverte sur une vraie session, **59 163 octets** de terminal reçus, **0 erreur de certificat**. Chaîne validée jusqu'à `ISRG Root X2`. Non-régressions : accès par IP toujours servi en auto-signé, ttyd `:9443` → 200, vhost `terminal.sharpi.ca` du tunnel → 200, 7 sessions intactes après le restart nginx.
+
+**Reste ouvert** : `.100` garde son auto-signé et refera exactement le même coup — même recette à appliquer quand ce sera le moment (choix de Pierre de ne faire que `.200` pour l'instant).
